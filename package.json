@@ -1,0 +1,18 @@
+{
+  "name": "beast-of-thornmoor",
+  "version": "0.1.0",
+  "description": "A 2D side-scrolling action RPG in the style of Shadow of the Beast. Browser only, controller first.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.js",
+    "test": "node --test \"tests/**/*.test.mjs\" && node tools/smoke.mjs",
+    "test:unit": "node --test \"tests/**/*.test.mjs\"",
+    "test:smoke": "node tools/smoke.mjs",
+    "assets": "python3 tools/gen_backgrounds.py && python3 tools/gen_sprites.py && python3 tools/gen_font.py && python3 tools/gen_audio.py"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1"
+  },
+  "license": "MIT"
+}
