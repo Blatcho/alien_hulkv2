@@ -22,8 +22,8 @@ export default class Parallax {
         scene.tweens.add({ targets: img, alpha: 0.9, duration: 4000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         return;
       }
-      const ts = scene.add.tileSprite(0, L.y, WIDTH, L.h, key).setOrigin(0, 0).setScrollFactor(0).setDepth(depth);
-      if (L.key === 'foreground') ts.setAlpha(0.95);
+      const ts = scene.add.tileSprite(0, L.y + (L.key === 'foreground' ? 50 : 0), WIDTH, L.h, key).setOrigin(0, 0).setScrollFactor(0).setDepth(depth);
+      if (L.key === 'foreground') ts.setAlpha(0.8);
       this.layers.push({ obj: ts, meta: L, fixed: false });
     });
 
@@ -45,7 +45,7 @@ export default class Parallax {
     this.embers.setEmitZone({ type: 'random', source: new Phaser.Geom.Rectangle(0, HEIGHT * 0.35, WIDTH, HEIGHT * 0.7) });
 
     // Vignette on top of the world (under the HUD scene).
-    this.vignette = scene.add.image(WIDTH / 2, HEIGHT / 2, 'ui_vignette').setScrollFactor(0).setDepth(DEPTH.hud - 1).setAlpha(0.85);
+    this.vignette = scene.add.image(WIDTH / 2, HEIGHT / 2, 'ui_vignette').setScrollFactor(0).setDepth(DEPTH.hud - 1).setAlpha(0.5);
     this.cam = cam;
   }
 
@@ -60,7 +60,7 @@ export default class Parallax {
       if (m.key === 'sky') drift = this.time * 0.004;        // clouds roll slowly
       L.obj.tilePositionX = sx * m.scroll + drift;
       // vertical parallax is much weaker so layers stay anchored to the ground line
-      L.obj.y = m.y - sy * Math.min(1, m.scroll) + (m.key === 'ground' ? 0 : 0);
+      L.obj.y = m.y + (m.key === 'foreground' ? 50 : 0) - sy * Math.min(1, m.scroll);
     }
     this.fogs[0].tilePositionX = sx * 0.7 + this.time * 0.012;
     this.fogs[1].tilePositionX = sx * 1.05 - this.time * 0.02;

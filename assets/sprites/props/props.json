@@ -35,6 +35,39 @@
       ],
       "description": "Health potion flask (red)."
     },
+    "potion_green": {
+      "file": "potion_green.png",
+      "frame_width": 36,
+      "frame_height": 44,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "description": "Stamina potion flask (green)."
+    },
+    "chest": {
+      "file": "chest_sheet.png",
+      "frame_width": 96,
+      "frame_height": 80,
+      "frames": 2,
+      "pivot": [
+        0.5,
+        1.0
+      ],
+      "description": "Treasure chest: frame 0 closed, frame 1 open with glow."
+    },
+    "shrine": {
+      "file": "shrine.png",
+      "frame_width": 120,
+      "frame_height": 200,
+      "frames": 2,
+      "pivot": [
+        0.5,
+        1.0
+      ],
+      "description": "Checkpoint shrine / obelisk: frame 0 unlit, frame 1 lit rune."
+    },
     "skull": {
       "file": "skull.png",
       "frame_width": 36,
@@ -45,6 +78,72 @@
         1.0
       ],
       "description": "Small weathered skull (ground decoration)."
+    },
+    "gravestone1": {
+      "file": "gravestone1.png",
+      "frame_width": 90,
+      "frame_height": 120,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        1.0
+      ],
+      "description": "Rounded gravestone with carved cross."
+    },
+    "gravestone2": {
+      "file": "gravestone2.png",
+      "frame_width": 90,
+      "frame_height": 120,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        1.0
+      ],
+      "description": "Stone cross on a plinth, chipped arm."
+    },
+    "gravestone3": {
+      "file": "gravestone3.png",
+      "frame_width": 90,
+      "frame_height": 120,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        1.0
+      ],
+      "description": "Tilted slab with broken corner."
+    },
+    "torch": {
+      "file": "torch.png",
+      "frame_width": 40,
+      "frame_height": 90,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "description": "Wall-mounted iron torch bracket, no flame (flame animated in-game). Wall is behind."
+    },
+    "pillar": {
+      "file": "pillar.png",
+      "frame_width": 100,
+      "frame_height": 300,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        1.0
+      ],
+      "description": "Broken fluted gothic pillar with rubble."
+    },
+    "cage": {
+      "file": "cage.png",
+      "frame_width": 90,
+      "frame_height": 180,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        0.0
+      ],
+      "description": "Hanging gibbet cage with skeleton; pivot at the chain top."
     }
   }
 }

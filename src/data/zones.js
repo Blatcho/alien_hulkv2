@@ -1,0 +1,82 @@
+// Zone layouts. x positions are world pixels; the ground top is bgMeta.ground_y (600).
+// Platforms: { x, y, w } with y = top surface. Props are decorative sprites placed on the ground.
+export const ZONES = {
+  thornmoor: {
+    name: 'Thornmoor', subtitle: 'Where the thorns remember', music: 'music_moor', width: 7400, level: 1, next: 'graveyard',
+    start: 220,
+    platforms: [
+      { x: 1500, y: 470, w: 260 }, { x: 2650, y: 480, w: 200 }, { x: 2900, y: 380, w: 200 },
+      { x: 4250, y: 470, w: 300 }, { x: 5600, y: 460, w: 240 }, { x: 5900, y: 360, w: 180 },
+    ],
+    props: [
+      { type: 'torch', x: 420 }, { type: 'fence', x: 760 }, { type: 'fence', x: 824 }, { type: 'skull', x: 980 },
+      { type: 'gravestone2', x: 1260 }, { type: 'torch', x: 1900 }, { type: 'pillar', x: 2200 }, { type: 'cage', x: 2460, y: 230 },
+      { type: 'fence', x: 3100 }, { type: 'fence', x: 3164 }, { type: 'fence', x: 3228 }, { type: 'torch', x: 3400 },
+      { type: 'skull', x: 3620 }, { type: 'gravestone1', x: 3900 }, { type: 'pillar', x: 4700 }, { type: 'torch', x: 4760 },
+      { type: 'cage', x: 5200, y: 250 }, { type: 'skull', x: 5300 }, { type: 'torch', x: 6300 }, { type: 'pillar', x: 6500 },
+      { type: 'torch', x: 6900 },
+    ],
+    enemies: [
+      { type: 'skeleton', x: 900, patrol: [800, 1100] }, { type: 'bat', x: 1300 }, { type: 'knight', x: 1750 },
+      { type: 'spearman', x: 2350, patrol: [2250, 2550] }, { type: 'bat', x: 2800 }, { type: 'skeleton', x: 3050 }, { type: 'skeleton', x: 3200 },
+      { type: 'knight', x: 3800 }, { type: 'spearman', x: 4100 }, { type: 'bat', x: 4400 }, { type: 'bat', x: 4550 },
+      { type: 'knight', x: 5000 }, { type: 'knight', x: 5150 }, { type: 'skeleton', x: 5700 }, { type: 'spearman', x: 6100 },
+      { type: 'knight', x: 6600 }, { type: 'spearman', x: 6700 },
+    ],
+    chests: [{ x: 2980, y: 380 }, { x: 5950, y: 360 }],
+    checkpoints: [{ x: 2100 }, { x: 4600 }],
+    gate: { x: 7150 },
+  },
+  graveyard: {
+    name: 'The Hollow Graves', subtitle: 'The dead keep poor company', music: 'music_graveyard', width: 7800, level: 2, next: 'castle',
+    start: 220,
+    platforms: [
+      { x: 1200, y: 470, w: 220 }, { x: 2300, y: 460, w: 260 }, { x: 2580, y: 360, w: 160 }, { x: 3900, y: 470, w: 240 },
+      { x: 5000, y: 480, w: 300 }, { x: 5350, y: 380, w: 200 }, { x: 6500, y: 470, w: 240 },
+    ],
+    props: [
+      { type: 'gravestone1', x: 400 }, { type: 'gravestone3', x: 520 }, { type: 'gravestone2', x: 700 }, { type: 'torch', x: 900 },
+      { type: 'gravestone1', x: 1500 }, { type: 'skull', x: 1600 }, { type: 'gravestone3', x: 1700 }, { type: 'fence', x: 1950 }, { type: 'fence', x: 2014 },
+      { type: 'cage', x: 2450, y: 220 }, { type: 'torch', x: 2900 }, { type: 'gravestone2', x: 3100 }, { type: 'gravestone1', x: 3250 }, { type: 'gravestone3', x: 3350 },
+      { type: 'pillar', x: 3600 }, { type: 'pillar', x: 3760 }, { type: 'torch', x: 4300 }, { type: 'gravestone2', x: 4500 }, { type: 'skull', x: 4620 },
+      { type: 'gravestone1', x: 4800 }, { type: 'cage', x: 5200, y: 240 }, { type: 'torch', x: 5700 }, { type: 'gravestone3', x: 5900 }, { type: 'gravestone1', x: 6050 },
+      { type: 'fence', x: 6200 }, { type: 'fence', x: 6264 }, { type: 'fence', x: 6328 }, { type: 'torch', x: 6900 }, { type: 'pillar', x: 7200 }, { type: 'torch', x: 7400 },
+    ],
+    enemies: [
+      { type: 'skeleton', x: 800 }, { type: 'skeleton', x: 950, patrol: [850, 1150] }, { type: 'bat', x: 1300 }, { type: 'bat', x: 1450 },
+      { type: 'knight', x: 1850 }, { type: 'skeleton', x: 2200 }, { type: 'skeleton', x: 2350 }, { type: 'spearman', x: 2700 },
+      { type: 'bat', x: 3000 }, { type: 'skeleton', x: 3300 }, { type: 'skeleton', x: 3420 }, { type: 'knight', x: 3800 }, { type: 'knight', x: 4000 },
+      { type: 'bat', x: 4400 }, { type: 'bat', x: 4600 }, { type: 'spearman', x: 4900 }, { type: 'skeleton', x: 5100 }, { type: 'skeleton', x: 5250 },
+      { type: 'knight', x: 5800 }, { type: 'spearman', x: 6000 }, { type: 'skeleton', x: 6400 }, { type: 'skeleton', x: 6550 }, { type: 'bat', x: 6800 },
+      { type: 'knight', x: 7000 }, { type: 'knight', x: 7150 },
+    ],
+    chests: [{ x: 2620, y: 360 }, { x: 5400, y: 380 }, { x: 7300 }],
+    checkpoints: [{ x: 2000 }, { x: 4200 }, { x: 6300 }],
+    gate: { x: 7550 },
+  },
+  castle: {
+    name: 'The Warden\'s Gate', subtitle: 'None pass unbidden', music: 'music_castle', width: 6400, level: 3, next: null,
+    start: 220,
+    platforms: [
+      { x: 1100, y: 470, w: 240 }, { x: 2200, y: 460, w: 260 }, { x: 2480, y: 360, w: 160 }, { x: 3500, y: 470, w: 260 },
+      { x: 4300, y: 470, w: 200 },
+    ],
+    props: [
+      { type: 'torch', x: 300 }, { type: 'pillar', x: 500 }, { type: 'torch', x: 800 }, { type: 'cage', x: 1000, y: 220 }, { type: 'pillar', x: 1400 },
+      { type: 'torch', x: 1600 }, { type: 'skull', x: 1750 }, { type: 'pillar', x: 2000 }, { type: 'torch', x: 2700 }, { type: 'cage', x: 2900, y: 230 },
+      { type: 'pillar', x: 3100 }, { type: 'torch', x: 3300 }, { type: 'skull', x: 3450 }, { type: 'pillar', x: 3800 }, { type: 'torch', x: 4000 },
+      { type: 'torch', x: 4600 }, { type: 'pillar', x: 4800 }, { type: 'torch', x: 5100 }, { type: 'torch', x: 5400 }, { type: 'torch', x: 5800 },
+      { type: 'pillar', x: 6200 },
+    ],
+    enemies: [
+      { type: 'knight', x: 700 }, { type: 'spearman', x: 900 }, { type: 'bat', x: 1200 }, { type: 'knight', x: 1500 }, { type: 'knight', x: 1650 },
+      { type: 'skeleton', x: 2100 }, { type: 'skeleton', x: 2250 }, { type: 'spearman', x: 2600 }, { type: 'bat', x: 2800 }, { type: 'bat', x: 2950 },
+      { type: 'knight', x: 3300 }, { type: 'spearman', x: 3450 }, { type: 'knight', x: 3700 }, { type: 'skeleton', x: 4100 }, { type: 'skeleton', x: 4200 }, { type: 'skeleton', x: 4300 },
+      { type: 'knight', x: 4700 }, { type: 'knight', x: 4850 }, { type: 'spearman', x: 5000 },
+    ],
+    chests: [{ x: 2540, y: 360 }, { x: 4350, y: 470 }],
+    checkpoints: [{ x: 1900 }, { x: 3900 }, { x: 5300 }],
+    boss: { type: 'warden', x: 5900, arena: [5450, 6300] },
+    gate: null,
+  },
+};

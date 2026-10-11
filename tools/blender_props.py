@@ -273,7 +273,7 @@ def _ao_color(nt, color_socket_or_rgb, strength=0.7, distance=0.35):
     mr = nt.nodes.new("ShaderNodeMapRange")
     mr.inputs["From Min"].default_value = 0.0
     mr.inputs["From Max"].default_value = 1.0
-    mr.inputs["To Min"].default_value = 0.25
+    mr.inputs["To Min"].default_value = 0.35
     mr.inputs["To Max"].default_value = 1.0
     nt.links.new(ao.outputs["AO"], mr.inputs["Value"])
     nt.links.new(mr.outputs["Result"], mix.inputs["B"])
@@ -337,8 +337,8 @@ def mat_noisy(name, color_a, color_b, scale=4.0, detail=3.0, roughness=0.8, bump
         nt.links.new(n2.outputs["Fac"], mul.inputs[0])
         nt.links.new(up.outputs[0], mul.inputs[1])
         mr = nt.nodes.new("ShaderNodeMapRange")
-        mr.inputs["From Min"].default_value = 0.42
-        mr.inputs["From Max"].default_value = 0.62
+        mr.inputs["From Min"].default_value = 0.36
+        mr.inputs["From Max"].default_value = 0.56
         mr.inputs["To Max"].default_value = moss_amount
         nt.links.new(mul.outputs[0], mr.inputs["Value"])
         mixm = nt.nodes.new("ShaderNodeMix")
@@ -362,7 +362,7 @@ def mat_noisy(name, color_a, color_b, scale=4.0, detail=3.0, roughness=0.8, bump
     return m
 
 
-def mat_glass(name, tint=(0.75, 0.9, 1.0), alpha=0.22, roughness=0.08):
+def mat_glass(name, tint=(0.6, 0.8, 1.0), alpha=0.1, roughness=0.15):
     """Stylised glass: a transparent shader mixed with a glossy one by fresnel, so the
     silhouette keeps a bright rim and highlights but you can see what is inside."""
     m, nt, out = _new_mat(name)
@@ -372,10 +372,10 @@ def mat_glass(name, tint=(0.75, 0.9, 1.0), alpha=0.22, roughness=0.08):
     gl.inputs["Base Color"].default_value = (*tint, 1)
     gl.inputs["Roughness"].default_value = roughness
     gl.inputs["Metallic"].default_value = 0.0
-    gl.inputs["Specular IOR Level"].default_value = 1.0
-    gl.inputs["Coat Weight"].default_value = 1.0
+    gl.inputs["Specular IOR Level"].default_value = 0.6
+    gl.inputs["Coat Weight"].default_value = 0.0
     lw = nt.nodes.new("ShaderNodeLayerWeight")
-    lw.inputs["Blend"].default_value = 0.35
+    lw.inputs["Blend"].default_value = 0.25
     mr = nt.nodes.new("ShaderNodeMapRange")
     mr.inputs["To Min"].default_value = alpha
     mr.inputs["To Max"].default_value = 1.0
@@ -389,22 +389,31 @@ def mat_glass(name, tint=(0.75, 0.9, 1.0), alpha=0.22, roughness=0.08):
     return m
 
 
-def mat_gem(name, base=(0.35, 0.08, 0.7), glow=(0.1, 0.95, 0.9), strength=1.6):
+def mat_gem(name, base=(0.22, 0.02, 0.5), rim=(0.5, 0.1, 1.0), core=(0.1, 0.9, 0.85), strength=1.0):
+    """Soul gem: opaque violet crystal with a teal glow in the middle of each facet that
+    turns violet towards the silhouette (fresnel), so it reads as lit from within."""
     m, nt, out = _new_mat(name)
     p = nt.nodes.new("ShaderNodeBsdfPrincipled")
     p.inputs["Base Color"].default_value = (*base, 1)
-    p.inputs["Roughness"].default_value = 0.05
-    p.inputs["Transmission Weight"].default_value = 0.85
-    p.inputs["IOR"].default_value = 1.9
-    p.inputs["Coat Weight"].default_value = 1.0
-    p.inputs["Emission Color"].default_value = (*glow, 1)
-    # Stronger emission at the facets facing away from the camera -> inner glow look.
+    p.inputs["Roughness"].default_value = 0.3
+    p.inputs["Coat Weight"].default_value = 0.25
+    p.inputs["Specular IOR Level"].default_value = 0.4
     lw = nt.nodes.new("ShaderNodeLayerWeight")
-    lw.inputs["Blend"].default_value = 0.5
+    lw.inputs["Blend"].default_value = 0.45
+    mixc = nt.nodes.new("ShaderNodeMix")
+    mixc.data_type = "RGBA"
+    mixc.inputs["A"].default_value = (*rim, 1)
+    mixc.inputs["B"].default_value = (*core, 1)
+    pw = nt.nodes.new("ShaderNodeMath")
+    pw.operation = "POWER"
+    pw.inputs[1].default_value = 1.6
+    nt.links.new(lw.outputs["Facing"], pw.inputs[0])
+    nt.links.new(pw.outputs[0], mixc.inputs["Factor"])
+    nt.links.new(mixc.outputs["Result"], p.inputs["Emission Color"])
     mr = nt.nodes.new("ShaderNodeMapRange")
-    mr.inputs["To Min"].default_value = strength * 0.4
+    mr.inputs["To Min"].default_value = strength * 0.5
     mr.inputs["To Max"].default_value = strength
-    nt.links.new(lw.outputs["Fresnel"], mr.inputs["Value"])
+    nt.links.new(pw.outputs[0], mr.inputs["Value"])
     nt.links.new(mr.outputs["Result"], p.inputs["Emission Strength"])
     nt.links.new(p.outputs[0], out.inputs[0])
     return m
@@ -423,9 +432,8 @@ def mat_liquid(name, color, glow, strength=2.5):
     m, nt, out = _new_mat(name)
     p = nt.nodes.new("ShaderNodeBsdfPrincipled")
     p.inputs["Base Color"].default_value = (*color, 1)
-    p.inputs["Roughness"].default_value = 0.25
-    p.inputs["Subsurface Weight"].default_value = 0.4
-    p.inputs["Subsurface Radius"].default_value = (0.3, 0.1, 0.1)
+    p.inputs["Roughness"].default_value = 0.35
+    p.inputs["Specular IOR Level"].default_value = 0.3
     p.inputs["Emission Color"].default_value = (*glow, 1)
     lw = nt.nodes.new("ShaderNodeLayerWeight")
     lw.inputs["Blend"].default_value = 0.5
@@ -445,12 +453,12 @@ def materials():
     M["gold_dark"] = mat_simple("GoldDark", (0.75, 0.42, 0.08), metallic=1.0, roughness=0.42, ao=0.6)
     M["iron"] = mat_noisy("Iron", (0.12, 0.12, 0.13), (0.32, 0.3, 0.3), scale=6, roughness=0.5, bump=0.25, metallic=0.85, ao=0.7)
     M["iron_dark"] = mat_noisy("IronDark", (0.06, 0.06, 0.07), (0.2, 0.19, 0.2), scale=6, roughness=0.55, bump=0.25, metallic=0.8, ao=0.7)
-    M["wood"] = mat_noisy("Wood", (0.30, 0.15, 0.06), (0.55, 0.32, 0.14), scale=2.5, detail=5, roughness=0.75, bump=0.35, ao=0.8, ramp=(0.3, 0.7))
+    M["wood"] = mat_noisy("Wood", (0.22, 0.10, 0.04), (0.5, 0.26, 0.10), scale=2.5, detail=5, roughness=0.75, bump=0.35, ao=0.8, ramp=(0.3, 0.7))
     M["wood_dark"] = mat_noisy("WoodDark", (0.16, 0.08, 0.03), (0.33, 0.18, 0.08), scale=3, detail=5, roughness=0.8, bump=0.3, ao=0.8)
-    M["stone"] = mat_noisy("Stone", (0.30, 0.31, 0.32), (0.58, 0.58, 0.55), scale=3.0, roughness=0.9, bump=0.5,
-                           moss=(0.16, 0.34, 0.10), moss_amount=0.85, ao=0.85)
-    M["stone_dark"] = mat_noisy("StoneDark", (0.18, 0.19, 0.21), (0.42, 0.43, 0.42), scale=3.0, roughness=0.9, bump=0.5,
-                                moss=(0.14, 0.30, 0.09), moss_amount=0.7, ao=0.85)
+    M["stone"] = mat_noisy("Stone", (0.15, 0.17, 0.21), (0.40, 0.40, 0.38), scale=3.0, roughness=0.9, bump=0.5,
+                           moss=(0.14, 0.32, 0.09), moss_amount=0.95, ao=0.85)
+    M["stone_dark"] = mat_noisy("StoneDark", (0.09, 0.10, 0.12), (0.26, 0.27, 0.27), scale=3.0, roughness=0.9, bump=0.5,
+                                moss=(0.12, 0.28, 0.08), moss_amount=0.8, ao=0.85)
     M["bone"] = mat_noisy("Bone", (0.62, 0.56, 0.44), (0.92, 0.88, 0.76), scale=5.0, roughness=0.6, bump=0.2, ao=0.9, ramp=(0.3, 0.7))
     M["black"] = mat_simple("Black", (0.01, 0.01, 0.012), roughness=0.9, ao=0.0, specular=0.0)
     M["cork"] = mat_noisy("Cork", (0.45, 0.28, 0.12), (0.7, 0.5, 0.25), scale=8, roughness=0.9, bump=0.4, ao=0.8)
@@ -578,7 +586,11 @@ def star_profile(points, r_out, r_in, rot=0.0):
 
 
 def bisect(ob, plane_co, plane_no, clear_outer=True, fill=True):
-    """Cut a mesh with a plane, discarding one side and capping the hole."""
+    """Cut a mesh with a world-space plane, discarding one side and capping the hole."""
+    bpy.context.view_layer.update()
+    inv = ob.matrix_world.inverted()
+    plane_co = inv @ Vector(plane_co)
+    plane_no = (inv.to_3x3() @ Vector(plane_no)).normalized()
     bm = bmesh.new()
     bm.from_mesh(ob.data)
     geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
@@ -754,32 +766,31 @@ def build_gem(M):
     s = 0.72
     verts = [(s, 0, 0), (0, s, 0), (-s, 0, 0), (0, -s, 0), (0, 0, 1.15), (0, 0, -1.05)]
     faces = [[0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4], [1, 0, 5], [2, 1, 5], [3, 2, 5], [0, 3, 5]]
-    gem = mesh_from_pydata("Gem", verts, faces, mat=mat_gem("GemMat", strength=0.55), bevel=0.16, bevel_segments=2)
+    gem = mesh_from_pydata("Gem", verts, faces, mat=mat_gem("GemMat", strength=0.45), bevel=0.12, bevel_segments=1)
     gem.modifiers["Bevel"].limit_method = "NONE"
-    core = sphere(0.28, mat=mat_emissive("Core", (0.3, 1.0, 0.95), 2.2), scale=(1, 1, 1.5), name="Core")
-    root = group([gem, core], "GemRoot")
-    root.rotation_euler = (math.radians(12), 0, 0)
+    root = group([gem], "GemRoot")
+    root.rotation_mode = "ZYX"  # spin about the gem's own axis first, then the fixed tilt
 
     def on_frame(i):
         root.rotation_euler = (math.radians(12), math.radians(6), math.radians(90.0 * i / 12 + 20))
 
-    return list(ALL_OBJS), on_frame, dict(key=3.5, fill=1.0, rim=4.0, az=0, el=14, margin=0.14,
-                                          glow=dict(threshold=0.7, sigma=2.5, strength=0.9, tint=(0.2, 0.95, 0.9)))
+    return list(ALL_OBJS), on_frame, dict(key=2.0, fill=0.8, rim=4.0, az=0, el=14, margin=0.1, view="Standard", exposure=-0.4,
+                                          glow=dict(threshold=0.45, sigma=2.5, strength=0.9, tint=(0.25, 0.95, 1.0)))
 
 
 def build_potion(M, color):
     ALL_OBJS.clear()
     if color == "red":
-        liq_col, glow = (0.7, 0.02, 0.03), (1.0, 0.1, 0.06)
+        liq_col, glow = (0.65, 0.01, 0.02), (1.0, 0.08, 0.04)
     else:
-        liq_col, glow = (0.08, 0.6, 0.05), (0.3, 1.0, 0.15)
+        liq_col, glow = (0.05, 0.55, 0.03), (0.25, 1.0, 0.1)
     glass = M["glass"]
     bulb = sphere(1.0, loc=(0, 0, 1.0), mat=glass, name="Bulb")
     cyl(0.36, 1.2, loc=(0, 0, 2.2), mat=glass, bevel=0.0, name="Neck")
     torus(0.38, 0.09, loc=(0, 0, 2.75), mat=glass, name="Lip")
     cyl(0.3, 0.55, loc=(0, 0, 2.95), mat=M["cork"], bevel=0.06, name="Cork")
     # liquid: inner sphere cut at the fill level, plus a little in the neck
-    liq = sphere(0.9, loc=(0, 0, 1.0), mat=mat_liquid("Liquid", liq_col, glow, 0.75), name="Liquid")
+    liq = sphere(0.93, loc=(0, 0, 1.0), mat=mat_liquid("Liquid", liq_col, glow, 0.9), name="Liquid")
     bisect(liq, (0, 0, 1.55), (0, 0, 1))
     # highlight blob
     sphere(0.13, loc=(-0.45, -0.6, 1.5), mat=mat_emissive("Spark", (1, 1, 1), 1.2), name="Spark")
@@ -792,7 +803,7 @@ def build_chest(M):
     W, D, H = 2.2, 1.3, 1.1
     body = box((W, D, H), loc=(0, 0, H / 2), mat=M["wood"], bevel=0.04, name="Body")
     # dark interior cavity (visible when open)
-    box((W - 0.2, D - 0.2, H - 0.1), loc=(0, 0, H / 2 + 0.06), mat=M["wood_dark"], bevel=0.0, name="Inner")
+    box((W - 0.2, D - 0.2, H - 0.12), loc=(0, 0, H / 2), mat=M["wood_dark"], bevel=0.0, name="Inner")
     # iron bands and corner plates on the body
     for x in (-0.72, 0.72):
         box((0.18, D + 0.04, H + 0.02), loc=(x, 0, H / 2), mat=M["iron"], bevel=0.02, name="Band")
@@ -822,27 +833,27 @@ def build_chest(M):
         p.location = (p.location.x, p.location.y - D / 2, p.location.z)
     # lock plate on body
     box((0.36, 0.08, 0.3), loc=(0, -D / 2 - 0.03, H - 0.25), mat=M["gold"], bevel=0.03, name="Lock")
-    sphere(0.06, loc=(0, -D / 2 - 0.08, H - 0.3), mat=M["black"], name="Keyhole")
+    sphere(0.045, loc=(0, -D / 2 - 0.08, H - 0.3), mat=M["black"], scale=(1, 0.5, 1.3), name="Keyhole")
     # treasure inside (only visible when open)
     gl = mat_emissive("Treasure", (1.0, 0.75, 0.3), 6.0)
-    treasure = [box((W - 0.4, D - 0.4, 0.08), loc=(0, 0, H - 0.25), mat=gl, bevel=0.0, name="GlowPlane")]
+    treasure = [box((W - 0.3, D - 0.3, 0.08), loc=(0, 0, H - 0.12), mat=gl, bevel=0.0, name="GlowPlane")]
     rng = np.random.RandomState(3)
     for k in range(9):
         x = rng.uniform(-0.7, 0.7)
         y = rng.uniform(-0.3, 0.3)
-        treasure.append(cyl(0.16, 0.05, loc=(x, y, H - 0.2 + k * 0.01), rot=(rng.uniform(-0.4, 0.4), rng.uniform(-0.4, 0.4), 0),
+        treasure.append(cyl(0.16, 0.05, loc=(x, y, H - 0.06 + k * 0.012), rot=(rng.uniform(-0.4, 0.4), rng.uniform(-0.4, 0.4), 0),
                             mat=M["gold"], verts=24, bevel=0.01, name="Coin"))
     light = add_light("ChestGlow", "POINT", location=(0, 0, H + 0.4), color=(1.0, 0.7, 0.3), energy=60, size=0.4)
 
     def on_frame(i):
         open_ = i == 1
-        lid_root.rotation_euler = (math.radians(-105) if open_ else 0, 0, 0)
+        lid_root.rotation_euler = (math.radians(-112) if open_ else 0, 0, 0)
         for t in treasure:
             t.hide_render = not open_
         light.hide_render = not open_
         light.data.energy = 60 if open_ else 0
 
-    return list(ALL_OBJS), on_frame, dict(key=4.5, fill=1.5, rim=5.0, az=22, el=20, pad=(0.08, 0.08, 0.04, 0.06),
+    return list(ALL_OBJS), on_frame, dict(key=4.5, fill=1.5, rim=5.0, az=22, el=28, pad=(0.08, 0.08, 0.04, 0.06),
                                           glow=dict(threshold=0.8, sigma=2.5, strength=0.6, tint=(1.0, 0.7, 0.3)))
 
 
@@ -862,8 +873,8 @@ def build_shrine(M):
     rune_mat = mat_emissive("Rune", (0.2, 0.95, 0.85), 1.0)
     rune_parts = []
     tilt = math.atan2(0.25, 3.95)
-    for (z, w, h) in [(2.6, 0.12, 1.5), (3.05, 0.6, 0.12), (2.2, 0.45, 0.12)]:
-        rune_parts.append(box((w, 0.06, h), loc=(0, -hw(z) - 0.0, z), rot=(tilt, 0, 0), mat=rune_mat, bevel=0.0, name="Rune"))
+    for (z, w, h, dd) in [(2.6, 0.12, 1.5, 0.06), (3.05, 0.6, 0.12, 0.08), (2.2, 0.45, 0.12, 0.08)]:
+        rune_parts.append(box((w, dd, h), loc=(0, -hw(z) - 0.0, z), rot=(tilt, 0, 0), mat=rune_mat, bevel=0.0, name="Rune"))
     d = box((0.36, 0.06, 0.36), loc=(0, -hw(3.6) - 0.0, 3.6), rot=(tilt, 0, math.pi / 4), mat=rune_mat, bevel=0.0, name="RuneEye")
     rune_parts.append(d)
     # small crystal on top
@@ -875,13 +886,13 @@ def build_shrine(M):
 
     def on_frame(i):
         lit = i == 1
-        rune_mat.node_tree.nodes["Emission"].inputs["Strength"].default_value = 7.0 if lit else 0.0
-        rune_mat.node_tree.nodes["Emission"].inputs["Color"].default_value = (0.2, 0.95, 0.85, 1) if lit else (0.07, 0.1, 0.11, 1)
+        rune_mat.node_tree.nodes["Emission"].inputs["Strength"].default_value = 4.0 if lit else 1.0
+        rune_mat.node_tree.nodes["Emission"].inputs["Color"].default_value = (0.2, 0.95, 0.85, 1) if lit else (0.05, 0.09, 0.1, 1)
         light.hide_render = not lit
-        light.data.energy = 250 if lit else 0
+        light.data.energy = 110 if lit else 0
 
-    return list(ALL_OBJS), on_frame, dict(key=4.5, fill=1.6, rim=5.0, az=20, el=12, pad=(0.08, 0.08, 0.02, 0.06),
-                                          glow=dict(threshold=0.7, sigma=3.0, strength=0.8, tint=(0.2, 0.95, 0.85)))
+    return list(ALL_OBJS), on_frame, dict(key=3.5, fill=1.6, rim=6.0, az=20, el=12, pad=(0.08, 0.08, 0.02, 0.06),
+                                          glow=dict(threshold=0.75, sigma=3.0, strength=0.55, tint=(0.2, 0.95, 0.85)))
 
 
 def build_skull(M):
@@ -918,11 +929,15 @@ def build_gravestone(M, kind):
     if kind == 1:
         # rounded-top slab with a carved cross
         w, d, h = 1.5, 0.3, 1.9
-        slab = box((w, d, h), loc=(0, 0, h / 2), mat=stone, bevel=0.05, name="Slab")
-        top = cyl(w / 2, d, loc=(0, 0, h), rot=(math.pi / 2, 0, 0), mat=stone, verts=48, bevel=0.05, smooth=False, name="Top")
-        bisect(top, (0, 0, h), (0, 0, 1), clear_outer=False)
+        prof = [(-w / 2, 0.0), (w / 2, 0.0)]
+        for k in range(25):  # semicircular top, right to left
+            a = math.pi * k / 24
+            prof.append((math.cos(a) * w / 2, h + math.sin(a) * w / 2))
+        prof.append((-w / 2, 0.0))
+        prof = prof[:-1]  # closing vertex is implicit
+        slab = prism(prof, -d / 2, d / 2, name="Slab", mat=stone, bevel=0.05, rot=(math.pi / 2, 0, 0))
         box((0.18, 0.08, 1.1), loc=(0, -d / 2, 1.35), mat=M["stone_dark"], bevel=0.0, name="CrossV")
-        box((0.7, 0.08, 0.18), loc=(0, -d / 2, 1.65), mat=M["stone_dark"], bevel=0.0, name="CrossH")
+        box((0.7, 0.1, 0.18), loc=(0, -d / 2, 1.65), mat=M["stone_dark"], bevel=0.0, name="CrossH")
         box((w + 0.5, d + 0.5, 0.25), loc=(0, 0.05, 0.12), mat=M["stone_dark"], bevel=0.05, name="Base")
         root = group(list(ALL_OBJS))
         root.rotation_euler = (0, math.radians(-4), 0)
@@ -932,7 +947,7 @@ def build_gravestone(M, kind):
         box((1.3, 1.0, 0.3), loc=(0, 0, 0.15), mat=M["stone_dark"], bevel=0.04, name="Plinth")
         box((0.9, 0.7, 0.3), loc=(0, 0, 0.42), mat=stone, bevel=0.04, name="Plinth2")
         box((0.42, 0.34, 2.4), loc=(0, 0, 1.75), mat=stone, bevel=0.05, name="CrossV")
-        box((1.35, 0.34, 0.42), loc=(0, 0, 2.3), mat=stone, bevel=0.05, name="CrossH")
+        box((1.35, 0.38, 0.42), loc=(0, 0, 2.3), mat=stone, bevel=0.05, name="CrossH")
         # chipped arm: cut the end of the right arm with a tilted box
         cutter = box((0.5, 0.8, 0.8), loc=(0.78, 0, 2.62), rot=(0, math.radians(30), 0), mat=M["stone"], bevel=0.0, name="Chip")
         boolean_cut(ALL_OBJS[-2], cutter)
@@ -952,7 +967,7 @@ def build_gravestone(M, kind):
         root = group(list(ALL_OBJS))
         root.rotation_euler = (0, math.radians(13), 0)
         opts = dict(az=14, el=14)
-    opts.update(key=4.5, fill=1.6, rim=5.0, pad=(0.06, 0.06, 0.02, 0.06))
+    opts.update(key=3.5, fill=1.6, rim=6.0, pad=(0.06, 0.06, 0.02, 0.06))
     return list(ALL_OBJS), None, opts
 
 
@@ -974,7 +989,7 @@ def build_torch(M):
     for z in (1.68, 1.98):
         torus(0.28, 0.035, loc=(0, -0.1, z), mat=M["rope"], name="Twine", seg=24, ring=8)
     # embers at the top (no flame, but a warm hint)
-    sphere(0.14, loc=(0, -0.1, 2.12), mat=mat_emissive("Ember", (1.0, 0.35, 0.05), 3.0), scale=(1.4, 1.4, 0.6), name="Ember")
+    sphere(0.1, loc=(0, -0.1, 2.1), mat=mat_emissive("Ember", (1.0, 0.35, 0.05), 2.0), scale=(1.6, 1.6, 0.5), name="Ember")
     return list(ALL_OBJS), None, dict(key=4.5, fill=1.6, rim=5.0, az=12, el=12, margin=0.05,
                                       glow=dict(threshold=0.8, sigma=1.5, strength=0.4, tint=(1.0, 0.45, 0.1)))
 
@@ -1018,7 +1033,7 @@ def build_pillar(M):
         s = rng.uniform(0.25, 0.5)
         box((s, s * 0.8, s * 0.7), loc=(math.cos(ang) * rad, math.sin(ang) * rad * 0.6 - 0.3, 0.5 + s * 0.35),
             rot=(rng.uniform(-0.4, 0.4), rng.uniform(-0.4, 0.4), rng.uniform(0, 3)), mat=stone, bevel=0.04, name="Rubble")
-    return list(ALL_OBJS), None, dict(key=4.5, fill=1.6, rim=5.0, az=16, el=10, pad=(0.05, 0.05, 0.02, 0.04))
+    return list(ALL_OBJS), None, dict(key=3.5, fill=1.6, rim=6.0, az=16, el=10, pad=(0.05, 0.05, 0.02, 0.04))
 
 
 def build_cage(M):
@@ -1078,6 +1093,13 @@ def render_asset(name, builder, w, h, nframes=1, filename=None, pivot=(0.5, 1.0)
     M = materials()
     objs, on_frame, opts = builder(M)
     glow = opts.pop("glow", None)
+    view = opts.pop("view", None)
+    exposure = opts.pop("exposure", None)
+    if exposure is not None:
+        bpy.context.scene.view_settings.exposure = exposure
+    if view:  # per-asset view transform (Standard keeps emissive colours saturated)
+        bpy.context.scene.view_settings.view_transform = view
+        bpy.context.scene.view_settings.look = "None"
     light_rig(key=opts.pop("key", 5.0), fill=opts.pop("fill", 1.6), rim=opts.pop("rim", 6.0))
     set_camera(objs, w, h, frames_setup=on_frame, nframes=nframes, **opts)
     sheet = np.zeros((h, w * nframes, 4), np.float32)
@@ -1098,8 +1120,10 @@ def render_asset(name, builder, w, h, nframes=1, filename=None, pivot=(0.5, 1.0)
 
 
 ASSETS = [
-    ("coin", lambda: render_asset("coin", build_coin, 40, 40, 12, "coin_sheet.png", pivot=(0.5, 0.5))),
-    ("gem", lambda: render_asset("gem", build_gem, 40, 40, 12, "gem_sheet.png", pivot=(0.5, 0.5))),
+    ("coin", lambda: render_asset("coin", build_coin, 40, 40, 12, "coin_sheet.png", pivot=(0.5, 0.5),
+                                  post=lambda pm: contrast(pm, amount=1.15, gamma=0.85, saturation=1.15))),
+    ("gem", lambda: render_asset("gem", build_gem, 40, 40, 12, "gem_sheet.png", pivot=(0.5, 0.5),
+                                 post=lambda pm: contrast(pm, amount=1.05, saturation=1.2))),
     ("potion_red", lambda: render_asset("potion_red", lambda M: build_potion(M, "red"), 36, 44, 1, pivot=(0.5, 0.5))),
     ("potion_green", lambda: render_asset("potion_green", lambda M: build_potion(M, "green"), 36, 44, 1, pivot=(0.5, 0.5))),
     ("chest", lambda: render_asset("chest", build_chest, 96, 80, 2, "chest_sheet.png", pivot=(0.5, 1.0))),

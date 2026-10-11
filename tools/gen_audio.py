@@ -872,8 +872,10 @@ def pick_encoder():
 
 def write_ogg(path, x, enc):
     x = stereo(x) if x.ndim == 2 else x[:, None]
+    # bitexact: fixed Ogg stream serial and no encoder-version tag, so the
+    # output bytes are reproducible run to run.
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "f32le", "-ar", str(SR), "-ac", str(x.shape[1]),
-           "-i", "pipe:0", "-c:a", enc, "-q:a", "4"]
+           "-i", "pipe:0", "-fflags", "+bitexact", "-flags", "+bitexact", "-c:a", enc, "-q:a", "4"]
     if enc == "vorbis":
         cmd += ["-strict", "-2"]
     subprocess.run(cmd + [path], input=np.clip(x, -1, 1).astype("<f4").tobytes(), check=True)

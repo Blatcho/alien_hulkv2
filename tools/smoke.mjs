@@ -51,7 +51,7 @@ try {
 
   // Start the game with the fake pad's Start button.
   await page.evaluate(() => { window.__padEnabled = true; window.__press(9, true); });
-  await page.waitForTimeout(150);
+  await page.waitForTimeout(450);
   await page.evaluate(() => window.__press(9, false));
   await page.waitForFunction(() => window.__game.scene.isActive('Game'), null, { timeout: 10000 });
   await page.waitForTimeout(900);
@@ -89,6 +89,9 @@ try {
   console.log(`smoke ok: gamepad ${x0.toFixed(0)}->${x1.toFixed(0)}, keyboard ${kx0.toFixed(0)}->${kx1.toFixed(0)}, ${fps.toFixed(0)} fps (software GL)`);
   if (warnings.length) console.log('warnings:\n' + warnings.slice(0, 10).join('\n'));
   if (errors.length) throw new Error('Console errors:\n' + errors.join('\n'));
+} catch (e) {
+  if (errors.length) console.error('Console errors:\n' + errors.join('\n'));
+  throw e;
 } finally {
   if (browser) await browser.close();
   server.kill();
