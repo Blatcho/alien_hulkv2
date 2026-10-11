@@ -41,6 +41,7 @@ export default class GameScene extends Phaser.Scene {
     this.interactables = [];
     this.torches = [];
     this.spawned = new Set();
+    this.gate = null; this.gateWall = null; this.boss = null; this.prompt = null;
     this.worldW = zone.width;
     this.physics.world.setBounds(0, -2000, zone.width, HEIGHT + 2000);
     const bgMeta = this.cache.json.get('bg_layers')[this.zoneKey];
