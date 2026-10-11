@@ -83,7 +83,7 @@ export default class PauseScene extends Phaser.Scene {
 
     // ---- middle column: equipment ----------------------------------------------------------
     this.slotRows = [];
-    let sy = headY + 70;
+    let sy = headY + 84;
     for (const slot of SLOT_ORDER) {
       const label = this.add.bitmapText(COLS.mid, sy - 54, 'small', slot.toUpperCase(), 16).setTint(LABEL);
       const frame = this.add.image(COLS.mid + 28, sy, 'ui_slot');

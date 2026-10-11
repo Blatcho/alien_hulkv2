@@ -86,7 +86,51 @@ export default class TitleScene extends Phaser.Scene {
     this.placeCursor();
     this.cameras.main.fadeIn(600, 0, 0, 0);
     this.audio.playMusic('music_title', { fade: 1500 });
-    this.events.once('shutdown', () => { if (this.parallax) { this.parallax.destroy(); this.parallax = null; } });
+    this.startLatch();
+    this.events.once('shutdown', () => {
+      this.stopLatch();
+      if (this.parallax) { this.parallax.destroy(); this.parallax = null; }
+    });
+  }
+
+  // Sub-frame input latch: the input manager is polled once per frame, so on a slow frame a short
+  // tap of Start / A / Enter / Space can fall between two polls. Poll the pad on a timer and watch
+  // keydown so the tap is still delivered as a press on the next update.
+  startLatch() {
+    this._latch = { pause: false, confirm: false };
+    this._latchPrev = {};
+    this._onKey = (e) => {
+      if (e.repeat) return;
+      if (e.code === 'Enter') { this._latch.pause = true; this._latch.confirm = true; }
+      else if (e.code === 'Space') this._latch.confirm = true;
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', this._onKey);
+      this._poll = window.setInterval(() => {
+        const pad = this.input_.getPad();
+        if (!pad) return;
+        for (const [idx, action] of [[9, 'pause'], [0, 'confirm']]) {
+          const b = pad.buttons[idx];
+          const down = !!(b && (b.pressed || b.value > 0.5));
+          if (down && !this._latchPrev[idx]) this._latch[action] = true;
+          this._latchPrev[idx] = down;
+        }
+      }, 25);
+    }
+  }
+
+  stopLatch() {
+    if (typeof window === 'undefined') return;
+    if (this._onKey) window.removeEventListener('keydown', this._onKey);
+    if (this._poll) window.clearInterval(this._poll);
+    this._onKey = null; this._poll = null;
+  }
+
+  applyLatch(inp) {
+    if (!this._latch) return;
+    if (this._latch.pause) inp.pressed.pause = true;
+    if (this._latch.confirm) inp.pressed.confirm = true;
+    this._latch.pause = false; this._latch.confirm = false;
   }
 
   buildControls() {
@@ -181,6 +225,7 @@ export default class TitleScene extends Phaser.Scene {
   update(time, delta) {
     const inp = this.input_;
     inp.update(this.game.loop.frame);
+    this.applyLatch(inp);
     const dev = inp.lastDevice;
     if (this.parallax) {
       this.cameras.main.scrollX += delta * 0.04;
