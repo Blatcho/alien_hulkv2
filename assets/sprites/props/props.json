@@ -1,0 +1,50 @@
+{
+  "generator": "tools/blender_props.py",
+  "notes": "pivot is the sprite origin as fractions of the frame (x right, y down): [0.5, 1.0] = bottom centre for ground props, [0.5, 0.5] = centre for pickups, [0.5, 0.0] = top centre for hanging props.",
+  "sprites": {
+    "coin": {
+      "file": "coin_sheet.png",
+      "frame_width": 40,
+      "frame_height": 40,
+      "frames": 12,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "description": "Gold coin spinning about its vertical axis; 12 frames over 180 degrees, loops."
+    },
+    "gem": {
+      "file": "gem_sheet.png",
+      "frame_width": 40,
+      "frame_height": 40,
+      "frames": 12,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "description": "Floating soul gem, glowing teal/violet; 12 frames over a quarter turn, loops."
+    },
+    "potion_red": {
+      "file": "potion_red.png",
+      "frame_width": 36,
+      "frame_height": 44,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        0.5
+      ],
+      "description": "Health potion flask (red)."
+    },
+    "skull": {
+      "file": "skull.png",
+      "frame_width": 36,
+      "frame_height": 32,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        1.0
+      ],
+      "description": "Small weathered skull (ground decoration)."
+    }
+  }
+}
