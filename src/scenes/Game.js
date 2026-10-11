@@ -163,7 +163,7 @@ export default class GameScene extends Phaser.Scene {
     const lvl = this.zone.level;
     for (const d of this.enemyDefs) {
       if (this.spawned.has(d.id)) continue;
-      if (d.x < camX + WIDTH + 400 && d.x > this.player.x - 300) {
+      if (d.x < camX + WIDTH + 400 && d.x > camX - 400) {
         this.spawned.add(d.id);
         this.spawnEnemy(d.type, d.x, lvl, { patrol: d.patrol || null });
       }

@@ -162,7 +162,7 @@ export default class TitleScene extends Phaser.Scene {
     this.sfx('sfx_ui_confirm');
     const music = this.audio.music;
     this.audio.stopMusic(380);
-    this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.cameras.main.fadeOut(250, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       if (music) { try { music.stop(); } catch (e) { /* already stopped */ } }
       let data;
