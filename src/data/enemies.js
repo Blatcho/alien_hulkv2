@@ -22,7 +22,7 @@ export const ENEMY_TYPES = {
     rig: 'bat', flying: true, hp: 18, damage: 7, speed: 230, scale: 1.3,
     attack: { clip: 'attack', reach: 40, cooldown: 1600, range: 60 }, aggro: 650, xp: 8, tier: 0,
     armored: false, guardChance: 0, staggerThreshold: 0, hurtSfx: 'sfx_bat', deathSfx: 'sfx_bat',
-    bodyW: 40, bodyH: 30, name: 'Gloom Bat', poise: 0, hoverY: 150,
+    bodyW: 40, bodyH: 30, name: 'Gloom Bat', poise: 0, hoverY: 118,
   },
   warden: {
     rig: 'warden', clipOpts: { weaponRest: 10 }, hp: 900, damage: 26, speed: 95, scale: 1.45,

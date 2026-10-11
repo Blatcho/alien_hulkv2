@@ -81,7 +81,10 @@ export default class GameScene extends Phaser.Scene {
     this.events.once('shutdown', () => this.cleanup());
   }
 
-  cleanup() { this.audio.stopMusic(200); }
+  cleanup() {
+    this.audio.stopMusic(200);
+    for (const ev of ['restart-checkpoint', 'player-died', 'boss-aggro']) this.events.off(ev);
+  }
 
   // ------------------------------------------------------------------ world
   buildPlatform(p) {
