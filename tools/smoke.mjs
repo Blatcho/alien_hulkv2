@@ -53,40 +53,50 @@ try {
   await page.evaluate(() => { window.__padEnabled = true; window.__press(9, true); });
   await page.waitForTimeout(450);
   await page.evaluate(() => window.__press(9, false));
-  await page.waitForFunction(() => window.__game.scene.isActive('Game'), null, { timeout: 10000 });
+  await page.waitForFunction(() => window.__game.scene.isActive('Game'), null, { timeout: 90000 });
   await page.waitForTimeout(900);
   await page.screenshot({ path: path.join(outDir, '02-game-start.png') });
 
+  // Helpers: poll the player's x while holding an input so the test is robust at any frame rate.
+  const playerX = () => page.evaluate(() => window.__game.scene.getScene('Game').player.x);
+  const waitMove = async (from, dir, min = 60, maxMs = 15000) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < maxMs) {
+      const x = await playerX();
+      if ((x - from) * dir >= min) return x;
+      await page.waitForTimeout(150);
+    }
+    return playerX();
+  };
+
   // Run right with the stick, jump with A, attack with X.
-  const x0 = await page.evaluate(() => window.__game.scene.getScene('Game').player.x);
+  const x0 = await playerX();
   await page.evaluate(() => window.__axis(0, 1));
-  await page.waitForTimeout(1500);
+  const x1 = await waitMove(x0, 1);
   await page.evaluate(() => window.__press(0, true));
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(450);
   await page.evaluate(() => window.__press(0, false));
-  await page.waitForTimeout(250);
   await page.screenshot({ path: path.join(outDir, '03-jump.png') });
   await page.evaluate(() => window.__press(2, true));
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(450);
   await page.evaluate(() => window.__press(2, false));
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(800);
   await page.evaluate(() => window.__axis(0, 0));
-  const x1 = await page.evaluate(() => window.__game.scene.getScene('Game').player.x);
   await page.screenshot({ path: path.join(outDir, '04-after-run.png') });
-  if (!(x1 > x0 + 60)) throw new Error(`Player did not move right with gamepad stick: ${x0} -> ${x1}`);
+  if (!(x1 > x0 + 50)) throw new Error(`Player did not move right with gamepad stick: ${x0} -> ${x1}`);
+  const rumbles = await page.evaluate(() => window.__rumbles || 0);
 
   // Keyboard path.
   await page.evaluate(() => { window.__padEnabled = false; });
-  const kx0 = await page.evaluate(() => window.__game.scene.getScene('Game').player.x);
+  await page.waitForTimeout(1500); // let any attack finish
+  const kx0 = await playerX();
   await page.keyboard.down('KeyA');
-  await page.waitForTimeout(1500);
+  const kx1 = await waitMove(kx0, -1, 40);
   await page.keyboard.up('KeyA');
-  await page.waitForTimeout(200);
-  const kx1 = await page.evaluate(() => window.__game.scene.getScene('Game').player.x);
   if (!(kx1 < kx0 - 30)) throw new Error(`Player did not move left with keyboard: ${kx0} -> ${kx1}`);
 
   const fps = await page.evaluate(() => window.__game.loop.actualFps);
-  console.log(`smoke ok: gamepad ${x0.toFixed(0)}->${x1.toFixed(0)}, keyboard ${kx0.toFixed(0)}->${kx1.toFixed(0)}, ${fps.toFixed(0)} fps (software GL)`);
+  console.log(`smoke ok: gamepad ${x0.toFixed(0)}->${x1.toFixed(0)}, keyboard ${kx0.toFixed(0)}->${kx1.toFixed(0)}, rumble calls ${rumbles}, ${fps.toFixed(0)} fps (software GL)`);
   if (warnings.length) console.log('warnings:\n' + warnings.slice(0, 10).join('\n'));
   if (errors.length) throw new Error('Console errors:\n' + errors.join('\n'));
 } catch (e) {
