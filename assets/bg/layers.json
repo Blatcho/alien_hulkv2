@@ -1,0 +1,278 @@
+{
+ "thornmoor": {
+  "ground_y": 600,
+  "layers": [
+   {
+    "key": "sky",
+    "scroll": 0.03,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "moon",
+    "scroll": 0.0,
+    "y": -43,
+    "fixed": true,
+    "x": 779,
+    "w": 322,
+    "h": 322
+   },
+   {
+    "key": "mountains_far",
+    "scroll": 0.08,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "mountains_near",
+    "scroll": 0.14,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "structures",
+    "scroll": 0.22,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "trees",
+    "scroll": 0.4,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "hedge",
+    "scroll": 0.65,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "ground",
+    "scroll": 1.0,
+    "y": 580,
+    "fixed": false,
+    "x": 0,
+    "w": 1024,
+    "h": 220
+   },
+   {
+    "key": "foreground",
+    "scroll": 1.3,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   }
+  ],
+  "moon": {
+   "x": 940,
+   "y": 118
+  },
+  "embers": true,
+  "fog": "#2e2c3c"
+ },
+ "graveyard": {
+  "ground_y": 600,
+  "layers": [
+   {
+    "key": "sky",
+    "scroll": 0.03,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "moon",
+    "scroll": 0.0,
+    "y": -115,
+    "fixed": true,
+    "x": 395,
+    "w": 490,
+    "h": 490
+   },
+   {
+    "key": "mountains_far",
+    "scroll": 0.08,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "mountains_near",
+    "scroll": 0.14,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "structures",
+    "scroll": 0.22,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "trees",
+    "scroll": 0.4,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "hedge",
+    "scroll": 0.65,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "ground",
+    "scroll": 1.0,
+    "y": 580,
+    "fixed": false,
+    "x": 0,
+    "w": 1024,
+    "h": 220
+   },
+   {
+    "key": "foreground",
+    "scroll": 1.3,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   }
+  ],
+  "moon": {
+   "x": 640,
+   "y": 130
+  },
+  "embers": false,
+  "fog": "#223034"
+ },
+ "castle": {
+  "ground_y": 600,
+  "layers": [
+   {
+    "key": "sky",
+    "scroll": 0.03,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "moon",
+    "scroll": 0.0,
+    "y": -40,
+    "fixed": true,
+    "x": 160,
+    "w": 280,
+    "h": 280
+   },
+   {
+    "key": "mountains_far",
+    "scroll": 0.08,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "mountains_near",
+    "scroll": 0.14,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "structures",
+    "scroll": 0.22,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "trees",
+    "scroll": 0.4,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "hedge",
+    "scroll": 0.65,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   },
+   {
+    "key": "ground",
+    "scroll": 1.0,
+    "y": 580,
+    "fixed": false,
+    "x": 0,
+    "w": 1024,
+    "h": 220
+   },
+   {
+    "key": "foreground",
+    "scroll": 1.3,
+    "y": 0,
+    "fixed": false,
+    "x": 0,
+    "w": 2048,
+    "h": 720
+   }
+  ],
+  "moon": {
+   "x": 300,
+   "y": 100
+  },
+  "embers": true,
+  "fog": "#2e2430"
+ }
+}

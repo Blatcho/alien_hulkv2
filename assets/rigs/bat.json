@@ -1,0 +1,54 @@
+{
+ "name": "bat",
+ "height": 30,
+ "hunch": 0,
+ "reach": 0,
+ "leg_len": 0,
+ "parts": [
+  {
+   "name": "wing_far",
+   "tex": "bat_wing",
+   "parent": null,
+   "at": [
+    -4,
+    -4
+   ],
+   "pivot": [
+    4,
+    6
+   ],
+   "z": 2,
+   "len": 40
+  },
+  {
+   "name": "torso",
+   "tex": "bat_body",
+   "parent": null,
+   "at": [
+    0,
+    0
+   ],
+   "pivot": [
+    18,
+    14
+   ],
+   "z": 10,
+   "len": 0
+  },
+  {
+   "name": "wing_near",
+   "tex": "bat_wing",
+   "parent": null,
+   "at": [
+    -2,
+    -2
+   ],
+   "pivot": [
+    4,
+    6
+   ],
+   "z": 20,
+   "len": 40
+  }
+ ]
+}
