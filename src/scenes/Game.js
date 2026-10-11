@@ -152,7 +152,8 @@ export default class GameScene extends Phaser.Scene {
     const e = new Enemy(this, x, this.groundY - 80, type, { level, ...opts });
     if (e.t.flying) { e.body_.y = this.groundY - (e.t.hoverY || 150); e.hoverBase = e.body_.y; }
     this.physics.add.collider(e.body_, this.ground);
-    this.physics.add.collider(e.body_, this.platforms);
+    // one-way platforms: enemies drop through when the player is well below them
+    this.physics.add.collider(e.body_, this.platforms, null, () => !(e.aggro && this.player.y > e.y + 60));
     this.enemies.push(e);
     return e;
   }
@@ -227,7 +228,7 @@ export default class GameScene extends Phaser.Scene {
       const btn = promptFor('interact', this.input_.lastDevice);
       if (near.kind === 'shrine') text = near.lit ? `[${btn}] Rest at the shrine` : `[${btn}] Light the shrine`;
       else if (near.kind === 'chest') text = near.opened ? '' : `[${btn}] Open chest`;
-      else if (near.kind === 'gate') text = this.enemiesRemaining() > 0 ? `The gate is barred. ${this.enemiesRemaining()} foes remain.` : `[${btn}] Pass through the gate`;
+      else if (near.kind === 'gate') text = this.gateKillsNeeded() > 0 ? `The gate is barred. ${this.gateKillsNeeded()} more foes must fall.` : `[${btn}] Pass through the gate`;
       this.prompt.setText(text).setPosition(near.x, this.groundY - 230).setVisible(!!text);
       if (this.input_.pressed.interact && text && !text.startsWith('The gate')) {
         this.input_.consume('interact');
@@ -240,6 +241,13 @@ export default class GameScene extends Phaser.Scene {
 
   enemiesRemaining() {
     return this.enemyDefs.filter((d) => !this.spawned.has(d.id)).length + this.enemies.filter((e) => e.alive).length;
+  }
+
+  // The gate yields once three quarters of the zone's foes have fallen (stragglers do not block progress).
+  gateKillsNeeded() {
+    const total = this.enemyDefs.length;
+    const killed = total - this.enemiesRemaining();
+    return Math.max(0, Math.ceil(total * 0.75) - killed);
   }
 
   interact(it) {
