@@ -20,6 +20,13 @@ export default class GameScene extends Phaser.Scene {
     this.carry = (data && data.carry) || null;      // gold/potions/inventory carried between zones or from a save
     this.startX = data && data.startX;
     this.openedChests = new Set((data && data.openedChests) || []);
+    // Resuming from the title's "Continue": unpack the saved snapshot.
+    if (data && data.save) {
+      const sv = data.save;
+      this.carry = { gold: sv.gold || 0, potions: sv.potions !== undefined ? sv.potions : 3, inventory: sv.inventory || [], kills: sv.kills || 0 };
+      this.startX = sv.checkpointX || this.startX;
+      this.openedChests = new Set(sv.openedChests || []);
+    }
   }
 
   create() {
