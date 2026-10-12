@@ -10,8 +10,10 @@ import Player from '../entities/Player.js';
 import Enemy from '../entities/Enemy.js';
 import Pickup from '../entities/Pickup.js';
 import { ZONES } from '../data/zones.js';
+import { TILE } from '../data/rooms.js';
 import Autopilot from '../systems/Autopilot.js';
 import Lighting from '../systems/Lighting.js';
+import { generateLevel, randomSeed, ROOM_H } from '../systems/LevelGen.js';
 
 export default class GameScene extends Phaser.Scene {
   constructor() { super('Game'); }
@@ -20,15 +22,18 @@ export default class GameScene extends Phaser.Scene {
     this.zoneKey = (data && data.zone) || 'thornmoor';
     this.stats = (data && data.stats) || new Stats();
     this.carry = (data && data.carry) || null;      // gold/potions/inventory carried between zones or from a save
-    this.startX = data && data.startX;
+    this.startAt = data && data.startAt;            // { x, y } checkpoint
     this.openedChests = new Set((data && data.openedChests) || []);
     this.demo = !!(data && data.demo);
+    const urlSeed = parseInt(new URLSearchParams(location.search).get('seed') || '', 10);
+    this.seed = (data && data.seed) || (Number.isFinite(urlSeed) ? urlSeed : randomSeed());
     // Resuming from the title's "Continue": unpack the saved snapshot.
     if (data && data.save) {
       const sv = data.save;
       this.carry = { gold: sv.gold || 0, potions: sv.potions !== undefined ? sv.potions : 3, inventory: sv.inventory || [], kills: sv.kills || 0 };
-      this.startX = sv.checkpointX || this.startX;
+      this.startAt = sv.checkpoint || (sv.checkpointX !== undefined ? { x: sv.checkpointX, y: 600 } : null);
       this.openedChests = new Set(sv.openedChests || []);
+      if (sv.seed) this.seed = sv.seed;
     }
   }
 
@@ -45,42 +50,47 @@ export default class GameScene extends Phaser.Scene {
     this.torches = [];
     this.spawned = new Set();
     this.gate = null; this.gateWall = null; this.boss = null; this.prompt = null;
-    this.worldW = zone.width;
-    this.physics.world.setBounds(0, -2000, zone.width, HEIGHT + 2000);
+
+    // ---- generate the level ----------------------------------------------------------------
+    const L = generateLevel({ seed: this.seed, zoneIndex: zone.zoneIndex, cols: zone.cols, rows: zone.rows, cloudRow: zone.cloudRow, highRow: zone.highRow, enemyTypes: zone.enemyTypes, level: zone.level });
+    this.level = L;
+    this.worldW = L.worldW;
+    this.groundY = L.groundY;
+    this.topY = L.topY;
+    this.physics.world.setBounds(0, L.topY - 2000, L.worldW, (L.groundY + 300) - (L.topY - 2000));
     const bgMeta = this.cache.json.get('bg_layers')[this.zoneKey];
-    this.groundY = bgMeta.ground_y;
     const moonScreen = { x: bgMeta.moon.x * BG_SCALE, y: bgMeta.moon.y * BG_SCALE };
     this.lighting = new Lighting(this, { ...bgMeta, moon: moonScreen, ambient: zone.ambient, moonLight: zone.moonLight });
-    this.parallax = new Parallax(this, this.zoneKey, { ...bgMeta, weather: zone.weather, lightning: zone.lightning, shafts: zone.shafts });
+    this.parallax = new Parallax(this, this.zoneKey, { ...bgMeta, weather: zone.weather, lightning: zone.lightning, shafts: zone.shafts, topY: L.topY, cloudY: L.groundY - zone.cloudRow * ROOM_H, highY: L.groundY - zone.highRow * ROOM_H });
 
     this.ground = this.physics.add.staticGroup();
-    this.ground.add(this.add.rectangle(0, this.groundY, zone.width, 200, 0, 0).setOrigin(0));
+    this.ground.add(this.add.rectangle(0, this.groundY, L.worldW, 200, 0, 0).setOrigin(0));
     this.platforms = this.physics.add.staticGroup();
-    for (const p of zone.platforms) this.buildPlatform(p);
-    for (const p of zone.props) this.buildProp(p);
-    for (const c of zone.checkpoints) this.buildShrine(c);
-    for (const c of zone.chests) this.buildChest(c);
-    if (zone.gate) this.buildGate(zone.gate);
-    this.checkpointX = this.startX || zone.start;
+    this.ladders = L.ladders;
+    this.stairs = L.stairs;
+    this.buildTiles(L);
+    for (const t of L.torches) this.buildTorch(t.x, t.y);
+    for (const p of L.props) this.buildProp(p.kind, p.x, p.y);
+    for (const r of L.rails) this.buildRail(r.x, r.y);
+    for (const c of L.shrines) this.buildShrine(c);
+    for (const c of L.chests) this.buildChest(c);
+    if (L.gate) this.buildGate(L.gate);
+    this.checkpoint = this.startAt || { x: L.start.x, y: L.start.y };
 
-    const px = this.checkpointX;
-    this.player = new Player(this, px, this.groundY - PLAYER.bodyHeight / 2 - 2, this.stats);
+    this.player = new Player(this, this.checkpoint.x, this.checkpoint.y - PLAYER.bodyHeight / 2 - 2, this.stats);
     if (this.carry) {
       this.player.gold = this.carry.gold || 0; this.player.potions = this.carry.potions !== undefined ? this.carry.potions : 3;
       this.player.inventory = this.carry.inventory || []; this.player.kills = this.carry.kills || 0;
     }
     this.physics.add.collider(this.player.body_, this.ground);
-    this.physics.add.collider(this.player.body_, this.platforms);
-    this.enemyDefs = zone.enemies.map((e, i) => ({ ...e, id: i }));
-    this.bossDef = zone.boss || null;
+    this.physics.add.collider(this.player.body_, this.platforms, null, () => !this.player.dropThrough && !this.player.climbing);
+    this.enemyDefs = L.enemies.map((e, i) => ({ ...e, id: i }));
+    this.bossDef = zone.boss ? { type: zone.boss.type, x: L.gate.x - 420, y: L.gate.y, arena: [L.gate.x - 1100, L.gate.x + 120] } : null;
     this.bossSpawned = false;
-    this.boss = null;
 
     const cam = this.cameras.main;
-    // Horizontal follow only; the vertical framing is set by applyZoom so the ground line stays put.
-    cam.setBounds(0, -100000, zone.width, 200000);
-    cam.startFollow(this.player.body_, true, 0.1, 0, 0, 0);
-    cam.setDeadzone(120, 60);
+    cam.startFollow(this.player.body_, true, 0.1, 0.1, 0, 60);
+    cam.setDeadzone(120, 80);
     this.zoom = this.loadZoom();
     this.applyZoom(this.zoom, true);
     cam.fadeIn(600, 0, 0, 0);
@@ -94,6 +104,7 @@ export default class GameScene extends Phaser.Scene {
       this.load.start();
     }
     this.time.delayedCall(500, () => this.events.emit('zone-title', zone.name, zone.subtitle));
+    this.events.emit('seed', this.seed);
     if (new URLSearchParams(location.search).get('debug')) this.combat.debug = true;
 
     this.events.on('restart-checkpoint', () => this.restartFromCheckpoint());
@@ -131,10 +142,10 @@ export default class GameScene extends Phaser.Scene {
     this.zoom = z;
     const cam = this.cameras.main;
     cam.setZoom(z);
-    // keep the world ground line at the same screen height as the zoom-1 framing (780 of 900)
-    const groundScreen = this.groundY - VIEW_TOP;
-    const centerY = this.groundY - (groundScreen - HEIGHT / 2) / z;
-    cam.scrollY = centerY - HEIGHT / 2;
+    // the camera may rise to the top of the level; at the bottom it keeps the ground-line framing
+    const bottom = this.groundY + 120 / z;
+    const top = this.topY - 360 / z;
+    cam.setBounds(0, top, this.worldW, bottom - top);
     this.parallax.setZoom(z);
     try { localStorage.setItem('botm_zoom', String(z)); } catch (e) { /* ignore */ }
     if (!silent) this.events.emit('toast', `Zoom ${Math.round(z * 100)}%`, 900);
@@ -153,80 +164,138 @@ export default class GameScene extends Phaser.Scene {
     for (const ev of ['restart-checkpoint', 'player-died', 'boss-aggro']) this.events.off(ev);
   }
 
-  // ------------------------------------------------------------------ world
-  buildPlatform(p) {
-    const ts = this.lighting.lit(this.add.tileSprite(p.x, p.y, p.w, 28, 'world_platform').setOrigin(0, 0).setDepth(DEPTH.props));
-    const body = this.add.rectangle(p.x, p.y, p.w, 20, 0, 0).setOrigin(0, 0);
-    this.platforms.add(body);
-    body.body.checkCollision.down = false; body.body.checkCollision.left = false; body.body.checkCollision.right = false;
-    return ts;
+  // ------------------------------------------------------------------ world building
+  tileSet(band) {
+    const sky = band === 'sky';
+    const has = (k) => this.textures.exists(k);
+    return {
+      fill: sky && has('world_sky_fill') ? 'world_sky_fill' : has('world_stone_fill') ? 'world_stone_fill' : 'world_platform',
+      top: sky && has('world_sky_top') ? 'world_sky_top' : has('world_stone_top') ? 'world_stone_top' : 'world_platform',
+      edgeL: sky && has('world_sky_edge_l') ? 'world_sky_edge_l' : has('world_stone_edge_l') ? 'world_stone_edge_l' : null,
+      edgeR: sky && has('world_sky_edge_r') ? 'world_sky_edge_r' : has('world_stone_edge_r') ? 'world_stone_edge_r' : null,
+      platform: sky && has('world_cloud_platform') ? 'world_cloud_platform' : 'world_platform',
+      ladder: sky && has('world_ladder_sky') ? 'world_ladder_sky' : has('world_ladder') ? 'world_ladder' : null,
+      stair: sky && has('world_stair_sky') ? 'world_stair_sky' : has('world_stair') ? 'world_stair' : null,
+    };
   }
 
-  buildProp(p) {
-    const key = `prop_${p.type}`;
-    if (p.type === 'fence') { this.lighting.lit(this.add.image(p.x, this.groundY + 2, 'world_fence').setOrigin(0.5, 1).setDepth(DEPTH.props - 1)); return; }
+  buildTiles(L) {
+    for (const s of L.solids) {
+      const ts = this.tileSet(s.band);
+      // visuals: a top strip where exposed, masonry fill elsewhere, caps at run ends
+      const img = this.lighting.lit(this.add.tileSprite(s.x, s.y, s.w, s.h, s.top ? ts.top : ts.fill).setOrigin(0, 0).setDepth(DEPTH.props - 3));
+      if (s.top && ts.fill !== ts.top && s.h > TILE) img.setTexture(ts.fill);
+      if (s.capL && ts.edgeL) this.lighting.lit(this.add.image(s.x, s.y, ts.edgeL).setOrigin(0, 0).setDepth(DEPTH.props - 2.9));
+      if (s.capR && ts.edgeR) this.lighting.lit(this.add.image(s.x + s.w - TILE, s.y, ts.edgeR).setOrigin(0, 0).setDepth(DEPTH.props - 2.9));
+      const body = this.add.rectangle(s.x, s.y, s.w, s.h, 0, 0).setOrigin(0, 0);
+      this.ground.add(body);
+    }
+    for (const p of L.platforms) {
+      const ts = this.tileSet(p.band);
+      if (!p.ladderTop) this.lighting.lit(this.add.tileSprite(p.x, p.y, p.w, 28, ts.platform).setOrigin(0, 0).setDepth(DEPTH.props));
+      const body = this.add.rectangle(p.x, p.y, p.w, p.h, 0, 0).setOrigin(0, 0);
+      this.platforms.add(body);
+      body.body.checkCollision.down = false; body.body.checkCollision.left = false; body.body.checkCollision.right = false;
+    }
+    for (const l of L.ladders) {
+      const ts = this.tileSet(l.band);
+      if (ts.ladder) this.lighting.lit(this.add.tileSprite(l.x, l.top, 48, l.bottom - l.top, ts.ladder).setOrigin(0.5, 0).setDepth(DEPTH.props - 2));
+      else this.add.rectangle(l.x, l.top, 40, l.bottom - l.top, 0x6a4a30, 0.8).setOrigin(0.5, 0).setDepth(DEPTH.props - 2);
+    }
+    for (const st of L.stairs) {
+      const ts = this.tileSet(st.band);
+      for (const t of st.tiles) {
+        if (ts.stair) this.lighting.lit(this.add.image(t.x, t.y, ts.stair).setOrigin(0, 0).setDepth(DEPTH.props - 2.5).setFlipX(st.dir < 0));
+        else if (st.dir > 0) this.add.triangle(t.x, t.y, 0, TILE, TILE, 0, TILE, TILE, 0x5a5550).setOrigin(0, 0).setDepth(DEPTH.props - 2.5);
+        else this.add.triangle(t.x, t.y, 0, 0, TILE, TILE, 0, TILE, 0x5a5550).setOrigin(0, 0).setDepth(DEPTH.props - 2.5);
+      }
+    }
+    // dark backdrop behind rooms above the ground band so the sky shows through only at the open edges
+  }
+
+  // Height of a stair surface under x, if (x, feetY) is close to one; else null.
+  stairSurface(x, feetY, tol = 48) {
+    for (const st of this.stairs) {
+      if (x < st.x0 || x > st.x1) continue;
+      const t = (x - st.x0) / (st.x1 - st.x0);
+      const y = st.yAtLeft + (st.yAtRight - st.yAtLeft) * t;
+      if (feetY > y - tol && feetY < y + tol) return y;
+    }
+    return null;
+  }
+
+  ladderAt(x, top, bottom) {
+    for (const l of this.ladders) {
+      if (Math.abs(l.x - x) <= 26 && bottom > l.top && top < l.bottom) return l;
+    }
+    return null;
+  }
+
+  // Is there standing room (floor) at a point? Used by enemies to avoid walking off ledges.
+  hasFloor(x, y) {
+    if (y >= this.groundY - 2) return true;
+    for (const s of this.level.solids) if (x >= s.x && x <= s.x + s.w && y >= s.y - 6 && y <= s.y + 24) return true;
+    for (const p of this.level.platforms) if (x >= p.x && x <= p.x + p.w && y >= p.y - 6 && y <= p.y + 24) return true;
+    return this.stairSurface(x, y, 40) !== null;
+  }
+
+  buildTorch(x, floorY) {
+    this.add.rectangle(x, floorY + 2, 6, 110, 0x1a1a20).setOrigin(0.5, 1).setDepth(DEPTH.props - 2);
+    this.add.image(x, floorY - 130, 'prop_torch').setOrigin(0.5, 0.5).setDepth(DEPTH.props - 1);
+    const flame = this.add.sprite(x, floorY - 170, 'fx_flame').setOrigin(0.5, 0.75).setDepth(DEPTH.props).setBlendMode('ADD').setScale(1.1);
+    flame.play({ key: 'flame', startFrame: Math.floor(Math.random() * 6) });
+    const glow = this.add.image(x, floorY - 160, 'glow').setDepth(DEPTH.props + 1).setBlendMode('ADD').setAlpha(0.45).setScale(1.6);
+    const emitter = this.add.particles(x, floorY - 175, 'particle_soft', {
+      speedY: { min: -70, max: -30 }, speedX: { min: -15, max: 15 }, lifespan: { min: 500, max: 1100 }, scale: { start: 0.25, end: 0 },
+      alpha: { start: 0.9, end: 0 }, tint: [0xffa040, 0xff6020], frequency: 90, blendMode: 'ADD',
+    }).setDepth(DEPTH.props + 1);
+    this.torches.push({ glow, flame, emitter, phase: Math.random() * 10 });
+    this.lighting.addTorch(x, floorY - 165);
+  }
+
+  buildProp(kind, x, floorY) {
+    const key = `prop_${kind}`;
     if (!this.textures.exists(key)) return;
-    if (p.type === 'torch') {
-      // standing torch: iron post from the ground up to the bracket
-      this.add.rectangle(p.x, this.groundY + 2, 6, 110, 0x1a1a20).setOrigin(0.5, 1).setDepth(DEPTH.props - 2);
-      this.add.image(p.x, this.groundY - 130, key).setOrigin(0.5, 0.5).setDepth(DEPTH.props - 1);
-      const flame = this.add.sprite(p.x, this.groundY - 170, 'fx_flame').setOrigin(0.5, 0.75).setDepth(DEPTH.props).setBlendMode('ADD').setScale(1.1);
-      flame.play({ key: 'flame', startFrame: Math.floor(Math.random() * 6) });
-      const glow = this.add.image(p.x, this.groundY - 160, 'glow').setDepth(DEPTH.props + 1).setBlendMode('ADD').setAlpha(0.45).setScale(1.6);
-      const emitter = this.add.particles(p.x, this.groundY - 175, 'particle_soft', {
-        speedY: { min: -70, max: -30 }, speedX: { min: -15, max: 15 }, lifespan: { min: 500, max: 1100 }, scale: { start: 0.25, end: 0 },
-        alpha: { start: 0.9, end: 0 }, tint: [0xffa040, 0xff6020], frequency: 90, blendMode: 'ADD',
-      }).setDepth(DEPTH.props + 1);
-      this.torches.push({ glow, flame, emitter, phase: Math.random() * 10 });
-      this.lighting.addTorch(p.x, this.groundY - 165);
-      return;
-    }
-    if (p.type === 'cage') {
-      const img = this.lighting.lit(this.add.image(p.x, p.y || 230, key).setOrigin(0.5, 0).setDepth(DEPTH.props - 2));
-      this.tweens.add({ targets: img, angle: { from: -2.5, to: 2.5 }, duration: 2600 + Math.random() * 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-      return;
-    }
-    const pivotY = p.type === 'pillar' || p.type.startsWith('gravestone') || p.type === 'skull' ? 1 : 1;
-    if (p.type === 'brazier' && this.textures.exists(key)) {
-      this.lighting.lit(this.add.image(p.x, this.groundY + 4, key).setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
-      const flame = this.add.sprite(p.x, this.groundY - 62, 'fx_flame').setOrigin(0.5, 0.8).setDepth(DEPTH.props).setBlendMode('ADD').setScale(1.5, 1.3);
-      flame.play({ key: 'flame', startFrame: Math.floor(Math.random() * 6) });
-      this.lighting.addTorch(p.x, this.groundY - 70, { radius: 340, intensity: 1.5 });
-      return;
-    }
-    if (p.type === 'banner') { this.lighting.lit(this.add.image(p.x, p.y || 240, key).setOrigin(0.5, 0).setDepth(DEPTH.props - 2)); return; }
-    this.lighting.lit(this.add.image(p.x, this.groundY + 4, key).setOrigin(0.5, pivotY).setDepth(DEPTH.props - 2));
+    this.lighting.lit(this.add.image(x, floorY + 4, key).setOrigin(0.5, 1).setDepth(DEPTH.props - 2));
+  }
+
+  buildRail(x, floorY) {
+    if (this.textures.exists('world_rail')) this.lighting.lit(this.add.image(x, floorY, 'world_rail').setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
+    else this.lighting.lit(this.add.image(x, floorY + 2, 'world_fence').setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
   }
 
   buildShrine(c) {
-    const img = this.lighting.lit(this.add.sprite(c.x, this.groundY + 2, 'prop_shrine', 0).setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
-    const glow = this.add.image(c.x, this.groundY - 110, 'glow').setDepth(DEPTH.props).setBlendMode('ADD').setAlpha(0).setScale(1.4).setTint(0x80c0ff);
-    const shrine = { kind: 'shrine', x: c.x, img, glow, lit: false, range: 70 };
-    this.interactables.push(shrine);
+    const img = this.lighting.lit(this.add.sprite(c.x, c.y + 2, 'prop_shrine', 0).setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
+    const glow = this.add.image(c.x, c.y - 110, 'glow').setDepth(DEPTH.props).setBlendMode('ADD').setAlpha(0).setScale(1.4).setTint(0x80c0ff);
+    this.interactables.push({ kind: 'shrine', x: c.x, y: c.y, img, glow, lit: false, range: 70 });
   }
 
   buildChest(c) {
-    const y = c.y !== undefined ? c.y : this.groundY;
-    const id = `${this.zoneKey}:${c.x}`;
+    const id = `${this.zoneKey}:${Math.round(c.x)}:${Math.round(c.y)}`;
     const opened = this.openedChests.has(id);
-    const img = this.lighting.lit(this.add.sprite(c.x, y + 2, 'prop_chest', opened ? 1 : 0).setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
-    this.interactables.push({ kind: 'chest', x: c.x, y, img, id, opened, range: 70 });
+    const img = this.lighting.lit(this.add.sprite(c.x, c.y + 2, 'prop_chest', opened ? 1 : 0).setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
+    this.interactables.push({ kind: 'chest', x: c.x, y: c.y, img, id, opened, range: 70 });
   }
 
   buildGate(g) {
-    const img = this.lighting.lit(this.add.image(g.x, this.groundY + 4, 'world_gate').setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
-    this.gate = { kind: 'gate', x: g.x, img, range: 90 };
+    const img = this.lighting.lit(this.add.image(g.x, g.y + 4, 'world_gate').setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
+    this.gate = { kind: 'gate', x: g.x, y: g.y, img, range: 90 };
     this.interactables.push(this.gate);
-    // invisible wall until the gate opens
-    this.gateWall = this.add.rectangle(g.x + 40, this.groundY - 150, 20, 300, 0, 0).setOrigin(0.5, 0);
-    this.platforms.add(this.gateWall);
   }
 
-  groundYAt() { return this.groundY; }
+  groundYAt(x, y) {
+    // the nearest floor below a point (for shadows): ground, solids, platforms
+    let best = this.groundY;
+    if (y === undefined) return best;
+    for (const s of this.level.solids) if (x >= s.x && x <= s.x + s.w && s.y >= y - 10 && s.y < best) best = s.y;
+    for (const p of this.level.platforms) if (x >= p.x && x <= p.x + p.w && p.y >= y - 10 && p.y < best) best = p.y;
+    return best;
+  }
 
   spawnEnemy(type, x, level = 1, opts = {}) {
-    const e = new Enemy(this, x, this.groundY - 80, type, { level, ...opts });
-    if (e.t.flying) { e.body_.y = this.groundY - (e.t.hoverY || 150); e.hoverBase = e.body_.y; }
+    const y = opts.y !== undefined ? opts.y : this.groundY;
+    const e = new Enemy(this, x, y - 80, type, { level, ...opts });
+    if (e.t.flying) { e.body_.y = y - (e.t.hoverY || 150); e.hoverBase = e.body_.y; }
     this.physics.add.collider(e.body_, this.ground);
     // one-way platforms: enemies drop through when the player is well below them
     this.physics.add.collider(e.body_, this.platforms, null, () => !(e.aggro && this.player.y > e.y + 60));
@@ -236,18 +305,19 @@ export default class GameScene extends Phaser.Scene {
 
   // Enemies spawn when the camera approaches so the world stays cheap.
   spawnNearby() {
-    const camX = this.cameras.main.scrollX;
+    const cam = this.cameras.main;
+    const wv = cam.worldView;
     const lvl = this.zone.level;
     for (const d of this.enemyDefs) {
       if (this.spawned.has(d.id)) continue;
-      if (d.x < camX + WIDTH + 400 && d.x > camX - 400) {
+      if (d.x > wv.x - 400 && d.x < wv.right + 400 && d.y > wv.y - 400 && d.y < wv.bottom + 400) {
         this.spawned.add(d.id);
-        this.spawnEnemy(d.type, d.x, lvl, { patrol: d.patrol || null });
+        this.spawnEnemy(d.type, d.x, lvl, { y: d.y, patrol: null });
       }
     }
-    if (this.bossDef && !this.bossSpawned && this.player.x > this.bossDef.arena[0] - 500) {
+    if (this.bossDef && !this.bossSpawned && Math.abs(this.player.x - this.bossDef.x) < 700 && Math.abs(this.player.y - this.bossDef.y) < 400) {
       this.bossSpawned = true;
-      this.boss = this.spawnEnemy(this.bossDef.type, this.bossDef.x, lvl);
+      this.boss = this.spawnEnemy(this.bossDef.type, this.bossDef.x, lvl, { y: this.bossDef.y });
     }
   }
 
@@ -256,11 +326,6 @@ export default class GameScene extends Phaser.Scene {
     this.audio.play('sfx_boss_roar');
     this.fx.shake(0.01, 500);
     this.events.emit('boss-start', boss.t.name, () => ({ hp: boss.hp, maxHp: boss.maxHp }));
-    // arena walls
-    const [a, b] = this.bossDef.arena;
-    this.platforms.add(this.add.rectangle(a - 10, this.groundY - 400, 20, 400, 0, 0).setOrigin(0.5, 0));
-    this.platforms.add(this.add.rectangle(b + 10, this.groundY - 400, 20, 400, 0, 0).setOrigin(0.5, 0));
-    this.cameras.main.setBounds(a - 140, -100000, (b - a) + 280, 200000);
   }
 
   onEnemyKilled(enemy, info) {
@@ -297,16 +362,19 @@ export default class GameScene extends Phaser.Scene {
     const p = this.player;
     let near = null;
     for (const it of this.interactables) {
-      if (Math.abs(it.x - p.x) < it.range && Math.abs((it.y !== undefined ? it.y : this.groundY) - (p.y + PLAYER.bodyHeight / 2)) < 90) { near = it; break; }
+      if (Math.abs(it.x - p.x) < it.range && Math.abs(it.y - (p.y + PLAYER.bodyHeight / 2)) < 90) { near = it; break; }
     }
     if (near && p.alive && !this.transitioning) {
       let text = '';
       const btn = promptFor('interact', this.input_.lastDevice);
       if (near.kind === 'shrine') text = near.lit ? `[${btn}] Rest at the shrine` : `[${btn}] Light the shrine`;
       else if (near.kind === 'chest') text = near.opened ? '' : `[${btn}] Open chest`;
-      else if (near.kind === 'gate') text = this.gateKillsNeeded() > 0 ? `The gate is barred. ${this.gateKillsNeeded()} more foes must fall.` : `[${btn}] Pass through the gate`;
-      this.prompt.setText(text).setPosition(near.x, this.groundY - 230).setVisible(!!text);
-      if (this.input_.pressed.interact && text && !text.startsWith('The gate')) {
+      else if (near.kind === 'gate') {
+        if (this.bossDef && (!this.boss || this.boss.alive)) text = 'The Warden bars the way.';
+        else text = this.gateKillsNeeded() > 0 ? `The gate is barred. ${this.gateKillsNeeded()} more foes must fall.` : `[${btn}] Pass through the gate`;
+      }
+      this.prompt.setText(text).setPosition(near.x, near.y - 230).setVisible(!!text);
+      if (this.input_.pressed.interact && text && !text.startsWith('The ')) {
         this.input_.consume('interact');
         this.interact(near);
       }
@@ -316,14 +384,14 @@ export default class GameScene extends Phaser.Scene {
   }
 
   enemiesRemaining() {
-    return this.enemyDefs.filter((d) => !this.spawned.has(d.id)).length + this.enemies.filter((e) => e.alive).length;
+    return this.enemyDefs.filter((d) => !this.spawned.has(d.id)).length + this.enemies.filter((e) => e.alive && !e.t.boss).length;
   }
 
-  // The gate yields once three quarters of the zone's foes have fallen (stragglers do not block progress).
+  // The gate yields once six in ten of the zone's foes have fallen (side rooms are optional).
   gateKillsNeeded() {
     const total = this.enemyDefs.length;
     const killed = total - this.enemiesRemaining();
-    return Math.max(0, Math.ceil(total * 0.75) - killed);
+    return Math.max(0, Math.ceil(total * 0.6) - killed);
   }
 
   interact(it) {
@@ -333,9 +401,9 @@ export default class GameScene extends Phaser.Scene {
       it.img.setFrame(1);
       it.glow.setAlpha(0.5);
       this.tweens.add({ targets: it.glow, alpha: 0.3, duration: 1200, yoyo: true, repeat: -1 });
-      this.lighting.addPoint(it.x, this.groundY - 120, 260, 0x80c0ff, 1.0);
+      this.lighting.addPoint(it.x, it.y - 120, 260, 0x80c0ff, 1.0);
       p.hp = p.maxHp; p.stamina = p.maxStamina; p.potions = Math.max(p.potions, 3);
-      this.checkpointX = it.x;
+      this.checkpoint = { x: it.x, y: it.y };
       this.writeCheckpoint();
       this.audio.play('sfx_checkpoint');
       this.events.emit('toast', 'Shrine lit. Progress saved.', 2000);
@@ -348,7 +416,7 @@ export default class GameScene extends Phaser.Scene {
       const loot = this.registry.get('loot');
       const drops = [{ type: 'gold', amount: 20 + Math.floor(Math.random() * 30) * this.zone.level }, { type: 'potion' }];
       if (loot && loot.rollItem) drops.push({ type: 'item', item: loot.rollItem(this.stats.level + this.zone.level, { luck: 0.6 }) });
-      for (const d of drops) this.pickups.push(new Pickup(this, it.x, (it.y !== undefined ? it.y : this.groundY) - 40, d));
+      for (const d of drops) this.pickups.push(new Pickup(this, it.x, it.y - 40, d));
     } else if (it.kind === 'gate') {
       this.passGate();
     }
@@ -359,24 +427,21 @@ export default class GameScene extends Phaser.Scene {
     this.transitioning = true;
     this.audio.play('sfx_gate');
     this.tweens.add({ targets: this.gate.img, y: this.gate.img.y - 200, duration: 1600, ease: 'Sine.easeInOut' });
-    this.gateWall.destroy();
-    this.player.gateX = this.gate.x + 160;
     this.cameras.main.fadeOut(1800, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       const next = this.zone.next;
       const carry = { gold: this.player.gold, potions: this.player.potions, inventory: this.player.inventory || [], kills: this.player.kills };
-      this.scene.restart({ zone: next, stats: this.stats, carry, openedChests: [...this.openedChests], demo: this.demo });
+      if (!next) { this.scene.pause(); this.scene.launch('Victory'); return; }
+      this.scene.restart({ zone: next, stats: this.stats, carry, openedChests: [...this.openedChests], demo: this.demo, seed: this.seed });
       this.time.delayedCall(50, () => this.writeCheckpoint());
     });
   }
 
-  writeCheckpoint() {
-    writeSave(snapshot(this));
-  }
+  writeCheckpoint() { writeSave(snapshot(this)); }
 
   restartFromCheckpoint() {
     const carry = { gold: this.player.gold, potions: Math.max(this.player.potions, 2), inventory: this.player.inventory || [], kills: this.player.kills };
-    this.scene.restart({ zone: this.zoneKey, stats: this.stats, carry, startX: this.checkpointX, openedChests: [...this.openedChests], demo: this.demo });
+    this.scene.restart({ zone: this.zoneKey, stats: this.stats, carry, startAt: this.checkpoint, openedChests: [...this.openedChests], demo: this.demo, seed: this.seed });
   }
 
   // ------------------------------------------------------------------ update
@@ -405,7 +470,6 @@ export default class GameScene extends Phaser.Scene {
     for (const p of [...this.pickups]) p.update(dt);
     this.combat.update(this.player, this.enemies);
     this.updateInteractables();
-    // fell off the world (should not happen with flat ground, but be safe)
-    if (this.player.y > HEIGHT + 400 && this.player.alive) { this.player.takeHit({ damage: 9999, dir: 1 }); }
+    if (this.player.y > this.groundY + 400 && this.player.alive) { this.player.takeHit({ damage: 9999, dir: 1 }); }
   }
 }

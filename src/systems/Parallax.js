@@ -65,10 +65,36 @@ export default class Parallax {
       }
     }
 
+    // Altitude bands: cloud layers anchored at world heights, a high-sky backdrop that fades in and
+    // a big moon above the clouds. All optional (textures come from tools/gen_world_tiles.py).
+    this.alt = [];
+    const has = (k) => scene.textures.exists(k);
+    const cloudY = meta.cloudY !== undefined ? meta.cloudY : meta.ground_y - 1400;
+    const highY = meta.highY !== undefined ? meta.highY : meta.ground_y - 2100;
+    const addAlt = (key, p, worldY, h, depth, alpha = 1, tint = null) => {
+      const ts = scene.add.tileSprite(0, 0, WIDTH, h, key).setOrigin(0.5, 0).setScrollFactor(0).setDepth(depth).setAlpha(alpha);
+      if (tint !== null) ts.setTint(tint);
+      this.alt.push({ obj: ts, p, worldY, texH: h, alpha });
+      return ts;
+    };
+    if (has('bg_sky_high')) {
+      this.skyHigh = scene.add.tileSprite(0, 0, WIDTH, HEIGHT, 'bg_sky_high').setOrigin(0.5, 0).setScrollFactor(0).setDepth(DEPTH.bgFar + 0.2).setAlpha(0);
+    }
+    if (has('bg_clouds_far')) addAlt('bg_clouds_far', 0.22, cloudY - 420, 512, DEPTH.bgFar + 1.6, 0.9);
+    if (has('bg_clouds_near')) addAlt('bg_clouds_near', 0.55, cloudY - 300, 720, DEPTH.bgFar + 3.6, 1);
+    if (has('bg_clouds_top')) addAlt('bg_clouds_top', 0.5, highY + 140, 512, DEPTH.bgFar + 3.7, 1);
+    if (has('bg_moon_big')) {
+      this.moonBig = scene.add.image(0, 0, 'bg_moon_big').setScrollFactor(0).setDepth(DEPTH.bgFar + 0.3).setAlpha(0);
+    }
+    this.altitudeTint = 0;
+
     // Vignette on top of the world (under the HUD scene).
     this.vignette = scene.add.image(WIDTH / 2, HEIGHT / 2, 'ui_vignette').setScrollFactor(0).setDepth(DEPTH.hud - 1).setAlpha(0.5);
     this.setZoom(1);
   }
+
+  // camera centre (world y) when the player stands on the ground at this zoom
+  groundCenterY(z) { return this.meta.ground_y - ((this.meta.ground_y - VIEW_TOP) - HEIGHT / 2) / z; }
 
   earthColor(meta) {
     try { return Phaser.Display.Color.HexStringToColor(meta.earth || '#15110c').color; } catch (e) { return 0x15110c; }
@@ -122,8 +148,56 @@ export default class Parallax {
       const P = this.screenToObj(sh.sx, sh.sy, z);
       sh.img.setPosition(P.x, P.y).setScale(1.6 / z, 1.4 / z);
     }
+    for (const a of this.alt) {
+      const pre = Math.pow(z, a.p) / z;
+      a.obj.setTileScale(pre, pre);
+      a.obj.width = WIDTH * cover + 4; a.obj.height = a.texH * pre;
+    }
+    if (this.skyHigh) { this.skyHigh.setTileScale(1 / z, 1 / z); this.skyHigh.width = WIDTH * cover + 4; this.skyHigh.height = HEIGHT * cover + 4; this.skyHigh.setPosition(WIDTH / 2, HEIGHT / 2 - (HEIGHT / 2) * cover); }
+    if (this.moonBig) { this.moonBig.setScale(1 / z); }
     this.vignette.setDisplaySize(WIDTH * cover, HEIGHT * cover);
     this.rebuildParticles();
+    this.vertical();
+  }
+
+  // Vertical parallax: as the camera rises above the ground framing, every layer slides down by
+  // its own factor (pre-zoom object units equal world units), the cloud bands come up to meet the
+  // camera at their anchored heights, and above the clouds the high sky and big moon fade in.
+  vertical() {
+    const z = this.zoom;
+    const dy = this.cam.midPoint.y - this.groundCenterY(z);     // negative when the camera is up
+    for (const L of this.layers) {
+      const pv = L.fixed ? 0.02 : (L.meta.key === 'sky' ? 0.06 : L.p);
+      const base = L.baseY !== undefined ? L.baseY : (L.baseY = L.obj.y);
+      L.obj.y = base - dy * pv;
+    }
+    for (const f of this.fogs) {
+      const base = f.baseY !== undefined ? f.baseY : (f.baseY = f.obj.y);
+      f.obj.y = base - dy * f.p;
+    }
+    for (const sh of this.shafts) {
+      const base = sh.baseY !== undefined ? sh.baseY : (sh.baseY = sh.img.y);
+      sh.img.y = base - dy * 0.05;
+    }
+    // world-anchored bands: the layer's top sits at worldY; screen = centre + (worldY - camY) * p * z
+    for (const a of this.alt) {
+      const screenTop = HEIGHT / 2 + (a.worldY - this.cam.midPoint.y) * a.p * z;
+      a.obj.setPosition(WIDTH / 2, HEIGHT / 2 + (screenTop - HEIGHT / 2) / z);
+    }
+    // altitude fraction 0 (ground) .. 1 (top of the level)
+    const span = Math.max(1, this.meta.ground_y - (this.meta.topY !== undefined ? this.meta.topY : this.meta.ground_y - 2800));
+    const alt = Math.max(0, Math.min(1, -dy / span));
+    this.altitude = alt;
+    const high = Math.max(0, Math.min(1, (alt - 0.55) / 0.3));
+    if (this.skyHigh) this.skyHigh.setAlpha(high * 0.95);
+    if (this.moonBig) {
+      const m = this.moonScreen;
+      const P = this.screenToObj(m.x, m.y + 40 + (1 - high) * 120, z);
+      this.moonBig.setPosition(P.x, P.y).setAlpha(high);
+    }
+    // the moor layers thin out with altitude so the climb reads as leaving the ground behind
+    for (const L of this.layers) if (!L.fixed && L.meta.key !== 'sky') L.obj.setAlpha((L.meta.key === 'foreground' ? 0.8 : 1) * (1 - high * 0.85));
+    for (const f of this.fogs) f.obj.setAlpha((f.p < 1 ? 0.22 : 0.16) * (1 - alt * 0.9));
   }
 
   rebuildParticles() {
@@ -200,6 +274,9 @@ export default class Parallax {
     }
     this.fogs[0].obj.tilePositionX = (sx * 0.7 * this.zoom + this.time * 0.012) / (this.fogs[0].obj.tileScaleX * this.zoom);
     this.fogs[1].obj.tilePositionX = (sx * 1.05 * this.zoom - this.time * 0.02) / (this.fogs[1].obj.tileScaleX * this.zoom);
+    for (const a of this.alt) a.obj.tilePositionX = (sx * a.p * this.zoom + this.time * 0.01) / (a.obj.tileScaleX * this.zoom);
+    if (this.skyHigh) this.skyHigh.tilePositionX = (sx * 0.03 * this.zoom) / (this.skyHigh.tileScaleX * this.zoom);
+    this.vertical();
   }
 
   destroy() {
@@ -208,6 +285,9 @@ export default class Parallax {
     for (const e of this.weatherEmitters || []) e.destroy();
     for (const s of this.shafts || []) s.img.destroy();
     if (this.embers) this.embers.destroy();
+    for (const a of this.alt || []) a.obj.destroy();
+    if (this.skyHigh) this.skyHigh.destroy();
+    if (this.moonBig) this.moonBig.destroy();
     this.earth.destroy();
     this.vignette.destroy();
   }

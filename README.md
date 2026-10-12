@@ -34,6 +34,8 @@ blocked on the `file:` origin. Any static server works (`python3 -m http.server`
 | Defend (hold; raise just before a hit to parry) | LT | Shift / I |
 | Backstep (invulnerable hop away from the threat) | B / RT | L |
 | Drink potion | RB | Q |
+| Climb ladders | Stick / D-pad up and down | W / S or ↑ / ↓ |
+| Drop through a ledge | Down + A | S + Space |
 | Interact (shrines, chests, gates) | LB | E |
 | Pause / character sheet | Start | Esc / Enter |
 | Zoom out / in (seven steps, 60% to 130%, remembered) | | `-` / `+` (also numpad, `[` / `]`) |
@@ -57,8 +59,13 @@ and passes gates. Press any key or pad button to take over mid-run.
   gold find). Equip from the pause menu.
 - Shrines fully heal, refill potions and save a checkpoint to `localStorage`. "Continue" on the title
   resumes from the last shrine.
-- Each zone's gate opens once every foe in the zone has fallen. Three zones: Thornmoor, The Hollow
-  Graves and The Warden's Gate, which ends in the boss fight.
+- Levels are generated from a seed: each zone is a grid of rooms knitted together by a critical
+  path that climbs from the moor through the cloud bank into the high sky, with side rooms holding
+  chests. Ladders (hold up/down on them, jump to let go) and stairs connect the heights; hold down
+  and jump to drop through a thin ledge. The seed is shown at the bottom of the screen, kept in the
+  checkpoint save, and can be forced with `?seed=12345` on the URL.
+- Each zone's gate, in the top room, opens once six in ten of the zone's foes have fallen. Three
+  zones: Thornmoor, The Hollow Graves and The Warden's Gate, where the Warden guards the gate.
 
 ## Deployment
 
@@ -89,7 +96,8 @@ src/rig/                     runtime 2D skeletal animation (Rig.js) and keyframe
 src/entities/                Player, Enemy (AI state machine), Pickup
 src/systems/                 Parallax, Combat (hitboxes), FX, Audio, Stats, Loot, Save
 src/scenes/                  Boot, Title, Game, HUD, Pause, GameOver, Victory
-src/data/                    zones (layouts, encounters), enemies (archetypes), items (affix tables)
+src/data/                    zones (generation parameters), rooms (ASCII room templates), enemies, items
+src/systems/LevelGen.js      seeded room-grid generator: critical path, side rooms, door sealing, geometry, route
 assets/                      generated art, fonts, audio and rig definitions (committed)
 tools/                       generators, static server, smoke test
 vendor/phaser.min.js         Phaser 3.90 (MIT)
@@ -109,5 +117,7 @@ vendor/phaser.min.js         Phaser 3.90 (MIT)
   parts around their joints with keyframed clips, so there are no frame-by-frame sprite sheets.
 - `tools/blender_props.py` models and renders the coin, soul gem, potions, chest, shrine, gravestones,
   torch, pillar and gibbet cage with Blender (`pip install bpy`, Cycles on CPU).
+- `tools/gen_world_tiles.py` paints the masonry, sky-stone, ladder, stair and cloud-platform tiles
+  (with normal maps) and the cloud banks, high sky and big moon used as the camera climbs.
 - `tools/gen_font.py` rasterises the bitmap fonts and HUD frames; `tools/gen_audio.py` synthesises
   all sound effects and the music loops.

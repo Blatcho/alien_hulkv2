@@ -72,7 +72,8 @@ export default class BootScene extends Phaser.Scene {
     // optional manifests written by the generators (extra fx, world sprites with normal maps)
     const fxm = this.cache.json.get('fx_manifest');
     if (fxm && Array.isArray(fxm.extra)) for (const k of fxm.extra) this.load.image(`fx_${k}`, `assets/sprites/fx/${k}.png`);
-    if (fxm && Array.isArray(fxm.common)) for (const k of fxm.common) this.load.image(`bg_${k}`, `assets/bg/common/${k}.png`);
+    // common background textures; entries may carry their own extension (e.g. clouds_near.webp)
+    if (fxm && Array.isArray(fxm.common)) for (const k of fxm.common) { const key = k.replace(/\.[a-z]+$/, ''); this.load.image(`bg_${key}`, `assets/bg/common/${k.includes('.') ? k : k + '.png'}`); }
     const wm = this.cache.json.get('world_manifest') || { textures: ['gate', 'platform', 'fence'], normals: [] };
     for (const k of wm.textures) {
       const hasN = (wm.normals || []).includes(k);

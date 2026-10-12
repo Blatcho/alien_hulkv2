@@ -18,7 +18,8 @@ export function snapshot(scene) {
   return {
     version: 1,
     zone: scene.zoneKey,
-    checkpointX: scene.checkpointX,
+    seed: scene.seed,
+    checkpoint: scene.checkpoint,
     stats: scene.stats.toJSON(),
     gold: p.gold, potions: p.potions, inventory: p.inventory || [], kills: p.kills,
     openedChests: [...scene.openedChests],

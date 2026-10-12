@@ -2,11 +2,39 @@
  "textures": [
   "gate",
   "platform",
-  "fence"
+  "fence",
+  "stone_fill",
+  "stone_top",
+  "stone_edge_l",
+  "stone_edge_r",
+  "sky_fill",
+  "sky_top",
+  "sky_edge_l",
+  "sky_edge_r",
+  "cloud_platform",
+  "ladder",
+  "ladder_sky",
+  "stair",
+  "stair_sky",
+  "rail"
  ],
  "normals": [
   "gate",
   "platform",
-  "fence"
+  "fence",
+  "stone_fill",
+  "stone_top",
+  "stone_edge_l",
+  "stone_edge_r",
+  "sky_fill",
+  "sky_top",
+  "sky_edge_l",
+  "sky_edge_r",
+  "cloud_platform",
+  "ladder",
+  "ladder_sky",
+  "stair",
+  "stair_sky",
+  "rail"
  ]
 }

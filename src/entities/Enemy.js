@@ -57,7 +57,7 @@ export default class Enemy {
 
   get x() { return this.body_.x; }
   get y() { return this.body_.y; }
-  get grounded() { return this.body.blocked.down || this.body.touching.down; }
+  get grounded() { return this.body.blocked.down || this.body.touching.down || !!this.onStairs; }
   hitBounds() { return { x: this.x, y: this.y, w: this.t.bodyW, h: this.t.bodyH }; }
 
   setState(s) { if (this.state !== s) { this.state = s; this.stateTime = 0; } }
@@ -114,8 +114,11 @@ export default class Enemy {
             this.startAttack(range);
           } else {
             const stop = t.attack.range * 0.75;
-            if (Math.abs(dx) > stop && Math.abs(dy) < 220) {
-              b.setVelocityX(Math.sign(dx) * t.speed);
+            const dirX = Math.sign(dx);
+            const feetY = this.y + t.bodyH / 2;
+            const ledge = this.scene.hasFloor && !this.scene.hasFloor(this.x + dirX * (t.bodyW / 2 + 24), feetY + 6) && !(p.y > this.y + 60);
+            if (Math.abs(dx) > stop && Math.abs(dy) < 220 && !ledge) {
+              b.setVelocityX(dirX * t.speed);
               this.setState('chase');
               this.rig.play(t.speed > 130 ? 'run' : 'walk', { fade: 120 });
               this.rig.speed = t.speed / 130;
@@ -125,9 +128,11 @@ export default class Enemy {
               this.rig.play('idle', { fade: 160 });
             }
           }
-        } else if (this.patrol) {
-          const [x0, x1] = this.patrol;
+        } else if (this.patrol || this.t.wander) {
+          const [x0, x1] = this.patrol || [this.x - 200, this.x + 200];
+          const feetY = this.y + t.bodyH / 2;
           if (this.x < x0) this.patrolDir = 1; else if (this.x > x1) this.patrolDir = -1;
+          if (this.scene.hasFloor && !this.scene.hasFloor(this.x + this.patrolDir * (t.bodyW / 2 + 24), feetY + 6)) this.patrolDir = -this.patrolDir;
           this.facing = this.patrolDir;
           b.setVelocityX(this.patrolDir * t.speed * 0.4);
           this.setState('patrol');
@@ -140,7 +145,22 @@ export default class Enemy {
         }
       }
     }
+    this.snapStairs();
     this.syncRig(dt);
+  }
+
+  snapStairs() {
+    if (this.t.flying || !this.scene.stairSurface) return;
+    const feetY = this.y + this.t.bodyH / 2;
+    const sy = this.scene.stairSurface(this.x, feetY);
+    if (sy !== null && this.body.velocity.y >= -40) {
+      this.body.y = sy - this.t.bodyH;
+      this.body.prev.y = this.body.y; if (this.body.prevFrame) this.body.prevFrame.y = this.body.y;
+      this.body_.y = sy - this.t.bodyH / 2;
+      this.body.setVelocityY(0);
+      this.body.setAllowGravity(false);
+      this.onStairs = true;
+    } else if (this.onStairs) { this.onStairs = false; this.body.setAllowGravity(true); }
   }
 
   updateFlying(dt, dts, dx, dy, d, playerAlive) {
@@ -241,7 +261,7 @@ export default class Enemy {
     this.rig.setFacing(this.facing);
     this.rig.update(this.scene.fx.stopped ? 0 : dt);
     this.rig.tick(dt);
-    const gy = this.scene.groundYAt ? this.scene.groundYAt(this.x) : bottom;
+    const gy = this.scene.groundYAt ? this.scene.groundYAt(this.x, bottom) : bottom;
     this.shadow.setPosition(this.body_.x, gy + 2);
     if (this.hpBar.visible) this.drawHpBar();
   }

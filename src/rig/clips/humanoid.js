@@ -182,6 +182,11 @@ export function beastClips() {
     K(0.35, { torso: 18, head: -8, arm_u_near: -130, arm_l_near: -10, arm_u_far: -40, arm_l_far: -100, leg_u_near: -40, leg_l_near: 40, leg_u_far: 26, leg_l_far: 40, rootX: 8, rootY: 6, ...T(20, 0) }),
     K(1, { torso: 10, head: -6, arm_u_near: -70, arm_l_near: -110, arm_u_far: -60, arm_l_far: -120, leg_u_near: -30, leg_l_near: 36, leg_u_far: 22, leg_l_far: 30, rootX: 0, rootY: 8, ...T(40, 20) }),
   ]);
+  // Ladder climb: alternating reach, body flat against the rungs (loops; paused when not moving).
+  c.climb = clip(700, [
+    K(0, { torso: -4, head: -16, arm_u_near: 170, arm_l_near: -30, arm_u_far: 120, arm_l_far: -60, leg_u_near: -70, leg_l_near: 90, leg_u_far: -20, leg_l_far: 40, rootY: 0, ...T(70, 60) }),
+    K(0.5, { torso: -4, head: -16, arm_u_near: 120, arm_l_near: -60, arm_u_far: 170, arm_l_far: -30, leg_u_near: -20, leg_l_near: 40, leg_u_far: -70, leg_l_far: 90, rootY: 0, ...T(60, 70) }),
+  ], { loop: true });
   // Backstep: a quick hop backward, legs tucked, arms trailing forward.
   c.backstep = clip(340, [
     K(0, { torso: -14, head: 4, arm_u_near: -60, arm_l_near: -40, arm_u_far: -50, arm_l_far: -40, leg_u_near: -30, leg_l_near: 40, leg_u_far: 20, leg_l_far: 40, rootY: 2, ...T(60, 40) }),

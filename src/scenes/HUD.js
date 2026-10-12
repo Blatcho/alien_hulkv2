@@ -46,6 +46,7 @@ export default class HUDScene extends Phaser.Scene {
     this.xpShown = 0;
 
     // --- potion slot (bottom-left) -------------------------------------------------------
+    this.seedText = this.add.bitmapText(WIDTH / 2, HEIGHT - 14, 'small', '', 12).setOrigin(0.5, 1).setTint(0x6a6a7a).setAlpha(0.8);
     this.slot = this.add.image(52, HEIGHT - 52, 'ui_slot');
     if (this.textures.exists('prop_potion_red')) this.potionImg = this.add.image(52, HEIGHT - 52, 'prop_potion_red', 0).setScale(0.9);
     else this.potionImg = this.add.ellipse(52, HEIGHT - 52, 20, 30, 0xc02030);
@@ -215,6 +216,7 @@ export default class HUDScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------------------ update
   update(time, delta) {
+    { const g = this.scene.get('Game'); if (this.seedText && g && g.seed && this.seedText.text !== `Seed ${g.seed}`) this.seedText.setText(`Seed ${g.seed}`); }
     const dt = Math.min(delta, 50);
     const game = this.scene.get('Game');
     if (!game || !game.events) return;
