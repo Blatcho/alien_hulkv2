@@ -19,6 +19,8 @@ export default class Autopilot {
     this.flourishTimer = 3000;
     this.attackCadence = 0;
     this.guardHold = 0;
+    this.routeIndex = 0;
+    this.wpTime = 0;
   }
 
   tap(action, ms = 70) { this.taps[action] = Math.max(this.taps[action] || 0, ms); }
@@ -47,10 +49,11 @@ export default class Autopilot {
     let target = null, best = 1e9;
     for (const e of enemies) {
       const d = Math.abs(e.x - p.x) + Math.abs(e.y - p.y) * 0.5;
-      if (d < best && Math.abs(e.x - p.x) < 720) { best = d; target = e; }
+      if (d < best && Math.abs(e.x - p.x) < 720 && Math.abs(e.y - p.y) < 220) { best = d; target = e; }
     }
 
-    if (target) this.fight(p, target, enemies, dt);
+    if (p.state === 'climb') { this.actions.add('up'); this.publish(); return; }
+    if (target && Math.abs(target.y - p.y) < 160) this.fight(p, target, enemies, dt);
     else this.explore(p, dt);
 
     // --- stuck detection: hop over whatever is in the way --------------------------------
@@ -128,39 +131,53 @@ export default class Autopilot {
 
   explore(p, dt) {
     const s = this.scene;
-    // objectives: unlit shrine, unopened chest, open gate; otherwise head right
+    // opportunistic objectives in reach: unlit shrine, unopened chest
     let goal = null;
     for (const it of s.interactables) {
-      if (it.kind === 'shrine' && !it.lit && it.x > p.x - 40) goal = goal || it;
-      if (it.kind === 'chest' && !it.opened && Math.abs(it.x - p.x) < 700) goal = goal || it;
-      if (it.kind === 'gate' && s.gateKillsNeeded() === 0) goal = goal || it;
+      const dy = Math.abs(it.y - p.feetY);
+      if (dy > 80) continue;
+      if (it.kind === 'shrine' && !it.lit && Math.abs(it.x - p.x) < 500) goal = goal || it;
+      if (it.kind === 'chest' && !it.opened && Math.abs(it.x - p.x) < 500) goal = goal || it;
     }
     if (goal) {
       const dx = goal.x - p.x;
-      const onGround = goal.y === undefined || goal.y >= s.groundY - 1;
-      if (Math.abs(dx) < 40) {
-        if (!onGround && p.y + PLAYER.bodyHeight / 2 > goal.y + 10) {
-          // chest on a platform: double jump up to it
-          if (p.grounded) this.tap('jump', 140);
-          else if (p.jumpsLeft === 1 && p.body.velocity.y > -100) this.tap('jump', 140);
-          this.moveX = Math.sign(dx) * 0.3;
-        } else if (this.interactCooldown <= 0) {
-          this.tap('interact'); this.interactCooldown = 900;
-        }
-      } else {
-        this.moveX = Math.sign(dx);
-        if (!onGround && Math.abs(dx) < 220 && p.grounded) this.tap('jump', 140);
-      }
+      if (Math.abs(dx) < 40) { if (this.interactCooldown <= 0) { this.tap('interact'); this.interactCooldown = 900; } }
+      else this.moveX = Math.sign(dx);
       return;
     }
-    this.moveX = 1;
-    if (this.flourishTimer <= 0 && p.grounded) {
-      // a little showmanship while travelling: leap and flip
+    // follow the generated critical path
+    const route = s.level ? s.level.route : [];
+    const wp = route[this.routeIndex];
+    if (!wp) { this.moveX = 1; return; }
+    this.wpTime += dt;
+    const dx = wp.x - p.x;
+    if (wp.type === 'walk') {
+      if (Math.abs(dx) < 40 && Math.abs(wp.y - p.feetY) < 80) { this.next(); return; }
+      this.moveX = Math.sign(dx);
+      if (p.state === 'climb') this.actions.add('up');
+    } else if (wp.type === 'ladder') {
+      if (p.feetY <= wp.topY + 4 && Math.abs(dx) < 90) { this.next(); return; }
+      if (p.state === 'climb') { this.actions.add('up'); return; }
+      if (Math.abs(dx) > 20) this.moveX = Math.sign(dx) * (Math.abs(dx) < 160 ? 0.3 : 1);
+      else { this.moveX = 0; this.actions.add('up'); }
+    } else if (wp.type === 'gate') {
+      if (Math.abs(dx) < 50) {
+        this.moveX = 0;
+        if (s.gateKillsNeeded() === 0 && this.interactCooldown <= 0) { this.tap('interact'); this.interactCooldown = 1200; }
+        else if (this.wpTime > 4000) { this.routeIndex = Math.max(0, this.routeIndex - 2); this.wpTime = 0; }   // go hunt stragglers
+      } else this.moveX = Math.sign(dx);
+    }
+    // stuck on a waypoint: hop (platform lip) then give up and skip it
+    if (this.wpTime > 6000 && p.grounded) { this.tap('jump', 140); this.wpTime = 3000; }
+    if (this.wpTime > 14000) this.next();
+    if (this.flourishTimer <= 0 && p.grounded && wp.type === 'walk') {
       this.tap('jump', 120);
-      this.flourishTimer = 4000 + Math.random() * 5000;
+      this.flourishTimer = 5000 + Math.random() * 6000;
       this.scene.time.delayedCall(260, () => this.tap('jump', 120));
     }
   }
+
+  next() { this.routeIndex += 1; this.wpTime = 0; }
 
   publish() {
     this.scene.input_.virtual = { moveX: this.moveX, moveY: 0, actions: this.actions };

@@ -83,6 +83,12 @@ arranged in a parent/child hierarchy. Animation clips are keyframed joint angles
 interpolated every frame and cross-faded on state change. This gives smooth, tunable animation
 from a small number of generated textures, and lets attacks carry hitbox timing as clip events.
 
+### Procedural levels (added)
+Each zone is generated from a seed by `src/systems/LevelGen.js`: a grid of 20x11-tile rooms with a
+climbing critical path, side rooms, ASCII room templates (`src/data/rooms.js`) whose doors are sealed
+to match, ladders and stairs for vertical travel, and altitude bands (moor, cloud bank, high sky)
+that change the tile set and the parallax backdrop.
+
 ### Physics and world
 Phaser Arcade physics. Ground and platforms are static bodies built from zone data; the visual
 ground is drawn from generated tiles. The camera follows the player with a dead-zone; each

@@ -41,6 +41,12 @@ export default class Player {
     this.jumpsLeft = 2;
     this.guardRaisedAt = -1e9;
     this.blocking = false;
+    this.onStairs = false;
+    this.climbing = false;
+    this.ladder = null;
+    this.dropThrough = false;
+    this.dropTimer = 0;
+    this.jumpedAt = -1e9;
     this.rig.onEvent = (name, ev) => this.onRigEvent(name, ev);
     this.rig.play('idle');
     // a faint cool key light that follows the hero so the dark armour stays readable away from torches
@@ -49,7 +55,8 @@ export default class Player {
 
   get x() { return this.body_.x; }
   get y() { return this.body_.y; }
-  get grounded() { return this.body.blocked.down || this.body.touching.down; }
+  get grounded() { return this.body.blocked.down || this.body.touching.down || this.onStairs; }
+  get feetY() { return this.body_.y + PLAYER.bodyHeight / 2; }
   get invulnerable() { return this.scene.time.now < this.invulnUntil || this.state === 'dead'; }
   hitBounds() { return { x: this.x, y: this.y, w: PLAYER.bodyWidth, h: PLAYER.bodyHeight }; }
 
@@ -64,6 +71,7 @@ export default class Player {
   }
 
   canAct() { return ['idle', 'run', 'jump', 'fall', 'land', 'double_jump'].includes(this.state); }
+  get climbingState() { return this.state === 'climb'; }
   get airborneState() { return ['jump', 'fall', 'double_jump', 'air_attack'].includes(this.state); }
 
   // ------------------------------------------------------------------ update
@@ -77,7 +85,7 @@ export default class Player {
     // timers
     if (this.staminaDelay > 0) this.staminaDelay -= dt;
     else if (this.stamina < this.maxStamina && this.state !== 'charge') this.stamina = Math.min(this.maxStamina, this.stamina + this.stats.staminaRegen * dts);
-    const standing = grounded && b.velocity.y >= -1;   // not in the launch frame of a jump
+    const standing = (grounded && b.velocity.y >= -1) || this.onStairs;   // not in the launch frame of a jump
     if (standing) this.coyote = PLAYER.coyoteTime; else this.coyote -= dt;
     if (inp.pressed.jump) this.jumpBuffer = PLAYER.jumpBuffer; else this.jumpBuffer -= dt;
     if (grounded && !this.wasGrounded && this.state !== 'dead') this.onLand();
@@ -86,8 +94,40 @@ export default class Player {
 
     const moveX = inp.moveX;
     const wantMove = Math.abs(moveX) > 0.05;
+    if (this.dropTimer > 0) { this.dropTimer -= dt; if (this.dropTimer <= 0) this.dropThrough = false; }
 
     if (this.state === 'dead') { this.applyFriction(dts, PLAYER.friction); this.syncRig(dt); return; }
+
+    // ---- ladders ----------------------------------------------------------------------
+    if (this.state === 'climb') { this.updateClimb(inp, dt); this.syncRig(dt); return; }
+    this.climbing = false;
+    const ladder = this.scene.ladderAt ? this.scene.ladderAt(this.x, this.y - 30, this.feetY) : null;
+    if (ladder && this.canAct() && !this.scene.fx.stopped) {
+      const wantUp = inp.held.up && this.feetY > ladder.top + 8;
+      const wantDown = inp.held.down && this.feetY < ladder.bottom - 8 && !(this.grounded && this.feetY > ladder.bottom - 12);
+      if (wantUp || wantDown) { this.startClimb(ladder); this.syncRig(dt); return; }
+    }
+    // drop through one-way platforms: down + jump
+    if (inp.pressed.jump && inp.held.down && this.grounded && !this.onStairs && this.canAct()) {
+      inp.consume('jump'); this.jumpBuffer = 0;
+      this.dropThrough = true; this.dropTimer = 260;
+      this.body.setVelocityY(120);
+    }
+    // ---- stairs: snap the feet to the slope while walking on it --------------------------
+    this.onStairs = false;
+    if (this.scene.stairSurface && now - this.jumpedAt > 180 && b.velocity.y >= -40 && this.state !== 'dodge') {
+      const sy = this.scene.stairSurface(this.x, this.feetY);
+      if (sy !== null) {
+        // move the body (keeps its horizontal velocity) so the feet rest on the slope
+        this.body.y = sy - PLAYER.bodyHeight;
+        this.body.prev.y = this.body.y; if (this.body.prevFrame) this.body.prevFrame.y = this.body.y;
+        this.body_.y = sy - PLAYER.bodyHeight / 2;
+        this.body.setVelocityY(0);
+        this.body.setAllowGravity(false);
+        this.onStairs = true;
+      }
+    }
+    if (!this.onStairs && !this.climbing) this.body.setAllowGravity(true);
 
     // --- state-specific handling ---------------------------------------------------------
     if (this.state === 'hurt') {
@@ -132,13 +172,14 @@ export default class Player {
       // jump (buffered + coyote), then one double jump in the air
       if (this.jumpBuffer > 0 && this.coyote > 0 && this.state !== 'jump' && this.jumpsLeft === 2) {
         this.jumpBuffer = 0; this.coyote = 0; this.jumpsLeft = 1;
+        this.onStairs = false; this.jumpedAt = now; b.setAllowGravity(true);
         b.setVelocityY(PLAYER.jumpVelocity);
         this.setState('jump');
         this.rig.play('jump', { fade: 60 });
         this.scene.audio.play('sfx_jump', { volume: 0.6 });
         this.scene.fx.landDust(this.x, this.y + PLAYER.bodyHeight / 2, 4);
       } else if (this.jumpBuffer > 0 && !standing && this.jumpsLeft === 1) {
-        this.jumpBuffer = 0; this.jumpsLeft = 0;
+        this.jumpBuffer = 0; this.jumpsLeft = 0; this.jumpedAt = now;
         b.setVelocityY(PLAYER.doubleJumpVelocity);
         if (wantMove) this.facing = moveX > 0 ? 1 : -1;
         this.setState('double_jump');
@@ -221,7 +262,9 @@ export default class Player {
     this.rig.tick(dt);
     this.shadow.setPosition(this.body_.x, bottom + 2);
     if (this.heroLight) this.heroLight.setPosition(this.body_.x - this.facing * 30, this.body_.y - 50);
-    const air = Math.max(0, Math.min(1, (this.scene.groundYAt ? this.scene.groundYAt(this.x) - bottom : 0) / 300));
+    const gy = this.scene.groundYAt ? this.scene.groundYAt(this.x, bottom) : bottom;
+    this.shadow.setY(gy + 2);
+    const air = Math.max(0, Math.min(1, (gy - bottom) / 300));
     this.shadow.setScale(1 - air * 0.5).setAlpha(0.6 - air * 0.4);
     // invulnerability blink
     if (this.scene.time.now < this.invulnUntil && this.state !== 'dodge') this.rig.setAlpha(Math.floor(this.scene.time.now / 60) % 2 ? 0.35 : 1);
@@ -273,6 +316,58 @@ export default class Player {
     this.scene.fx.landDust(this.x, this.y + PLAYER.bodyHeight / 2, 5);
     this.clearHitbox();
     this.scene.combat.clearOwner(this);
+  }
+
+  startClimb(ladder) {
+    this.ladder = ladder;
+    this.climbing = true;
+    this.onStairs = false;
+    this.clearHitbox(); this.lunge = 0; this.blocking = false;
+    this.setState('climb');
+    this.body.setAllowGravity(false);
+    this.body.setVelocity(0, 0);
+    this.rig.play('climb', { fade: 80 });
+    this.rig.speed = 0;
+  }
+
+  updateClimb(inp, dt) {
+    const b = this.body;
+    const L = this.ladder;
+    const speed = 230;
+    const dir = inp.held.up ? -1 : inp.held.down ? 1 : 0;
+    b.setVelocity(0, dir * speed);
+    // ease toward the ladder's centre line
+    this.body_.x += (L.x - this.body_.x) * Math.min(1, dt / 90);
+    this.rig.speed = dir !== 0 ? 1.1 : 0;
+    const top = this.feetY <= L.top + 2;
+    const bottom = this.feetY >= L.bottom - 2;
+    if (inp.pressed.jump) {
+      inp.consume('jump');
+      this.leaveLadder();
+      this.jumpsLeft = 1; this.jumpedAt = this.scene.time.now;
+      b.setVelocityY(PLAYER.jumpVelocity * 0.6);
+      if (Math.abs(inp.moveX) > 0.05) { this.facing = inp.moveX > 0 ? 1 : -1; b.setVelocityX(this.facing * 200); }
+      this.setState('jump'); this.rig.play('jump', { fade: 60 });
+      return;
+    }
+    if (top && dir <= 0) {
+      // step off onto the landing above the ladder
+      this.body_.y = L.top - PLAYER.bodyHeight / 2 - 2;
+      b.reset(this.body_.x, this.body_.y);
+      this.leaveLadder();
+      this.setState('idle'); this.rig.play('idle', { fade: 120 });
+      return;
+    }
+    if (bottom && dir >= 0) {
+      this.leaveLadder();
+      this.setState('fall'); this.rig.play('fall', { fade: 120 });
+    }
+  }
+
+  leaveLadder() {
+    this.climbing = false; this.ladder = null;
+    this.body.setAllowGravity(true);
+    this.rig.speed = 1;
   }
 
   raiseGuard(moveX) {
@@ -406,6 +501,7 @@ export default class Player {
     if (this.hp <= 0) { this.die(); return true; }
     this.scene.audio.play('sfx_player_hurt');
     this.blocking = false;
+    if (this.state === 'climb') this.leaveLadder();
     this.invulnUntil = this.scene.time.now + PLAYER.hurtInvuln;
     this.setState('hurt');
     this.rig.play('hurt', { fade: 30, restart: true });

@@ -609,3 +609,88 @@ def downsample_premultiplied(rgba_arr, scale):
     rgb = [np.clip(np.where(ai > 1e-4, ch / np.maximum(ai, 1e-4), 0), 0, 255) for ch in chans]
     out = np.dstack(rgb + [ai * 255]).astype(np.uint8)
     return Image.fromarray(out, 'RGBA')
+
+
+# ------------------------------------------------ tile helpers (added for gen_world_tiles.py) ----
+# Noise, blurs and normals that wrap in BOTH axes, so 64x64 world tiles stay seamless when stacked
+# as well as when placed side by side.
+
+def value_noise_2d_tile(w, h, cx, cy, seed, wrap_x=True, wrap_y=True):
+    """Value noise (h,w) in 0..1 with cx x cy lattice cells; periodic along each wrapped axis."""
+    rs = np.random.RandomState(seed)
+    lat = rs.rand(cy + 2, cx + 2)
+    if wrap_x:
+        lat[:, cx] = lat[:, 0]
+    if wrap_y:
+        lat[cy, :] = lat[0, :]
+    xs = np.linspace(0, cx, w, endpoint=False)
+    ys = np.linspace(0, cy, h, endpoint=False)
+    xi0 = np.floor(xs).astype(int); yi0 = np.floor(ys).astype(int)
+    tx = smoothstep(xs - xi0)[None, :]; ty = smoothstep(ys - yi0)[:, None]
+    xi1 = np.minimum(xi0 + 1, cx + 1); yi1 = np.minimum(yi0 + 1, cy + 1)
+    a = lat[yi0][:, xi0]; b = lat[yi0][:, xi1]
+    c = lat[yi1][:, xi0]; d = lat[yi1][:, xi1]
+    return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty
+
+
+def fbm_2d_tile(w, h, cx=4, cy=4, octaves=4, persistence=0.5, seed=0, wrap_x=True, wrap_y=True, ridged=False):
+    """fbm of value_noise_2d_tile (0..1), seamless on the wrapped axes."""
+    out = np.zeros((h, w))
+    amp, total = 1.0, 0.0
+    for o in range(octaves):
+        v = value_noise_2d_tile(w, h, cx * (2 ** o), cy * (2 ** o), seed + o * 7919, wrap_x, wrap_y)
+        if ridged:
+            v = 1 - np.abs(v * 2 - 1)
+        out += v * amp
+        total += amp
+        amp *= persistence
+    return out / total
+
+
+def pad_wrap(arr, pad, wrap_x=True, wrap_y=True):
+    """Pad a 2D/3D array by `pad` px on every side: wrapped on the periodic axes, edge-clamped otherwise."""
+    a = np.asarray(arr)
+    mode_y = 'wrap' if wrap_y else 'edge'
+    mode_x = 'wrap' if wrap_x else 'edge'
+    extra = [(0, 0)] * (a.ndim - 2)
+    a = np.pad(a, [(pad, pad), (0, 0)] + extra, mode=mode_y)
+    a = np.pad(a, [(0, 0), (pad, pad)] + extra, mode=mode_x)
+    return a
+
+
+def gauss_wrap(arr, sigma, wrap_x=True, wrap_y=True):
+    """gauss_f that respects tile wrapping (blur bleeds across the seam instead of clamping)."""
+    if sigma <= 0.3:
+        return np.asarray(arr, dtype=np.float64)
+    pad = int(sigma * 3) + 3
+    p = pad_wrap(arr, pad, wrap_x, wrap_y)
+    return gauss_f(p, sigma)[pad:-pad, pad:-pad]
+
+
+def chamfer_dt_wrap(mask, wrap_x=True, wrap_y=True, pad=None):
+    """chamfer_dt with wrap padding so the distance field is continuous across tile seams."""
+    m = np.asarray(mask, dtype=bool)
+    pad = pad or max(8, min(m.shape) // 2)
+    p = pad_wrap(m, pad, wrap_x, wrap_y)
+    return chamfer_dt(p)[pad:-pad, pad:-pad]
+
+
+def height_to_normals_tiled(h, strength=1.0, wrap_x=True, wrap_y=True):
+    """height_to_normals with optional wrapping on both axes (central differences across the seam)."""
+    h = np.asarray(h, dtype=np.float64)
+    hx = (np.roll(h, -1, axis=1) - np.roll(h, 1, axis=1)) * 0.5 if wrap_x else np.gradient(h, axis=1)
+    hy = (np.roll(h, -1, axis=0) - np.roll(h, 1, axis=0)) * 0.5 if wrap_y else np.gradient(h, axis=0)
+    nx, ny, nz = -hx * strength, -hy * strength, np.ones_like(h)
+    L = np.sqrt(nx * nx + ny * ny + nz * nz)
+    return nx / L, ny / L, nz / L
+
+
+def downsample_wrap(rgba_arr, scale, wrap_x=True, wrap_y=True):
+    """downsample_premultiplied on a wrap-padded array so the filter kernel sees the far side of the
+    tile at the seams (keeps tiles seamless after LANCZOS)."""
+    pad = 4 * scale
+    p = pad_wrap(np.asarray(rgba_arr, dtype=np.float64), pad, wrap_x, wrap_y)
+    img = downsample_premultiplied(p, scale)
+    k = pad // scale
+    w, h = img.size
+    return img.crop((k, k, w - k, h - k))

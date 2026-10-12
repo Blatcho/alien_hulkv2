@@ -4,7 +4,7 @@ export const ENEMY_TYPES = {
     rig: 'knight', clipOpts: { weaponRest: 10, shieldRest: 20 }, hp: 70, damage: 14, speed: 120, scale: 1,
     attack: { clip: 'slash', reach: 95, cooldown: 1100, range: 110 }, aggro: 520, xp: 24, tier: 1,
     armored: true, guardChance: 0.35, staggerThreshold: 18, hurtSfx: 'sfx_enemy_hurt', deathSfx: 'sfx_enemy_death',
-    bodyW: 44, bodyH: 120, name: 'Thorn Knight', poise: 2,
+    bodyW: 44, bodyH: 120, name: 'Thorn Knight', poise: 2, wander: true,
   },
   spearman: {
     rig: 'spearman', clipOpts: { weaponRest: 70 }, hp: 48, damage: 11, speed: 150, scale: 1,
@@ -16,7 +16,7 @@ export const ENEMY_TYPES = {
     rig: 'skeleton', clipOpts: { weaponRest: 10 }, hp: 40, damage: 10, speed: 110, scale: 1,
     attack: { clip: 'slash', reach: 80, cooldown: 900, range: 95 }, aggro: 480, xp: 16, tier: 1,
     armored: false, bone: true, guardChance: 0, staggerThreshold: 8, hurtSfx: 'sfx_skeleton_rattle', deathSfx: 'sfx_skeleton_rattle',
-    bodyW: 36, bodyH: 116, name: 'Hollow Bones', poise: 0, rattle: true,
+    bodyW: 36, bodyH: 116, name: 'Hollow Bones', poise: 0, rattle: true, wander: true,
   },
   bat: {
     rig: 'bat', flying: true, hp: 18, damage: 7, speed: 230, scale: 1.3,

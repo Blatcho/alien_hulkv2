@@ -11,6 +11,14 @@
   "rain",
   "leaf",
   "ash",
-  "lightning"
+  "lightning",
+  "sky_high.webp",
+  "clouds_near.webp",
+  "clouds_far.webp",
+  "clouds_top.webp",
+  "moon_big.png",
+  "floating_ruin1.png",
+  "floating_ruin2.png",
+  "floating_ruin3.png"
  ]
 }
