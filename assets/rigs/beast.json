@@ -1,19 +1,21 @@
 {
  "name": "beast",
- "height": 112,
- "hunch": 18,
+ "source": "concept",
+ "scale": 0.5,
+ "height": 291,
+ "hunch": 0,
  "parts": [
   {
    "name": "torso",
    "tex": "beast_torso",
    "parent": null,
    "at": [
-    -6,
-    2
+    0,
+    0
    ],
    "pivot": [
-    28,
-    70
+    78,
+    138
    ],
    "z": 10,
    "len": 0
@@ -23,12 +25,12 @@
    "tex": "beast_head",
    "parent": "torso",
    "at": [
-    2,
-    -62
+    34,
+    -98
    ],
    "pivot": [
-    22,
-    50
+    67,
+    73
    ],
    "z": 12,
    "len": 0
@@ -38,15 +40,15 @@
    "tex": "beast_arm_u",
    "parent": "torso",
    "at": [
-    -2,
-    -54
+    -8,
+    -95
    ],
    "pivot": [
-    13,
-    6
+    36,
+    43
    ],
    "z": 4,
-   "len": 32
+   "len": 56
   },
   {
    "name": "arm_l_far",
@@ -54,29 +56,30 @@
    "parent": "arm_u_far",
    "at": [
     0,
-    32
+    56
    ],
    "pivot": [
-    14,
-    6
+    21,
+    26
    ],
    "z": 5,
-   "len": 36
+   "len": 97,
+   "rest": -15
   },
   {
    "name": "arm_u_near",
    "tex": "beast_arm_u",
    "parent": "torso",
    "at": [
-    8,
-    -56
+    0,
+    -98
    ],
    "pivot": [
-    13,
-    6
+    36,
+    43
    ],
    "z": 20,
-   "len": 32
+   "len": 56
   },
   {
    "name": "arm_l_near",
@@ -84,29 +87,31 @@
    "parent": "arm_u_near",
    "at": [
     0,
-    32
+    56
    ],
    "pivot": [
-    14,
-    6
+    21,
+    26
    ],
    "z": 21,
-   "len": 36
+   "len": 97,
+   "rest": -15
   },
   {
    "name": "leg_u_far",
    "tex": "beast_leg_u",
    "parent": null,
    "at": [
-    -12,
-    4
+    -9,
+    2
    ],
    "pivot": [
-    15,
-    6
+    28,
+    24
    ],
    "z": 2,
-   "len": 34
+   "len": 56,
+   "rest": -10
   },
   {
    "name": "leg_l_far",
@@ -114,29 +119,31 @@
    "parent": "leg_u_far",
    "at": [
     0,
-    34
+    56
    ],
    "pivot": [
-    12,
-    6
+    46,
+    27
    ],
    "z": 3,
-   "len": 44
+   "len": 54,
+   "rest": 10
   },
   {
    "name": "leg_u_near",
    "tex": "beast_leg_u",
    "parent": null,
    "at": [
-    0,
-    2
+    3,
+    0
    ],
    "pivot": [
-    15,
-    6
+    28,
+    24
    ],
    "z": 14,
-   "len": 34
+   "len": 56,
+   "rest": -10
   },
   {
    "name": "leg_l_near",
@@ -144,29 +151,31 @@
    "parent": "leg_u_near",
    "at": [
     0,
-    34
+    56
    ],
    "pivot": [
-    12,
-    6
+    46,
+    27
    ],
    "z": 15,
-   "len": 44
+   "len": 54,
+   "rest": 10
   },
   {
    "name": "tail1",
    "tex": "beast_tail1",
    "parent": null,
    "at": [
-    -14,
-    -2
+    -30,
+    19
    ],
    "pivot": [
-    10,
-    4
+    11,
+    6
    ],
    "z": 6,
-   "len": 32
+   "len": 63,
+   "rest": 30
   },
   {
    "name": "tail2",
@@ -174,16 +183,17 @@
    "parent": "tail1",
    "at": [
     0,
-    32
+    63
    ],
    "pivot": [
-    10,
+    9,
     4
    ],
    "z": 7,
-   "len": 28
+   "len": 64,
+   "rest": 15
   }
  ],
  "reach": 0,
- "leg_len": 78
+ "leg_len": 146
 }

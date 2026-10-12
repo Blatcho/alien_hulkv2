@@ -43,6 +43,8 @@ export default class Player {
     this.blocking = false;
     this.rig.onEvent = (name, ev) => this.onRigEvent(name, ev);
     this.rig.play('idle');
+    // a faint cool key light that follows the hero so the dark armour stays readable away from torches
+    this.heroLight = scene.lighting ? scene.lighting.addPoint(x, y - 40, 260, 0xb8c8ff, 0.55) : null;
   }
 
   get x() { return this.body_.x; }
@@ -218,6 +220,7 @@ export default class Player {
     this.rig.update(this.scene.fx.stopped ? 0 : dt);
     this.rig.tick(dt);
     this.shadow.setPosition(this.body_.x, bottom + 2);
+    if (this.heroLight) this.heroLight.setPosition(this.body_.x - this.facing * 30, this.body_.y - 50);
     const air = Math.max(0, Math.min(1, (this.scene.groundYAt ? this.scene.groundYAt(this.x) - bottom : 0) / 300));
     this.shadow.setScale(1 - air * 0.5).setAlpha(0.6 - air * 0.4);
     // invulnerability blink
@@ -421,5 +424,5 @@ export default class Player {
     this.scene.events.emit('player-died');
   }
 
-  destroy() { this.rig.destroy(); this.body_.destroy(); this.shadow.destroy(); }
+  destroy() { this.rig.destroy(); this.body_.destroy(); this.shadow.destroy(); if (this.heroLight && this.scene.lighting) this.scene.lighting.remove(this.heroLight); }
 }
