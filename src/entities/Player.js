@@ -43,6 +43,9 @@ export default class Player {
     this.blocking = false;
     this.onStairs = false;
     this.climbing = false;
+    this.fallFrom = null;      // highest feet y reached while airborne (for hard landings)
+    this.skidDir = 0;
+    this.camLead = 0;
     this.ladder = null;
     this.dropThrough = false;
     this.dropTimer = 0;
@@ -70,7 +73,7 @@ export default class Player {
     this.staminaDelay = PLAYER.staminaRegenDelay;
   }
 
-  canAct() { return ['idle', 'run', 'jump', 'fall', 'land', 'double_jump'].includes(this.state); }
+  canAct() { return ['idle', 'run', 'jump', 'fall', 'land', 'double_jump', 'skid'].includes(this.state); }
   get climbingState() { return this.state === 'climb'; }
   get airborneState() { return ['jump', 'fall', 'double_jump', 'air_attack'].includes(this.state); }
 
@@ -88,6 +91,7 @@ export default class Player {
     const standing = (grounded && b.velocity.y >= -1) || this.onStairs;   // not in the launch frame of a jump
     if (standing) this.coyote = PLAYER.coyoteTime; else this.coyote -= dt;
     if (inp.pressed.jump) this.jumpBuffer = PLAYER.jumpBuffer; else this.jumpBuffer -= dt;
+    if (!grounded) { if (this.fallFrom === null || this.feetY < this.fallFrom) this.fallFrom = this.feetY; }
     if (grounded && !this.wasGrounded && this.state !== 'dead') this.onLand();
     this.wasGrounded = grounded;
     if (standing) { this.airAttacked = false; this.jumpsLeft = 2; }
@@ -165,12 +169,24 @@ export default class Player {
       if (wantMove) this.facing = moveX > 0 ? 1 : -1;
       if (!inp.held.heavy || this.charge >= 700) this.releaseHeavy();
     } else {
-      // free movement states: idle / run / jump / fall / land
-      if (grounded) this.groundMove(moveX, dts); else this.airControl(moveX, dts);
-      if (wantMove && this.state !== 'land') this.facing = moveX > 0 ? 1 : -1;
+      // free movement states: idle / run / jump / fall / land / skid
+      const locked = this.state === 'land_hard' && this.stateTime < PLAYER.hardLandLock;
+      if (locked) { this.applyFriction(dts, PLAYER.friction * 1.5); }
+      else if (grounded) {
+        // reversing at speed plants the feet: a short skid before the new direction takes
+        if (wantMove && this.state !== 'skid' && Math.sign(moveX) === -Math.sign(b.velocity.x) && Math.abs(b.velocity.x) > PLAYER.turnSkidSpeed) {
+          this.setState('skid'); this.skidDir = Math.sign(b.velocity.x);
+          this.rig.play('skid', { fade: 40, restart: true });
+          this.scene.fx.landDust(this.x + this.skidDir * 10, this.feetY, 5);
+          this.scene.audio.play('sfx_footstep', { variants: 2, volume: 0.6, detune: -400 });
+        }
+        if (this.state === 'skid') { this.applyFriction(dts, PLAYER.friction * 2.2); if (this.stateTime > PLAYER.turnSkidMs || Math.abs(b.velocity.x) < 30) { this.setState('idle'); } }
+        else this.groundMove(moveX, dts);
+      } else this.airControl(moveX, dts);
+      if (wantMove && this.state !== 'land' && this.state !== 'skid' && !locked) this.facing = moveX > 0 ? 1 : -1;
 
       // jump (buffered + coyote), then one double jump in the air
-      if (this.jumpBuffer > 0 && this.coyote > 0 && this.state !== 'jump' && this.jumpsLeft === 2) {
+      if (this.jumpBuffer > 0 && this.coyote > 0 && this.state !== 'jump' && this.jumpsLeft === 2 && !(this.state === 'land_hard' && this.stateTime < 120)) {
         this.jumpBuffer = 0; this.coyote = 0; this.jumpsLeft = 1;
         this.onStairs = false; this.jumpedAt = now; b.setAllowGravity(true);
         b.setVelocityY(PLAYER.jumpVelocity);
@@ -190,7 +206,9 @@ export default class Player {
       if ((this.state === 'jump' || this.state === 'double_jump') && inp.released.jump && b.velocity.y < 0) b.setVelocityY(b.velocity.y * PLAYER.jumpCutMultiplier);
 
       // actions
-      if (inp.pressed.light && this.stamina >= PLAYER.lightStamina) {
+      const hardLock = this.state === 'land_hard' && this.stateTime < 120;
+      if (hardLock) { /* the first beat of a heavy landing cannot be cancelled */ }
+      else if (inp.pressed.light && this.stamina >= PLAYER.lightStamina) {
         inp.consume('light');
         if (grounded) this.startAttack(1);
         else if (!this.airAttacked) this.startAirAttack();
@@ -212,7 +230,11 @@ export default class Player {
       // locomotion animation (only if an action above did not change state)
       if (!this.canAct()) { this.syncRig(dt); return; }
       if (this.state === 'land') {
-        if (this.stateTime > 160) this.setState('idle');
+        if (this.stateTime > 170) this.setState('idle');
+      } else if (this.state === 'land_hard') {
+        if (this.rig.finished || this.stateTime > 360) this.setState('idle');
+      } else if (this.state === 'skid') {
+        // handled above
       } else if (standing) {
         if (wantMove) { this.setState('run'); this.rig.play('run', { fade: 100 }); this.rig.speed = 0.8 + 0.5 * Math.abs(b.velocity.x) / PLAYER.runSpeed; }
         else { this.setState('idle'); this.rig.play('idle', { fade: 160 }); this.rig.speed = 1; }
@@ -256,6 +278,10 @@ export default class Player {
 
   syncRig(dt) {
     const bottom = this.body_.y + PLAYER.bodyHeight / 2;
+    const lead = -this.facing * (60 + Math.min(1, Math.abs(this.body.velocity.x) / PLAYER.runSpeed) * 70);
+    this.camLead += (lead - this.camLead) * Math.min(1, dt / 450);
+    const cam = this.scene.cameras.main;
+    if (cam.followOffset) cam.setFollowOffset(this.camLead, cam.followOffset.y);
     this.rig.setPosition(this.body_.x, bottom - this.hipHeight);
     this.rig.setFacing(this.facing);
     this.rig.update(this.scene.fx.stopped ? 0 : dt);
@@ -429,7 +455,7 @@ export default class Player {
     } else if (name === 'end') {
       if (['attack', 'heavy', 'air_attack'].includes(this.state)) this.endAttack();
     } else if (name === 'step') {
-      if (this.grounded) s.audio.play('sfx_footstep', { variants: 2, volume: 0.5 });
+      if (this.grounded) { s.audio.play('sfx_footstep', { variants: 2, volume: 0.7, detune: -250 }); s.fx.landDust(this.x - this.facing * 14, this.feetY, 2); }
     }
   }
 
@@ -444,9 +470,23 @@ export default class Player {
   clearHitbox() { if (this.hitbox) { this.scene.combat.remove(this.hitbox); this.hitbox = null; } }
 
   onLand() {
-    this.scene.audio.play('sfx_land', { volume: 0.5 });
-    this.scene.fx.landDust(this.x, this.y + PLAYER.bodyHeight / 2, 6);
-    if (['jump', 'fall'].includes(this.state)) { this.setState('land'); this.rig.play('land', { fade: 40 }); }
+    const fall = this.fallFrom === null ? 0 : this.feetY - this.fallFrom;
+    this.fallFrom = null;
+    const s = this.scene;
+    if (fall >= PLAYER.hardLandFall && ['jump', 'fall', 'double_jump'].includes(this.state)) {
+      // heavy landing: deep squat, dust ring, thud, shake
+      this.setState('land_hard');
+      this.rig.play('land_hard', { fade: 30, restart: true });
+      s.audio.play('sfx_land', { volume: 1, detune: -500 });
+      s.fx.landDust(this.x, this.feetY, 14);
+      s.fx.shake(0.006 + Math.min(0.01, fall / 60000), 180);
+      s.input_.rumble(0.7, 0.3, 160);
+      this.body.setVelocityX(this.body.velocity.x * 0.3);
+      return;
+    }
+    s.audio.play('sfx_land', { volume: 0.55 });
+    s.fx.landDust(this.x, this.feetY, 7);
+    if (['jump', 'fall', 'double_jump'].includes(this.state)) { this.setState('land'); this.rig.play('land', { fade: 40 }); }
   }
 
   // ------------------------------------------------------------------ damage

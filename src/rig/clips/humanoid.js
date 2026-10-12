@@ -120,11 +120,44 @@ export function humanoidClips(o = {}) {
 export function beastClips() {
   const c = humanoidClips({ tail: true, idleArm: 20, runLean: 22 });
   const T = (a, b) => ({ tail1: a, tail2: b });
-  // hunched idle with heavy breathing and tail sway
-  c.idle = clip(1500, [
-    K(0, { torso: 4, head: -8, arm_u_near: 24, arm_l_near: -10, arm_u_far: 28, arm_l_far: -14, leg_u_near: -14, leg_l_near: 24, leg_u_far: 10, leg_l_far: 12, rootY: 0, ...T(40, 20) }),
-    K(0.5, { torso: 8, head: -10, arm_u_near: 28, arm_l_near: -16, arm_u_far: 32, arm_l_far: -20, leg_u_near: -14, leg_l_near: 26, leg_u_far: 10, leg_l_far: 14, rootY: 3, ...T(52, 36) }),
+  // Low, forward-loaded stance: hips down, shoulders over the knees, claws hanging ready.
+  c.idle = clip(1700, [
+    K(0, { torso: 16, head: -14, arm_u_near: 34, arm_l_near: -34, arm_u_far: 40, arm_l_far: -40, leg_u_near: -30, leg_l_near: 46, leg_u_far: 4, leg_l_far: 26, rootY: 8, ...T(44, 24) }),
+    K(0.5, { torso: 20, head: -16, arm_u_near: 38, arm_l_near: -40, arm_u_far: 44, arm_l_far: -46, leg_u_near: -32, leg_l_near: 50, leg_u_far: 4, leg_l_far: 28, rootY: 12, ...T(56, 40) }),
   ], { loop: true });
+  // Lope: big driving strides, deep knee bend at contact, arms swinging low and back, head forward.
+  c.run = clip(520, [
+    K(0, { torso: 30, head: -16, leg_u_near: -56, leg_l_near: 26, leg_u_far: 44, leg_l_far: 78, arm_u_near: 46, arm_l_near: -74, arm_u_far: -34, arm_l_far: -60, rootY: 6, ...T(62, 38) }),
+    K(0.25, { torso: 33, head: -14, leg_u_near: 4, leg_l_near: 44, leg_u_far: 10, leg_l_far: 24, arm_u_near: 8, arm_l_near: -70, arm_u_far: 4, arm_l_far: -66, rootY: -4, ...T(52, 48) }),
+    K(0.5, { torso: 30, head: -16, leg_u_near: 44, leg_l_near: 78, leg_u_far: -56, leg_l_far: 26, arm_u_near: -34, arm_l_near: -60, arm_u_far: 46, arm_l_far: -74, rootY: 6, ...T(62, 38) }),
+    K(0.75, { torso: 33, head: -14, leg_u_near: 10, leg_l_near: 24, leg_u_far: 4, leg_l_far: 44, arm_u_near: 4, arm_l_near: -66, arm_u_far: 8, arm_l_far: -70, rootY: -4, ...T(52, 48) }),
+  ], { loop: true, events: [{ t: 0.02, name: 'step' }, { t: 0.52, name: 'step' }] });
+  // Coiled launch: legs tucked hard, arms thrown back, body folded forward.
+  c.jump = clip(380, [
+    K(0, { torso: 26, head: -12, leg_u_near: -62, leg_l_near: 96, leg_u_far: -20, leg_l_far: 60, arm_u_near: 70, arm_l_near: -60, arm_u_far: 60, arm_l_far: -50, rootY: 0, ...T(70, 50) }),
+    K(1, { torso: 18, head: -10, leg_u_near: -46, leg_l_near: 80, leg_u_far: -10, leg_l_far: 50, arm_u_near: 90, arm_l_near: -36, arm_u_far: 80, arm_l_far: -30, rootY: 0, ...T(80, 60) }),
+  ]);
+  // Falling: claws forward and down, knees up, braced for the ground.
+  c.fall = clip(500, [
+    K(0, { torso: 12, head: -4, leg_u_near: -40, leg_l_near: 50, leg_u_far: -6, leg_l_far: 44, arm_u_near: -36, arm_l_near: -40, arm_u_far: -28, arm_l_far: -40, rootY: 0, ...T(86, 64) }),
+    K(1, { torso: 14, head: -2, leg_u_near: -46, leg_l_near: 56, leg_u_far: -10, leg_l_far: 50, arm_u_near: -44, arm_l_near: -36, arm_u_far: -36, arm_l_far: -36, rootY: 0, ...T(96, 72) }),
+  ], { loop: true });
+  // Soft landing: a quick dip through the knees.
+  c.land = clip(190, [
+    K(0, { torso: 32, head: -14, leg_u_near: -50, leg_l_near: 84, leg_u_far: 6, leg_l_far: 70, arm_u_near: 10, arm_l_near: -60, arm_u_far: 10, arm_l_far: -60, rootY: 16, ...T(50, 36) }),
+    K(1, { torso: 16, head: -14, arm_u_near: 34, arm_l_near: -34, arm_u_far: 40, arm_l_far: -40, leg_u_near: -30, leg_l_near: 46, leg_u_far: 4, leg_l_far: 26, rootY: 8, ...T(44, 24) }),
+  ]);
+  // Hard landing: a deep three-point squat, one hand slammed to the ground, then rise.
+  c.land_hard = clip(360, [
+    K(0, { torso: 46, head: -20, leg_u_near: -74, leg_l_near: 104, leg_u_far: 0, leg_l_far: 92, arm_u_near: -84, arm_l_near: -36, arm_u_far: 20, arm_l_far: -70, rootY: 30, ...T(26, 8) }),
+    K(0.35, { torso: 46, head: -20, leg_u_near: -74, leg_l_near: 104, leg_u_far: 0, leg_l_far: 92, arm_u_near: -84, arm_l_near: -36, arm_u_far: 20, arm_l_far: -70, rootY: 30, ...T(30, 10) }),
+    K(1, { torso: 16, head: -14, arm_u_near: 34, arm_l_near: -34, arm_u_far: 40, arm_l_far: -40, leg_u_near: -30, leg_l_near: 46, leg_u_far: 4, leg_l_far: 26, rootY: 8, ...T(44, 24) }),
+  ]);
+  // Turn skid: feet planted, leading leg braced against the momentum, body leaning back into the turn.
+  c.skid = clip(160, [
+    K(0, { torso: 6, head: -8, leg_u_near: -58, leg_l_near: 16, leg_u_far: 30, leg_l_far: 60, arm_u_near: 60, arm_l_near: -50, arm_u_far: 40, arm_l_far: -60, rootY: 12, ...T(70, 50) }),
+    K(1, { torso: 10, head: -8, leg_u_near: -50, leg_l_near: 20, leg_u_far: 26, leg_l_far: 56, arm_u_near: 50, arm_l_near: -50, arm_u_far: 34, arm_l_far: -60, rootY: 10, ...T(60, 44) }),
+  ]);
   // Claw swipe 1: near arm horizontal swipe. Hit 0.3..0.5
   c.attack1 = clip(380, [
     K(0, { torso: -4, head: 2, arm_u_near: 110, arm_l_near: -40, arm_u_far: 30, arm_l_far: -30, leg_u_near: -20, leg_l_near: 20, leg_u_far: 14, leg_l_far: 14, rootY: 0, ...T(60, 30) }),

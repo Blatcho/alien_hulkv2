@@ -40,7 +40,9 @@ blocked on the `file:` origin. Any static server works (`python3 -m http.server`
 | Pause / character sheet | Start | Esc / Enter |
 | Zoom out / in (seven steps, 60% to 130%, remembered) | | `-` / `+` (also numpad, `[` / `]`) |
 
-Stamina (green) is spent by attacks, blocks and backsteps and regenerates after a short delay. Enemies
+The beast moves with weight: a low forward-loaded stance, a beat of wind-up into the lope, a planted
+skid when you reverse at speed, fast heavy falls and a three-point squat after a long drop (attacks
+and jumps cancel it after the first beat). Stamina (green) is spent by attacks, blocks and backsteps and regenerates after a short delay. Enemies
 telegraph their swings: raise the guard to take a fifth of the damage, time it within a few frames of
 the hit to parry (no damage, the attacker staggers and is open to a slam), or backstep clear. Armoured
 knights sometimes block light attacks from the front; the slam breaks guards and staggers everything
