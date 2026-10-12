@@ -33,6 +33,12 @@ export const PLAYER = {
   doubleJumpVelocity: -940,
   blockDamageMult: 0.2,        // damage taken through a raised guard
   blockStamina: 14,            // stamina per blocked hit
+  wallSlideSpeed: 240,         // max fall speed while clinging to a wall
+  wallJumpVX: 440, wallJumpVY: -980,
+  wallJumpLock: 150,           // ms after a wall jump during which the stick cannot steer back into the wall
+  wallCoyote: 110,             // ms after leaving a wall during which a wall jump still counts
+  stairsUpSpeed: 0.86,         // run speed multiplier climbing a stair slope
+  climbSpeed: 230,
   parryWindow: 160,            // ms after raising the guard during which a hit is parried
   parryStagger: 900,
   lightStamina: 12,

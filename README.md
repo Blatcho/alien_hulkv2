@@ -34,7 +34,8 @@ blocked on the `file:` origin. Any static server works (`python3 -m http.server`
 | Defend (hold; raise just before a hit to parry) | LT | Shift / I |
 | Backstep (invulnerable hop away from the threat) | B / RT | L |
 | Drink potion | RB | Q |
-| Climb ladders | Stick / D-pad up and down | W / S or ↑ / ↓ |
+| Climb ladders (hold up/down, jump to let go) | Stick / D-pad up and down | W / S or ↑ / ↓ |
+| Wall jump: push into a wall while airborne to cling, jump to kick off (a double jump is available after it) | Stick toward the wall + A | A / D toward the wall + Space |
 | Drop through a ledge | Down + A | S + Space |
 | Interact (shrines, chests, gates) | LB | E |
 | Pause / character sheet | Start | Esc / Enter |
@@ -119,6 +120,9 @@ vendor/phaser.min.js         Phaser 3.90 (MIT)
   parts around their joints with keyframed clips, so there are no frame-by-frame sprite sheets.
 - `tools/blender_props.py` models and renders the coin, soul gem, potions, chest, shrine, gravestones,
   torch, pillar and gibbet cage with Blender (`pip install bpy`, Cycles on CPU).
+- `tools/undead_from_concept.py` cuts the painted skeleton knight (the enemy concept sheet) into rig
+  parts the same way; every humanoid enemy is that one rig with its own tint, size and loadout, and
+  its clips follow the sheet's poses (idle, march, wind-up, attack, impact, collapse)
 - `tools/gen_world_tiles.py` paints the masonry, sky-stone, ladder, stair and cloud-platform tiles
   (with normal maps) and the cloud banks, high sky and big moon used as the camera climbs.
 - `tools/gen_font.py` rasterises the bitmap fonts and HUD frames; `tools/gen_audio.py` synthesises

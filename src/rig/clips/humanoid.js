@@ -215,11 +215,49 @@ export function beastClips() {
     K(0.35, { torso: 18, head: -8, arm_u_near: -130, arm_l_near: -10, arm_u_far: -40, arm_l_far: -100, leg_u_near: -40, leg_l_near: 40, leg_u_far: 26, leg_l_far: 40, rootX: 8, rootY: 6, ...T(20, 0) }),
     K(1, { torso: 10, head: -6, arm_u_near: -70, arm_l_near: -110, arm_u_far: -60, arm_l_far: -120, leg_u_near: -30, leg_l_near: 36, leg_u_far: 22, leg_l_far: 30, rootX: 0, rootY: 8, ...T(40, 20) }),
   ]);
-  // Ladder climb: alternating reach, body flat against the rungs (loops; paused when not moving).
-  c.climb = clip(700, [
-    K(0, { torso: -4, head: -16, arm_u_near: 170, arm_l_near: -30, arm_u_far: 120, arm_l_far: -60, leg_u_near: -70, leg_l_near: 90, leg_u_far: -20, leg_l_far: 40, rootY: 0, ...T(70, 60) }),
-    K(0.5, { torso: -4, head: -16, arm_u_near: 120, arm_l_near: -60, arm_u_far: 170, arm_l_far: -30, leg_u_near: -20, leg_l_near: 40, leg_u_far: -70, leg_l_far: 90, rootY: 0, ...T(60, 70) }),
+  // Ladder climb (loops, speed follows the climb): reach up with one claw while the opposite knee drives
+  // up, pull through with the body hugging the rungs, then the other side. Rung grabs fire `rung`.
+  const CLIMB_A = { torso: -6, head: -18, arm_u_near: 176, arm_l_near: -20, arm_u_far: 118, arm_l_far: -70, leg_u_near: -84, leg_l_near: 96, leg_u_far: -16, leg_l_far: 30, rootX: 2, rootY: 0, ...T(76, 64) };
+  const CLIMB_B = { torso: -8, head: -16, arm_u_near: 150, arm_l_near: -44, arm_u_far: 146, arm_l_far: -48, leg_u_near: -50, leg_l_near: 64, leg_u_far: -50, leg_l_far: 64, rootX: 4, rootY: -6, ...T(70, 70) };
+  const CLIMB_C = { torso: -6, head: -18, arm_u_near: 118, arm_l_near: -70, arm_u_far: 176, arm_l_far: -20, leg_u_near: -16, leg_l_near: 30, leg_u_far: -84, leg_l_far: 96, rootX: 2, rootY: 0, ...T(64, 76) };
+  c.climb = clip(760, [K(0, CLIMB_A), K(0.25, CLIMB_B), K(0.5, CLIMB_C), K(0.75, { ...CLIMB_B, ...T(74, 66) })],
+    { loop: true, events: [{ t: 0.02, name: 'rung' }, { t: 0.52, name: 'rung' }] });
+  // Hanging still on the rungs: both claws hooked above, knees up, a slow breathing sway.
+  c.climb_hold = clip(1500, [
+    K(0, { torso: -6, head: -14, arm_u_near: 160, arm_l_near: -36, arm_u_far: 150, arm_l_far: -46, leg_u_near: -60, leg_l_near: 76, leg_u_far: -36, leg_l_far: 56, rootX: 2, rootY: 0, ...T(70, 60) }),
+    K(0.5, { torso: -8, head: -12, arm_u_near: 158, arm_l_near: -40, arm_u_far: 148, arm_l_far: -50, leg_u_near: -62, leg_l_near: 78, leg_u_far: -38, leg_l_far: 58, rootX: 3, rootY: -3, ...T(76, 66) }),
   ], { loop: true });
+  // Topping out: claws planted on the ledge, one knee thrown up over the edge, press up and stand.
+  c.climb_top = clip(380, [
+    K(0, { torso: 10, head: -16, arm_u_near: 160, arm_l_near: -60, arm_u_far: 150, arm_l_far: -60, leg_u_near: -70, leg_l_near: 90, leg_u_far: -30, leg_l_far: 50, rootX: 2, rootY: 0, ...T(70, 60) }),
+    K(0.4, { torso: 40, head: -22, arm_u_near: -70, arm_l_near: -60, arm_u_far: -60, arm_l_far: -70, leg_u_near: -110, leg_l_near: 100, leg_u_far: -20, leg_l_far: 60, rootX: 14, rootY: 10, ...T(50, 30) }),
+    K(0.75, { torso: 30, head: -16, arm_u_near: -30, arm_l_near: -60, arm_u_far: 10, arm_l_far: -60, leg_u_near: -60, leg_l_near: 80, leg_u_far: 10, leg_l_far: 50, rootX: 18, rootY: 16, ...T(44, 24) }),
+    K(1, { torso: 16, head: -14, arm_u_near: 34, arm_l_near: -34, arm_u_far: 40, arm_l_far: -40, leg_u_near: -30, leg_l_near: 46, leg_u_far: 4, leg_l_far: 26, rootX: 0, rootY: 8, ...T(44, 24) }),
+  ]);
+  // Stairs up: a driving climb, knees punched high, body leaning into the slope, claws swinging low.
+  c.stairs_up = clip(560, [
+    K(0, { torso: 36, head: -16, leg_u_near: -80, leg_l_near: 70, leg_u_far: 30, leg_l_far: 40, arm_u_near: 40, arm_l_near: -70, arm_u_far: -30, arm_l_far: -60, rootY: 10, ...T(60, 40) }),
+    K(0.25, { torso: 38, head: -14, leg_u_near: -40, leg_l_near: 30, leg_u_far: 0, leg_l_far: 50, arm_u_near: 10, arm_l_near: -70, arm_u_far: 0, arm_l_far: -66, rootY: -2, ...T(54, 48) }),
+    K(0.5, { torso: 36, head: -16, leg_u_near: 30, leg_l_near: 40, leg_u_far: -80, leg_l_far: 70, arm_u_near: -30, arm_l_near: -60, arm_u_far: 40, arm_l_far: -70, rootY: 10, ...T(60, 40) }),
+    K(0.75, { torso: 38, head: -14, leg_u_near: 0, leg_l_near: 50, leg_u_far: -40, leg_l_far: 30, arm_u_near: 0, arm_l_near: -66, arm_u_far: 10, arm_l_far: -70, rootY: -2, ...T(54, 48) }),
+  ], { loop: true, events: [{ t: 0.02, name: 'step' }, { t: 0.52, name: 'step' }] });
+  // Stairs down: shorter, braced steps, weight back, the leading foot feeling for the next tread.
+  c.stairs_down = clip(520, [
+    K(0, { torso: 8, head: -10, leg_u_near: -44, leg_l_near: 20, leg_u_far: 20, leg_l_far: 70, arm_u_near: 50, arm_l_near: -50, arm_u_far: 20, arm_l_far: -60, rootY: 8, ...T(64, 44) }),
+    K(0.25, { torso: 10, head: -10, leg_u_near: -10, leg_l_near: 50, leg_u_far: 0, leg_l_far: 40, arm_u_near: 30, arm_l_near: -56, arm_u_far: 30, arm_l_far: -56, rootY: 2, ...T(58, 50) }),
+    K(0.5, { torso: 8, head: -10, leg_u_near: 20, leg_l_near: 70, leg_u_far: -44, leg_l_far: 20, arm_u_near: 20, arm_l_near: -60, arm_u_far: 50, arm_l_far: -50, rootY: 8, ...T(64, 44) }),
+    K(0.75, { torso: 10, head: -10, leg_u_near: 0, leg_l_near: 40, leg_u_far: -10, leg_l_far: 50, arm_u_near: 30, arm_l_near: -56, arm_u_far: 30, arm_l_far: -56, rootY: 2, ...T(58, 50) }),
+  ], { loop: true, events: [{ t: 0.02, name: 'step' }, { t: 0.52, name: 'step' }] });
+  // Wall cling: facing the wall, claws dug in above, knees drawn up against the stone, sliding slowly.
+  c.wall_slide = clip(900, [
+    K(0, { torso: -10, head: -16, arm_u_near: 150, arm_l_near: -50, arm_u_far: 140, arm_l_far: -60, leg_u_near: -70, leg_l_near: 80, leg_u_far: -40, leg_l_far: 60, rootX: 4, rootY: 0, ...T(60, 30) }),
+    K(0.5, { torso: -12, head: -14, arm_u_near: 154, arm_l_near: -46, arm_u_far: 144, arm_l_far: -56, leg_u_near: -74, leg_l_near: 84, leg_u_far: -44, leg_l_far: 64, rootX: 4, rootY: -4, ...T(66, 36) }),
+  ], { loop: true });
+  // Wall kick: legs driven straight into the stone, body thrown out and away, claws trailing.
+  c.wall_jump = clip(360, [
+    K(0, { torso: 20, head: -12, arm_u_near: 90, arm_l_near: -60, arm_u_far: 80, arm_l_far: -50, leg_u_near: 30, leg_l_near: 20, leg_u_far: 40, leg_l_far: 10, rootY: 0, ...T(80, 60) }),
+    K(1, { torso: 14, head: -10, arm_u_near: 100, arm_l_near: -30, arm_u_far: 90, arm_l_far: -30, leg_u_near: -40, leg_l_near: 70, leg_u_far: -10, leg_l_far: 50, rootY: 0, ...T(86, 64) }),
+  ]);
   // Backstep: a quick hop backward, legs tucked, arms trailing forward.
   c.backstep = clip(340, [
     K(0, { torso: -14, head: 4, arm_u_near: -60, arm_l_near: -40, arm_u_far: -50, arm_l_far: -40, leg_u_near: -30, leg_l_near: 40, leg_u_far: 20, leg_l_far: 40, rootY: 2, ...T(60, 40) }),
@@ -232,6 +270,104 @@ export function beastClips() {
     K(0.7, { torso: 10, head: -6, arm_u_near: 60, arm_l_near: -80, arm_u_far: 60, arm_l_far: -80, leg_u_near: -70, leg_l_near: 110, leg_u_far: -60, leg_l_far: 110, rot: 360, ...T(60, 40) }),
     K(1, { torso: -4, head: 6, arm_u_near: 110, arm_l_near: -10, arm_u_far: 100, arm_l_far: -10, leg_u_near: -26, leg_l_near: 34, leg_u_far: 18, leg_l_far: 56, rot: 360, ...T(90, 70) }),
   ], { linear: true });
+  return c;
+}
+
+// The undead knight (painted rig `undead`, every humanoid enemy). Poses follow the concept sheet:
+// a hunched IDLE with the sword hanging low, a lurching MARCH behind the shield, a two-handed WIND-UP
+// over the head into a lunging ATTACK, the IMPACT recoil, and a COLLAPSE onto the knees.
+// Sword convention as above: the blade continues the forearm at 180, points forward at 90.
+export function undeadClips(o = {}) {
+  const c = humanoidClips(o);
+  const shield = !!o.shield;
+  const w = 138;                     // blade hanging down-forward from the lowered arm
+  const sh = shield ? 112 : 0;       // shield upright on the raised far forearm
+  // far arm: with a shield it is carried bent in front of the chest, otherwise it swings free
+  const farRest = shield ? { arm_u_far: -16, arm_l_far: -96, shield: sh } : { arm_u_far: 18, arm_l_far: -14, shield: 0 };
+  const farGuard = { arm_u_far: -30, arm_l_far: -112, shield: sh };
+  const IDLE = { torso: 12, head: 10, arm_u_near: 14, arm_l_near: -30, weapon: w, ...farRest, leg_u_near: -16, leg_l_near: 14, leg_u_far: 14, leg_l_far: 6, rootX: 0, rootY: 4 };
+  c.idle = clip(1900, [
+    K(0, IDLE),
+    K(0.5, { ...IDLE, torso: 15, head: 12, arm_u_near: 17, arm_l_near: -34, leg_l_near: 16, leg_l_far: 8, rootY: 7 }),
+  ], { loop: true });
+  // march: a heavy lurch, the sword trailing low, the far arm (and shield) held up front
+  const stride = (dur, lean, su, sl, bob, ev) => clip(dur, [
+    K(0, { torso: lean, head: 8, leg_u_near: -su, leg_l_near: 10, leg_u_far: su * 0.7, leg_l_far: sl, arm_u_near: 24, arm_l_near: -26, weapon: w, ...(shield ? farGuard : { arm_u_far: -su * 0.6, arm_l_far: -30, shield: 0 }), rootY: bob }),
+    K(0.25, { torso: lean + 3, head: 10, leg_u_near: 2, leg_l_near: 26, leg_u_far: 8, leg_l_far: 16, arm_u_near: 16, arm_l_near: -30, weapon: w, ...(shield ? farGuard : { arm_u_far: 4, arm_l_far: -24, shield: 0 }), rootY: -bob }),
+    K(0.5, { torso: lean, head: 8, leg_u_near: su * 0.7, leg_l_near: sl, leg_u_far: -su, leg_l_far: 10, arm_u_near: 8, arm_l_near: -34, weapon: w, ...(shield ? farGuard : { arm_u_far: su * 0.6, arm_l_far: -16, shield: 0 }), rootY: bob }),
+    K(0.75, { torso: lean + 3, head: 10, leg_u_near: 8, leg_l_near: 16, leg_u_far: 2, leg_l_far: 26, arm_u_near: 16, arm_l_near: -30, weapon: w, ...(shield ? farGuard : { arm_u_far: 4, arm_l_far: -24, shield: 0 }), rootY: -bob }),
+  ], { loop: true, events: ev });
+  const steps = [{ t: 0.05, name: 'step' }, { t: 0.55, name: 'step' }];
+  c.walk = stride(820, 12, 26, 36, 2, steps);
+  c.run = stride(540, 20, 40, 60, 4, steps);
+  // stairs: high knee lift on the way up, short braced steps leaning back on the way down
+  c.stairs_up = clip(640, [
+    K(0, { torso: 20, head: 6, leg_u_near: -70, leg_l_near: 60, leg_u_far: 20, leg_l_far: 20, arm_u_near: 20, arm_l_near: -30, weapon: w, ...farRest, rootY: 6 }),
+    K(0.25, { torso: 22, head: 6, leg_u_near: -30, leg_l_near: 20, leg_u_far: 10, leg_l_far: 40, arm_u_near: 14, arm_l_near: -32, weapon: w, ...farRest, rootY: -2 }),
+    K(0.5, { torso: 20, head: 6, leg_u_near: 20, leg_l_near: 20, leg_u_far: -70, leg_l_far: 60, arm_u_near: 8, arm_l_near: -34, weapon: w, ...farRest, rootY: 6 }),
+    K(0.75, { torso: 22, head: 6, leg_u_near: 10, leg_l_near: 40, leg_u_far: -30, leg_l_far: 20, arm_u_near: 14, arm_l_near: -32, weapon: w, ...farRest, rootY: -2 }),
+  ], { loop: true, events: steps });
+  c.stairs_down = clip(600, [
+    K(0, { torso: -2, head: 16, leg_u_near: -30, leg_l_near: 6, leg_u_far: 10, leg_l_far: 50, arm_u_near: 26, arm_l_near: -24, weapon: w, ...farRest, rootY: 2 }),
+    K(0.25, { torso: 0, head: 16, leg_u_near: -6, leg_l_near: 24, leg_u_far: 0, leg_l_far: 30, arm_u_near: 20, arm_l_near: -26, weapon: w, ...farRest, rootY: -2 }),
+    K(0.5, { torso: -2, head: 16, leg_u_near: 10, leg_l_near: 50, leg_u_far: -30, leg_l_far: 6, arm_u_near: 14, arm_l_near: -28, weapon: w, ...farRest, rootY: 2 }),
+    K(0.75, { torso: 0, head: 16, leg_u_near: 0, leg_l_near: 30, leg_u_far: -6, leg_l_far: 24, arm_u_near: 20, arm_l_near: -26, weapon: w, ...farRest, rootY: -2 }),
+  ], { loop: true, events: steps });
+  // slash: two-handed wind-up over the head, then a lunging horizontal cut. Hit 0.38..0.6.
+  c.slash = clip(680, [
+    K(0, { torso: -4, head: 4, arm_u_near: 110, arm_l_near: -50, weapon: 220, arm_u_far: 100, arm_l_far: -60, shield: sh, leg_u_near: -18, leg_l_near: 14, leg_u_far: 18, leg_l_far: 10, rootX: 0, rootY: 0 }),
+    K(0.3, { torso: -14, head: 10, arm_u_near: 160, arm_l_near: -50, weapon: 240, arm_u_far: 150, arm_l_far: -60, shield: sh, leg_u_near: -24, leg_l_near: 16, leg_u_far: 22, leg_l_far: 12, rootX: -4, rootY: -4 }),
+    K(0.45, { torso: 26, head: -4, arm_u_near: -100, arm_l_near: -20, weapon: 194, arm_u_far: 20, arm_l_far: -50, shield: sh, leg_u_near: -46, leg_l_near: 36, leg_u_far: 26, leg_l_far: 50, rootX: 10, rootY: 6 }),
+    K(0.62, { torso: 30, head: -6, arm_u_near: -124, arm_l_near: -10, weapon: 200, arm_u_far: 24, arm_l_far: -50, shield: sh, leg_u_near: -48, leg_l_near: 38, leg_u_far: 28, leg_l_far: 52, rootX: 12, rootY: 8 }),
+    K(1, { ...IDLE, weapon: w }),
+  ], { events: [{ t: 0.3, name: 'swing' }, { t: 0.38, name: 'hit_on' }, { t: 0.6, name: 'hit_off' }, { t: 0.72, name: 'recover' }] });
+  // thrust: the blade levelled, a long lunge forward. Hit 0.42..0.66.
+  c.thrust = clip(720, [
+    K(0, { torso: -4, head: 4, arm_u_near: 30, arm_l_near: -90, weapon: 158, ...farRest, leg_u_near: -16, leg_l_near: 10, leg_u_far: 14, leg_l_far: 10, rootX: 0, rootY: 0 }),
+    K(0.35, { torso: -12, head: 6, arm_u_near: 50, arm_l_near: -110, weapon: 156, ...farRest, leg_u_near: -20, leg_l_near: 10, leg_u_far: 18, leg_l_far: 12, rootX: -8, rootY: 0 }),
+    K(0.5, { torso: 22, head: -4, arm_u_near: -74, arm_l_near: -40, weapon: 182, arm_u_far: 40, arm_l_far: -30, shield: sh, leg_u_near: -52, leg_l_near: 40, leg_u_far: 24, leg_l_far: 54, rootX: 18, rootY: 6 }),
+    K(0.66, { torso: 22, head: -4, arm_u_near: -82, arm_l_near: -36, weapon: 182, arm_u_far: 40, arm_l_far: -30, shield: sh, leg_u_near: -52, leg_l_near: 40, leg_u_far: 24, leg_l_far: 54, rootX: 20, rootY: 6 }),
+    K(1, { ...IDLE, weapon: w }),
+  ], { events: [{ t: 0.35, name: 'swing' }, { t: 0.42, name: 'hit_on' }, { t: 0.66, name: 'hit_off' }, { t: 0.76, name: 'recover' }] });
+  // overhead: a slow two-handed chop (boss). Hit 0.5..0.68.
+  c.overhead = clip(1100, [
+    K(0, { torso: -8, head: 6, arm_u_near: 150, arm_l_near: -36, weapon: 214, arm_u_far: 140, arm_l_far: -46, shield: sh, leg_u_near: -16, leg_l_near: 10, leg_u_far: 14, leg_l_far: 10, rootX: 0, rootY: 0 }),
+    K(0.4, { torso: -18, head: 10, arm_u_near: 178, arm_l_near: -30, weapon: 208, arm_u_far: 168, arm_l_far: -40, shield: sh, leg_u_near: -22, leg_l_near: 12, leg_u_far: 18, leg_l_far: 12, rootX: -4, rootY: -6 }),
+    K(0.52, { torso: 32, head: -8, arm_u_near: -60, arm_l_near: -20, weapon: 190, arm_u_far: -50, arm_l_far: -30, shield: sh, leg_u_near: -46, leg_l_near: 50, leg_u_far: 20, leg_l_far: 60, rootX: 10, rootY: 12 }),
+    K(0.7, { torso: 36, head: -8, arm_u_near: -56, arm_l_near: -16, weapon: 186, arm_u_far: -46, arm_l_far: -30, shield: sh, leg_u_near: -46, leg_l_near: 50, leg_u_far: 20, leg_l_far: 60, rootX: 10, rootY: 14 }),
+    K(1, { ...IDLE, weapon: w }),
+  ], { events: [{ t: 0.42, name: 'swing' }, { t: 0.5, name: 'hit_on' }, { t: 0.68, name: 'hit_off' }, { t: 0.8, name: 'recover' }] });
+  // sweep: the blade drawn back level, then swung round in a wide arc (boss). Hit 0.5..0.72.
+  c.sweep = clip(1000, [
+    K(0, { torso: -6, head: 4, arm_u_near: 70, arm_l_near: -90, weapon: 296, arm_u_far: 40, arm_l_far: -80, shield: sh, leg_u_near: -14, leg_l_near: 10, leg_u_far: 12, leg_l_far: 10, rootX: 0, rootY: 0 }),
+    K(0.4, { torso: -10, head: 6, arm_u_near: 100, arm_l_near: -100, weapon: 300, arm_u_far: 60, arm_l_far: -90, shield: sh, leg_u_near: -14, leg_l_near: 10, leg_u_far: 12, leg_l_far: 10, rootX: -6, rootY: -2 }),
+    K(0.55, { torso: 24, head: -6, arm_u_near: -100, arm_l_near: -30, weapon: 196, arm_u_far: -40, arm_l_far: -40, shield: sh, leg_u_near: -40, leg_l_near: 30, leg_u_far: 30, leg_l_far: 50, rootX: 12, rootY: 6 }),
+    K(0.7, { torso: 26, head: -6, arm_u_near: -126, arm_l_near: -20, weapon: 200, arm_u_far: -50, arm_l_far: -40, shield: sh, leg_u_near: -40, leg_l_near: 30, leg_u_far: 30, leg_l_far: 50, rootX: 12, rootY: 6 }),
+    K(1, { ...IDLE, weapon: w }),
+  ], { events: [{ t: 0.42, name: 'swing' }, { t: 0.5, name: 'hit_on' }, { t: 0.72, name: 'hit_off' }, { t: 0.8, name: 'recover' }] });
+  // guard: shield braced in front, sword drawn back ready
+  c.guard = clip(400, [
+    K(0, { torso: -4, head: 2, arm_u_near: 40, arm_l_near: -60, weapon: 170, ...farGuard, leg_u_near: -18, leg_l_near: 14, leg_u_far: 16, leg_l_far: 10, rootY: 2 }),
+    K(1, { torso: -6, head: 2, arm_u_near: 42, arm_l_near: -62, weapon: 170, ...farGuard, leg_u_near: -18, leg_l_near: 14, leg_u_far: 16, leg_l_far: 10, rootY: 2 }),
+  ], { loop: true });
+  // impact: thrown back, head snapped back, both arms flung up
+  c.hurt = clip(340, [
+    K(0, { torso: -26, head: -22, arm_u_near: -56, arm_l_near: -70, weapon: 150, arm_u_far: -100, arm_l_far: -30, shield: sh, leg_u_near: -18, leg_l_near: 20, leg_u_far: 20, leg_l_far: 10, rootX: -4, rootY: 4 }),
+    K(0.6, { torso: -14, head: -12, arm_u_near: -30, arm_l_near: -50, weapon: 146, arm_u_far: -60, arm_l_far: -30, shield: sh, leg_u_near: -16, leg_l_near: 16, leg_u_far: 16, leg_l_far: 10, rootX: -2, rootY: 2 }),
+    K(1, IDLE),
+  ]);
+  c.stagger = clip(520, [
+    K(0, { torso: -34, head: -26, arm_u_near: -60, arm_l_near: -70, weapon: 150, arm_u_far: -110, arm_l_far: -30, shield: sh, leg_u_near: 20, leg_l_near: 20, leg_u_far: -14, leg_l_far: 24, rootX: -6, rootY: 6 }),
+    K(0.5, { torso: -26, head: -18, arm_u_near: -40, arm_l_near: -60, weapon: 148, arm_u_far: -80, arm_l_far: -30, shield: sh, leg_u_near: 16, leg_l_near: 16, leg_u_far: -10, leg_l_far: 20, rootX: -4, rootY: 4 }),
+    K(1, IDLE),
+  ]);
+  // collapse: the knees buckle, it drops onto them and folds forward, the sword slipping from the hand
+  c.death = clip(1000, [
+    K(0, { torso: -12, head: -10, arm_u_near: -30, arm_l_near: -50, weapon: 150, arm_u_far: -60, arm_l_far: -30, shield: sh, leg_u_near: -20, leg_l_near: 20, leg_u_far: 16, leg_l_far: 10, rootX: 0, rootY: 2 }),
+    K(0.35, { torso: 18, head: 14, arm_u_near: -40, arm_l_near: -20, weapon: 150, arm_u_far: -50, arm_l_far: -20, shield: sh, leg_u_near: -30, leg_l_near: 90, leg_u_far: -20, leg_l_far: 80, rootX: 0, rootY: 44 }),
+    K(0.6, { torso: 42, head: 36, arm_u_near: -36, arm_l_near: -10, weapon: 156, arm_u_far: -34, arm_l_far: -10, shield: sh, leg_u_near: 2, leg_l_near: 96, leg_u_far: 10, leg_l_far: 92, rootX: 2, rootY: 70 }),
+    K(1, { torso: 66, head: 58, arm_u_near: -70, arm_l_near: 0, weapon: 160, arm_u_far: -64, arm_l_far: 0, shield: sh, leg_u_near: 4, leg_l_near: 96, leg_u_far: 12, leg_l_far: 92, rootX: 4, rootY: 76 }),
+  ]);
   return c;
 }
 

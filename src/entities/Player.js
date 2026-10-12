@@ -50,6 +50,10 @@ export default class Player {
     this.dropThrough = false;
     this.dropTimer = 0;
     this.jumpedAt = -1e9;
+    this.stairDir = 0;         // rise direction of the stair under the feet (+1 rises to the right)
+    this.wallDir = 0;          // side of the wall being clung to (+1 = wall on the right)
+    this.wallCoyoteUntil = 0; this.wallLockUntil = 0;
+    this.climbTop = null;      // pull-up onto a landing in progress {y0, y1}
     this.rig.onEvent = (name, ev) => this.onRigEvent(name, ev);
     this.rig.play('idle');
     // a faint cool key light that follows the hero so the dark armour stays readable away from torches
@@ -73,9 +77,9 @@ export default class Player {
     this.staminaDelay = PLAYER.staminaRegenDelay;
   }
 
-  canAct() { return ['idle', 'run', 'jump', 'fall', 'land', 'double_jump', 'skid'].includes(this.state); }
+  canAct() { return ['idle', 'run', 'jump', 'fall', 'land', 'land_hard', 'double_jump', 'wall_jump', 'skid'].includes(this.state); }
   get climbingState() { return this.state === 'climb'; }
-  get airborneState() { return ['jump', 'fall', 'double_jump', 'air_attack'].includes(this.state); }
+  get airborneState() { return ['jump', 'fall', 'double_jump', 'wall_jump', 'wall_slide', 'air_attack'].includes(this.state); }
 
   // ------------------------------------------------------------------ update
   update(inp, dt) {
@@ -104,12 +108,16 @@ export default class Player {
 
     // ---- ladders ----------------------------------------------------------------------
     if (this.state === 'climb') { this.updateClimb(inp, dt); this.syncRig(dt); return; }
+    if (this.state === 'climb_top') { this.updateClimbTop(dt); this.syncRig(dt); return; }
     this.climbing = false;
-    const ladder = this.scene.ladderAt ? this.scene.ladderAt(this.x, this.y - 30, this.feetY) : null;
-    if (ladder && this.canAct() && !this.scene.fx.stopped) {
-      const wantUp = inp.held.up && this.feetY > ladder.top + 8;
-      const wantDown = inp.held.down && this.feetY < ladder.bottom - 8 && !(this.grounded && this.feetY > ladder.bottom - 12);
-      if (wantUp || wantDown) { this.startClimb(ladder); this.syncRig(dt); return; }
+    // where two ladders meet at a landing (one ends where the next begins) pick the one that goes the way
+    // the player is pushing: up wants a ladder whose top is above the feet, down one that continues below
+    if (this.scene.laddersAt && this.canAct() && !this.scene.fx.stopped && (inp.held.up || inp.held.down)) {
+      for (const ladder of this.scene.laddersAt(this.x, this.y - 30, this.feetY)) {
+        const wantUp = inp.held.up && this.feetY > ladder.top + 8;
+        const wantDown = inp.held.down && this.feetY < ladder.bottom - 8 && !(this.grounded && this.feetY > ladder.bottom - 12);
+        if (wantUp || wantDown) { this.startClimb(ladder); this.syncRig(dt); return; }
+      }
     }
     // drop through one-way platforms: down + jump
     if (inp.pressed.jump && inp.held.down && this.grounded && !this.onStairs && this.canAct()) {
@@ -119,9 +127,11 @@ export default class Player {
     }
     // ---- stairs: snap the feet to the slope while walking on it --------------------------
     this.onStairs = false;
-    if (this.scene.stairSurface && now - this.jumpedAt > 180 && b.velocity.y >= -40 && this.state !== 'dodge') {
-      const sy = this.scene.stairSurface(this.x, this.feetY);
-      if (sy !== null) {
+    if (this.scene.stairAt && now - this.jumpedAt > 180 && b.velocity.y >= -40 && this.state !== 'dodge') {
+      const st = this.scene.stairAt(this.x, this.feetY);
+      if (st !== null) {
+        const sy = st.y;
+        this.stairDir = st.dir;
         // move the body (keeps its horizontal velocity) so the feet rest on the slope
         this.body.y = sy - PLAYER.bodyHeight;
         this.body.prev.y = this.body.y; if (this.body.prevFrame) this.body.prevFrame.y = this.body.y;
@@ -142,6 +152,18 @@ export default class Player {
       b.setVelocityX(-this.facing * PLAYER.dodgeSpeed * (1 - 0.6 * this.stateTime / PLAYER.dodgeDuration));
       if (this.stateTime > PLAYER.dodgeDuration && grounded) { this.setState('idle'); this.rig.play('idle', { fade: 120 }); }
       else if (this.stateTime > PLAYER.dodgeDuration + 400) { this.setState('fall'); this.rig.play('fall', { fade: 120 }); }
+    } else if (this.state === 'wall_slide') {
+      // clinging: slide slowly, kick off on jump, let go when the wall ends or the push toward it stops
+      const wd = this.wallDir;
+      b.setVelocityX(wd * 40);   // keep leaning into the stone so the contact holds frame to frame
+      if (b.velocity.y > PLAYER.wallSlideSpeed) b.setVelocityY(PLAYER.wallSlideSpeed);
+      if (this.jumpBuffer > 0) this.wallJump(wd);
+      else if (grounded || this.wallContact() !== wd || Math.sign(moveX) !== wd) {
+        this.wallCoyoteUntil = now + PLAYER.wallCoyote;
+        this.setState(grounded ? 'idle' : 'fall'); this.rig.play(grounded ? 'idle' : 'fall', { fade: 120 });
+      } else if (b.velocity.y > 60 && Math.floor(this.stateTime / 110) !== Math.floor((this.stateTime - dt) / 110)) {
+        this.scene.fx.landDust(this.x + wd * PLAYER.bodyWidth / 2, this.y + 10, 1);
+      }
     } else if (this.state === 'guard' || this.state === 'guard_hit' || this.state === 'parry') {
       this.applyFriction(dts, PLAYER.friction);
       if (this.state === 'guard' && wantMove) this.facing = moveX > 0 ? 1 : -1;
@@ -171,7 +193,15 @@ export default class Player {
     } else {
       // free movement states: idle / run / jump / fall / land / skid
       const locked = this.state === 'land_hard' && this.stateTime < PLAYER.hardLandLock;
+      const wall = grounded ? 0 : this.wallContact();
       if (locked) { this.applyFriction(dts, PLAYER.friction * 1.5); }
+      else if (!grounded && wall && b.velocity.y > 0 && Math.sign(moveX) === wall && this.state !== 'wall_jump') {
+        // pushing into a wall while falling: cling to it
+        this.wallDir = wall; this.facing = wall;
+        this.setState('wall_slide'); this.rig.play('wall_slide', { fade: 80 });
+        this.jumpBuffer = 0;
+        this.scene.audio.play('sfx_footstep', { variants: 2, volume: 0.4, detune: -600 });
+      }
       else if (grounded) {
         // reversing at speed plants the feet: a short skid before the new direction takes
         if (wantMove && this.state !== 'skid' && Math.sign(moveX) === -Math.sign(b.velocity.x) && Math.abs(b.velocity.x) > PLAYER.turnSkidSpeed) {
@@ -182,8 +212,9 @@ export default class Player {
         }
         if (this.state === 'skid') { this.applyFriction(dts, PLAYER.friction * 2.2); if (this.stateTime > PLAYER.turnSkidMs || Math.abs(b.velocity.x) < 30) { this.setState('idle'); } }
         else this.groundMove(moveX, dts);
-      } else this.airControl(moveX, dts);
-      if (wantMove && this.state !== 'land' && this.state !== 'skid' && !locked) this.facing = moveX > 0 ? 1 : -1;
+      } else if (now >= this.wallLockUntil) this.airControl(moveX, dts);
+      if (this.state === 'wall_slide') { this.syncRig(dt); return; }
+      if (wantMove && this.state !== 'land' && this.state !== 'skid' && !locked && now >= this.wallLockUntil) this.facing = moveX > 0 ? 1 : -1;
 
       // jump (buffered + coyote), then one double jump in the air
       if (this.jumpBuffer > 0 && this.coyote > 0 && this.state !== 'jump' && this.jumpsLeft === 2 && !(this.state === 'land_hard' && this.stateTime < 120)) {
@@ -194,6 +225,9 @@ export default class Player {
         this.rig.play('jump', { fade: 60 });
         this.scene.audio.play('sfx_jump', { volume: 0.6 });
         this.scene.fx.landDust(this.x, this.y + PLAYER.bodyHeight / 2, 4);
+      } else if (this.jumpBuffer > 0 && !standing && (wall || (this.wallDir && now < this.wallCoyoteUntil))) {
+        // airborne against a wall (or just off one): kick away from it
+        this.wallJump(wall || this.wallDir);
       } else if (this.jumpBuffer > 0 && !standing && this.jumpsLeft === 1) {
         this.jumpBuffer = 0; this.jumpsLeft = 0; this.jumpedAt = now;
         b.setVelocityY(PLAYER.doubleJumpVelocity);
@@ -203,7 +237,7 @@ export default class Player {
         this.scene.audio.play('sfx_jump', { volume: 0.7, detune: 300 });
         this.scene.fx.airRing(this.x, this.y + 30);
       }
-      if ((this.state === 'jump' || this.state === 'double_jump') && inp.released.jump && b.velocity.y < 0) b.setVelocityY(b.velocity.y * PLAYER.jumpCutMultiplier);
+      if ((this.state === 'jump' || this.state === 'double_jump' || this.state === 'wall_jump') && inp.released.jump && b.velocity.y < 0) b.setVelocityY(b.velocity.y * PLAYER.jumpCutMultiplier);
 
       // actions
       const hardLock = this.state === 'land_hard' && this.stateTime < 120;
@@ -236,15 +270,22 @@ export default class Player {
       } else if (this.state === 'skid') {
         // handled above
       } else if (standing) {
-        if (wantMove) { this.setState('run'); this.rig.play('run', { fade: 100 }); this.rig.speed = 0.8 + 0.5 * Math.abs(b.velocity.x) / PLAYER.runSpeed; }
+        if (wantMove) {
+          this.setState('run');
+          // on a stair slope: the climb or the descent, judged from the travel direction against the rise
+          const moving = Math.abs(b.velocity.x) > 20 ? Math.sign(b.velocity.x) : Math.sign(moveX);
+          const clipName = this.onStairs ? (moving * this.stairDir > 0 ? 'stairs_up' : 'stairs_down') : 'run';
+          this.rig.play(clipName, { fade: 100 });
+          this.rig.speed = 0.8 + 0.5 * Math.abs(b.velocity.x) / PLAYER.runSpeed;
+        }
         else { this.setState('idle'); this.rig.play('idle', { fade: 160 }); this.rig.speed = 1; }
       } else if (this.state === 'double_jump') {
         if (this.rig.finished) { this.setState('fall'); this.rig.play('fall', { fade: 100 }); }
-      } else if (this.state === 'jump' && !standing) {
+      } else if ((this.state === 'jump' || this.state === 'wall_jump') && !standing) {
         if (b.velocity.y > 80) { this.setState('fall'); this.rig.play('fall', { fade: 140 }); }
       } else {
         if (b.velocity.y > 80 && this.state !== 'fall') { this.setState('fall'); this.rig.play('fall', { fade: 140 }); }
-        else if (this.state !== 'jump' && this.state !== 'fall') { this.setState('fall'); this.rig.play('fall', { fade: 140 }); }
+        else if (!['jump', 'wall_jump', 'fall'].includes(this.state)) { this.setState('fall'); this.rig.play('fall', { fade: 140 }); }
       }
     }
     this.syncRig(dt);
@@ -252,7 +293,8 @@ export default class Player {
 
   groundMove(moveX, dts) {
     const b = this.body;
-    const target = moveX * PLAYER.runSpeed * this.stats.speedMult;
+    const uphill = this.onStairs && Math.sign(moveX) === this.stairDir;
+    const target = moveX * PLAYER.runSpeed * this.stats.speedMult * (uphill ? PLAYER.stairsUpSpeed : 1);
     const accel = Math.abs(moveX) > 0.05 ? PLAYER.runAccel : PLAYER.friction;
     const dv = target - b.velocity.x;
     const step = accel * dts;
@@ -352,19 +394,46 @@ export default class Player {
     this.setState('climb');
     this.body.setAllowGravity(false);
     this.body.setVelocity(0, 0);
-    this.rig.play('climb', { fade: 80 });
-    this.rig.speed = 0;
+    this.rig.play('climb_hold', { fade: 120 });
+    this.rig.speed = 1;
+  }
+
+  // Side of a wall the body is pressed against while airborne (+1 right, -1 left), 0 if none. World
+  // edges do not count.
+  wallContact() {
+    const b = this.body;
+    const w = this.scene.physics.world.bounds;
+    if (b.blocked.right && b.right < w.right - 2) return 1;
+    if (b.blocked.left && b.x > w.x + 2) return -1;
+    return 0;
+  }
+
+  wallJump(wd) {
+    const b = this.body;
+    const now = this.scene.time.now;
+    this.jumpBuffer = 0; this.coyote = 0; this.jumpsLeft = 1; this.jumpedAt = now;
+    this.wallDir = wd; this.wallCoyoteUntil = 0; this.wallLockUntil = now + PLAYER.wallJumpLock;
+    this.onStairs = false; b.setAllowGravity(true);
+    b.setVelocity(-wd * PLAYER.wallJumpVX, PLAYER.wallJumpVY);
+    this.facing = -wd;
+    this.setState('wall_jump');
+    this.rig.play('wall_jump', { fade: 30, restart: true });
+    this.scene.audio.play('sfx_jump', { volume: 0.65, detune: -200 });
+    this.scene.fx.landDust(this.x + wd * PLAYER.bodyWidth / 2, this.y + 20, 5);
+    this.scene.input_.rumble(0.25, 0.2, 70);
   }
 
   updateClimb(inp, dt) {
     const b = this.body;
     const L = this.ladder;
-    const speed = 230;
+    const speed = PLAYER.climbSpeed;
     const dir = inp.held.up ? -1 : inp.held.down ? 1 : 0;
     b.setVelocity(0, dir * speed);
     // ease toward the ladder's centre line
     this.body_.x += (L.x - this.body_.x) * Math.min(1, dt / 90);
-    this.rig.speed = dir !== 0 ? 1.1 : 0;
+    // moving: the climb loop (run backwards on the way down); still: hang on the rungs
+    if (dir !== 0) { this.rig.play('climb', { fade: 110 }); this.rig.speed = dir < 0 ? 1.15 : -0.95; }
+    else this.rig.play('climb_hold', { fade: 160 });
     const top = this.feetY <= L.top + 2;
     const bottom = this.feetY >= L.bottom - 2;
     if (inp.pressed.jump) {
@@ -377,11 +446,11 @@ export default class Player {
       return;
     }
     if (top && dir <= 0) {
-      // step off onto the landing above the ladder
-      this.body_.y = L.top - PLAYER.bodyHeight / 2 - 2;
-      b.reset(this.body_.x, this.body_.y);
-      this.leaveLadder();
-      this.setState('idle'); this.rig.play('idle', { fade: 120 });
+      // pull up onto the landing above the ladder (the body rises over the clip's length)
+      b.setVelocity(0, 0);
+      this.climbTop = { y0: this.body_.y, y1: L.top - PLAYER.bodyHeight / 2 - 2, x: L.x };
+      this.ladder = null;
+      this.setState('climb_top'); this.rig.play('climb_top', { fade: 60, restart: true });
       return;
     }
     if (bottom && dir >= 0) {
@@ -390,8 +459,22 @@ export default class Player {
     }
   }
 
+  updateClimbTop(dt) {
+    const t = Math.min(1, this.stateTime / this.rig.clip.duration);
+    const k = t * t * (3 - 2 * t);
+    const c = this.climbTop;
+    this.body_.y = c.y0 + (c.y1 - c.y0) * k;
+    this.body_.x += (c.x - this.body_.x) * Math.min(1, dt / 90);
+    this.body.reset(this.body_.x, this.body_.y);
+    if (t >= 1) {
+      this.climbTop = null;
+      this.leaveLadder();
+      this.setState('idle'); this.rig.play('idle', { fade: 120 });
+    }
+  }
+
   leaveLadder() {
-    this.climbing = false; this.ladder = null;
+    this.climbing = false; this.ladder = null; this.climbTop = null;
     this.body.setAllowGravity(true);
     this.rig.speed = 1;
   }
@@ -456,6 +539,8 @@ export default class Player {
       if (['attack', 'heavy', 'air_attack'].includes(this.state)) this.endAttack();
     } else if (name === 'step') {
       if (this.grounded) { s.audio.play('sfx_footstep', { variants: 2, volume: 0.7, detune: -250 }); s.fx.landDust(this.x - this.facing * 14, this.feetY, 2); }
+    } else if (name === 'rung') {
+      s.audio.play('sfx_footstep', { variants: 2, volume: 0.35, detune: 300 });
     }
   }
 
@@ -541,7 +626,7 @@ export default class Player {
     if (this.hp <= 0) { this.die(); return true; }
     this.scene.audio.play('sfx_player_hurt');
     this.blocking = false;
-    if (this.state === 'climb') this.leaveLadder();
+    if (this.state === 'climb' || this.state === 'climb_top') this.leaveLadder();
     this.invulnUntil = this.scene.time.now + PLAYER.hurtInvuln;
     this.setState('hurt');
     this.rig.play('hurt', { fade: 30, restart: true });
