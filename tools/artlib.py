@@ -298,3 +298,313 @@ def shade_sprite(img, light_dir=(-0.6, -0.8), ambient=0.55, strength=0.45, rim=0
     arr[..., :3] += np.array(rim_color, float)[None, None, :] * (rimmask * rim)[..., None]
     out = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), 'RGBA')
     return out
+
+
+# ----------------------------------------------- background texture helpers (added by bg pass) ----
+
+def noise2d_at(xs, ys, cx, cy, seed):
+    """Value noise sampled at arbitrary float lattice coordinates xs, ys (arrays of equal shape).
+    The lattice has cx cells along x (wrapping, so x in [0,cx) tiles) and cy cells along y (clamped).
+    Returns values in 0..1 with the same shape as xs."""
+    rs = np.random.RandomState(seed)
+    lat = rs.rand(cy + 2, cx + 1)
+    lat[:, -1] = lat[:, 0]
+    xs = np.mod(xs, cx)
+    ys = np.clip(ys, 0, cy + 0.999)
+    xi0 = np.floor(xs).astype(int)
+    yi0 = np.floor(ys).astype(int)
+    tx = smoothstep(xs - xi0)
+    ty = smoothstep(ys - yi0)
+    xi0 = xi0 % (cx + 1)
+    xi1 = (xi0 + 1) % (cx + 1)
+    yi1 = np.minimum(yi0 + 1, cy + 1)
+    a = lat[yi0, xi0]; b = lat[yi0, xi1]; c = lat[yi1, xi0]; d = lat[yi1, xi1]
+    return (a * (1 - tx) + b * tx) * (1 - ty) + (c * (1 - tx) + d * tx) * ty
+
+
+def fbm_at(xs, ys, cx, cy, octaves=5, persistence=0.5, seed=0, ridged=False):
+    """fbm of noise2d_at over arbitrary coordinates (tileable in x over [0,cx))."""
+    out = np.zeros(np.shape(xs))
+    amp, total = 1.0, 0.0
+    for o in range(octaves):
+        v = noise2d_at(xs * (2 ** o), ys * (2 ** o), cx * (2 ** o), cy * (2 ** o), seed + o * 7919)
+        if ridged:
+            v = 1 - np.abs(v * 2 - 1)
+        out += v * amp
+        total += amp
+        amp *= persistence
+    return out / total
+
+
+def fbm_warp(w, h, cx=8, cy=4, octaves=5, persistence=0.5, seed=0, warp=0.6, warp_cells=None, ridged=False):
+    """Domain-warped fbm (h,w) in 0..1 that tiles horizontally. The sampling coordinates are
+    displaced by a second low-frequency fbm by up to +-warp lattice cells, which turns blobby
+    value noise into billowing / marbled shapes (clouds, rock, bark)."""
+    cy = max(1, cy)
+    xs = np.repeat(np.linspace(0, cx, w, endpoint=False)[None, :], h, axis=0)
+    ys = np.repeat(np.linspace(0, cy, h, endpoint=False)[:, None], w, axis=1)
+    wc = warp_cells or max(1, cx // 2)
+    wcy = max(1, int(round(wc * cy / cx)))
+    wx = fbm_2d(w, h, wc, wcy, octaves=3, seed=seed + 311) - 0.5
+    wy = fbm_2d(w, h, wc, wcy, octaves=3, seed=seed + 613) - 0.5
+    return fbm_at(xs + wx * 2 * warp, ys + wy * 2 * warp, cx, cy, octaves, persistence, seed, ridged)
+
+
+def gaussian_blur_array(arr, radius):
+    """Gaussian blur of a float (h,w) array (any range) via Pillow; returns float array."""
+    if radius <= 0:
+        return arr.copy()
+    lo, hi = float(arr.min()), float(arr.max())
+    if hi - lo < 1e-9:
+        return arr.copy()
+    im = Image.fromarray(((arr - lo) / (hi - lo) * 255).astype(np.uint8), 'L').filter(ImageFilter.GaussianBlur(radius))
+    return np.array(im, float) / 255.0 * (hi - lo) + lo
+
+
+def height_shade(rgb, height, light=(-0.6, -0.8), strength=0.5, ambient=1.0, lo=0.15, hi=2.0):
+    """Light an (h,w,3) float rgb array with a height field (h,w). `light` is the direction the
+    light comes FROM in image space (y down), e.g. (-0.6,-0.8) = upper left. Slopes facing the
+    light brighten, slopes facing away darken. Returns a new array."""
+    gy, gx = np.gradient(height)
+    lx, ly = light
+    L = math.hypot(lx, ly) or 1
+    lx, ly = lx / L, ly / L
+    nd = -(gx * lx + gy * ly)
+    lit = np.clip(ambient + strength * nd, lo, hi)
+    return rgb * lit[..., None]
+
+
+def normal_map_from_height(height, strength=1.0):
+    """Tangent-space normal map (h,w,3) uint8 from a height field, OpenGL convention (green = up,
+    i.e. image +y is flipped): flat = (128,128,255). `strength` scales the slopes."""
+    gy, gx = np.gradient(height)
+    nx = -gx * strength
+    ny = gy * strength
+    nz = np.ones_like(nx)
+    n = np.sqrt(nx * nx + ny * ny + nz * nz)
+    nx, ny, nz = nx / n, ny / n, nz / n
+    rgb = np.dstack([nx * 127.5 + 127.5, ny * 127.5 + 127.5, nz * 127.5 + 127.5])
+    return np.clip(np.rint(rgb), 0, 255).astype(np.uint8)
+
+
+def brick_height(w, h, course=8, brick=24, mortar=1.5, bevel=2.0, seed=0, chip=0.3, chip_cells=16):
+    """Coursed stonework height field (h,w) in 0..1 (stones raised, mortar joints low, per-stone
+    height variation, chipped corners) plus a per-stone random id field in 0..1 for colour variation."""
+    rs = np.random.RandomState(seed)
+    y, x = np.mgrid[0:h, 0:w].astype(float)
+    row = np.floor(y / course)
+    xo = x + (row % 2) * brick * 0.5
+    col = np.floor(xo / brick)
+    fy = y - row * course
+    fx = xo - col * brick
+    d = np.minimum(np.minimum(fx, brick - fx), np.minimum(fy, course - fy))
+    hgt = np.clip((d - mortar) / max(1e-6, bevel), 0, 1)
+    rows, cols = int(h // course) + 3, int(w // brick) + 4
+    lat = rs.rand(rows, cols)
+    sid = lat[np.clip(row.astype(int), 0, rows - 1), np.clip(col.astype(int) + 1, 0, cols - 1)]
+    hgt = hgt * (0.7 + 0.3 * sid)
+    if chip > 0:
+        n = fbm_2d(w, h, max(1, w // chip_cells), max(1, h // chip_cells), octaves=3, seed=seed + 5)
+        hgt = hgt - np.clip((n - 0.62) / 0.3, 0, 1) * chip * hgt
+    return np.clip(hgt, 0, 1), sid
+
+
+def mask_array(img_l, blur=0.0):
+    """'L' (or RGBA alpha) image -> float (h,w) 0..1, optionally blurred."""
+    if img_l.mode != 'L':
+        img_l = img_l.getchannel('A')
+    if blur > 0:
+        img_l = img_l.filter(ImageFilter.GaussianBlur(blur))
+    return np.array(img_l, float) / 255.0
+
+
+def rim_light(mask, light=(0.6, -0.8), width=3.0, power=1.0):
+    """Edge-light weight (h,w) 0..1 for a silhouette mask: edges facing the light direction
+    (the direction the light comes FROM) within `width` px of the outline."""
+    soft = gaussian_blur_array(mask, width)
+    gy, gx = np.gradient(soft)
+    lx, ly = light
+    L = math.hypot(lx, ly) or 1
+    nd = -(gx * lx + gy * ly) / L
+    nd = nd / (np.abs(nd).max() + 1e-6)
+    return np.clip(nd, 0, 1) ** power * mask
+
+
+def paint_grain(img, strength=0.05, stroke=0.04, seed=0):
+    """Painterly surface: fine grain plus horizontally stretched brush-stroke modulation (RGB only)."""
+    w, h = img.size
+    arr = np.array(img).astype(float)
+    g = fbm_2d(w, h, max(1, w // 6), max(1, h // 6), octaves=2, seed=seed + 77)
+    s = fbm_2d(w, h, max(1, w // 40), max(1, h // 6), octaves=3, seed=seed + 88)
+    m = 1 + (g - 0.5) * 2 * strength + (s - 0.5) * 2 * stroke
+    arr[..., :3] *= m[..., None]
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), 'RGBA')
+
+
+def draw_tree2(draw, x, y, height, rs, fill, trunk_w=None, depth=0, max_depth=7, angle=-90, spread=38,
+               lean=0.0, gnarl=0.35, segments=None, twist=0.0):
+    """Like draw_tree but records every drawn segment as (x0,y0,x1,y1,w0,w1,depth) in `segments`
+    so bark detail, knots, moss and roots can be placed afterwards. `twist` adds a persistent
+    curl to branch angles for more gnarled silhouettes."""
+    if trunk_w is None:
+        trunk_w = height * 0.09
+    if depth > max_depth or height < 4:
+        return
+    a = math.radians(angle + lean)
+    seg = height * (0.55 if depth == 0 else 0.62)
+    mx = x + math.cos(a) * seg * 0.5 + rs.uniform(-1, 1) * seg * gnarl * 0.3
+    my = y + math.sin(a) * seg * 0.5 + rs.uniform(-1, 1) * seg * gnarl * 0.12
+    ex = x + math.cos(a) * seg + rs.uniform(-1, 1) * seg * gnarl * 0.4
+    ey = y + math.sin(a) * seg + rs.uniform(-1, 1) * seg * gnarl * 0.15
+    w_end = trunk_w * 0.62
+    draw_tapered_line(draw, (x, y), (mx, my), trunk_w, (trunk_w + w_end) / 2, fill)
+    draw_tapered_line(draw, (mx, my), (ex, ey), (trunk_w + w_end) / 2, w_end, fill)
+    if segments is not None:
+        segments.append((x, y, mx, my, trunk_w, (trunk_w + w_end) / 2, depth))
+        segments.append((mx, my, ex, ey, (trunk_w + w_end) / 2, w_end, depth))
+    n = 2 if depth < 2 else rs.choice([1, 2, 2, 3])
+    base_angle = math.degrees(math.atan2(ey - my, ex - mx))
+    for i in range(n):
+        da = rs.uniform(-spread, spread) + (spread * 0.6 if i == 0 else -spread * 0.6 if i == 1 else 0)
+        draw_tree2(draw, ex, ey, height * rs.uniform(0.52, 0.7), rs, fill, w_end, depth + 1, max_depth,
+                   base_angle + da + twist, spread, lean * 0.5, gnarl, segments, twist)
+    if depth >= 1 and rs.rand() < 0.5:
+        t = rs.uniform(0.3, 0.8)
+        sx, sy = x + (ex - x) * t, y + (ey - y) * t
+        draw_tree2(draw, sx, sy, height * rs.uniform(0.25, 0.4), rs, fill, w_end * 0.6, depth + 2, max_depth,
+                   base_angle + rs.choice([-1, 1]) * rs.uniform(45, 80), spread, 0, gnarl, segments, twist)
+
+
+def draw_glow_blob(img, x, y, rx, ry, color, alpha=1.0, power=2.0):
+    """Composite a soft elliptical glow (additive-looking via alpha) onto an RGBA image."""
+    size = int(max(rx, ry) * 2) + 2
+    if size < 2:
+        return
+    disc = soft_disc(size, color, inner=0.0, power=power)
+    if rx != ry:
+        disc = disc.resize((max(1, int(rx * 2)), max(1, int(ry * 2))), Image.BILINEAR)
+    disc = multiply_alpha(disc, alpha)
+    img.alpha_composite(disc, (int(x - disc.size[0] / 2), int(y - disc.size[1] / 2)))
+
+
+def polygon_rotated(cx, cy, pts, angle_deg):
+    """Rotate a list of (x,y) points (relative to origin) by angle and translate to (cx,cy)."""
+    a = math.radians(angle_deg)
+    c, s = math.cos(a), math.sin(a)
+    return [(cx + px * c - py * s, cy + px * s + py * c) for px, py in pts]
+
+
+# ------------------------------------------------------ sprite shading helpers ----
+# (added for gen_sprites.py: height fields, normal maps, float blurs; pure NumPy)
+
+def box_blur_f(arr, r):
+    """Box blur of a float (h,w) array with radius r (px) using cumulative sums (edge-clamped)."""
+    if r < 1:
+        return arr.astype(np.float64)
+    a = np.asarray(arr, dtype=np.float64)
+    for axis in (0, 1):
+        n = a.shape[axis]
+        pad = [(0, 0), (0, 0)]
+        pad[axis] = (r, r)
+        p = np.pad(a, pad, mode='edge')
+        c = np.cumsum(p, axis=axis)
+        c = np.concatenate([np.zeros_like(np.take(c, [0], axis=axis)), c], axis=axis)
+        hi = np.take(c, np.arange(2 * r + 1, 2 * r + 1 + n), axis=axis)
+        lo = np.take(c, np.arange(0, n), axis=axis)
+        a = (hi - lo) / (2 * r + 1)
+    return a
+
+
+def gauss_f(arr, sigma):
+    """Approximate Gaussian blur of a float (h,w) array via three box blurs."""
+    if sigma <= 0.3:
+        return np.asarray(arr, dtype=np.float64)
+    r = max(1, int(round(sigma * 0.9)))
+    a = np.asarray(arr, dtype=np.float64)
+    for _ in range(3):
+        a = box_blur_f(a, r)
+    return a
+
+
+def chamfer_dt(mask):
+    """Approximate Euclidean distance (in px) from every True pixel of a boolean (h,w) mask to the
+    nearest False pixel (chamfer 3-4 metric, two passes, vectorised per row)."""
+    mask = np.asarray(mask, dtype=bool)
+    H, W = mask.shape
+    INF = 1e6
+    d = np.where(mask, INF, 0.0)
+    xs = np.arange(W, dtype=np.float64) * 3.0
+
+    def hpass(row):
+        r1 = np.minimum.accumulate(row - xs) + xs
+        r2 = np.minimum.accumulate((row + xs)[::-1])[::-1] - xs
+        return np.minimum(r1, r2)
+
+    def vcand(prev):
+        c = prev + 3.0
+        c[1:] = np.minimum(c[1:], prev[:-1] + 4.0)
+        c[:-1] = np.minimum(c[:-1], prev[1:] + 4.0)
+        return c
+
+    d[0] = hpass(d[0])
+    for y in range(1, H):
+        d[y] = hpass(np.minimum(d[y], vcand(d[y - 1])))
+    for y in range(H - 2, -1, -1):
+        d[y] = hpass(np.minimum(d[y], vcand(d[y + 1])))
+    d[~mask] = 0.0
+    return np.minimum(d, INF) / 3.0
+
+
+def height_to_normals(h, strength=1.0, wrap_x=False):
+    """Image-space normals (y down) from a height field h (h,w) in pixel units: returns (nx, ny, nz)."""
+    h = np.asarray(h, dtype=np.float64)
+    if wrap_x:
+        hx = (np.roll(h, -1, axis=1) - np.roll(h, 1, axis=1)) * 0.5
+    else:
+        hx = np.gradient(h, axis=1)
+    hy = np.gradient(h, axis=0)
+    nx, ny, nz = -hx * strength, -hy * strength, np.ones_like(h)
+    L = np.sqrt(nx * nx + ny * ny + nz * nz)
+    return nx / L, ny / L, nz / L
+
+
+def encode_normal_map(nx, ny, nz, alpha, scale=1):
+    """Encode image-space normals (y down) as an OpenGL-convention (green = up) tangent-space normal
+    map RGBA image, optionally block-downsampling by `scale`. Transparent pixels are (128,128,255,0)."""
+    a = np.asarray(alpha, dtype=np.float64)
+    if scale > 1:
+        H, W = a.shape
+        h2, w2 = H // scale, W // scale
+        blk = lambda v: v[:h2 * scale, :w2 * scale].reshape(h2, scale, w2, scale).mean(axis=(1, 3))
+        wgt = blk(np.clip(a, 0, 1)) + 1e-6
+        nx = blk(nx * np.clip(a, 0, 1)) / wgt
+        ny = blk(ny * np.clip(a, 0, 1)) / wgt
+        nz = blk(nz * np.clip(a, 0, 1)) / wgt
+        a = blk(a)
+        L = np.sqrt(nx * nx + ny * ny + nz * nz) + 1e-9
+        nx, ny, nz = nx / L, ny / L, nz / L
+    r = np.clip(nx * 0.5 + 0.5, 0, 1) * 255
+    g = np.clip(-ny * 0.5 + 0.5, 0, 1) * 255
+    b = np.clip(nz * 0.5 + 0.5, 0, 1) * 255
+    vis = a > 0.002
+    r = np.where(vis, r, 128); g = np.where(vis, g, 128); b = np.where(vis, b, 255)
+    rgb = np.dstack([r, g, b]).astype(np.uint8)
+    return Image.fromarray(np.dstack([rgb, np.clip(a * 255, 0, 255).astype(np.uint8)]), 'RGBA')
+
+
+def downsample_premultiplied(rgba_arr, scale):
+    """LANCZOS-downsample an RGBA float array (0..255) by an integer factor with premultiplied alpha
+    so transparent neighbours do not darken the edges."""
+    arr = np.asarray(rgba_arr, dtype=np.float64)
+    H, W = arr.shape[:2]
+    w2, h2 = W // scale, H // scale
+    a = arr[..., 3] / 255.0
+    chans = []
+    for c in range(3):
+        im = Image.fromarray((arr[..., c] * a).astype(np.float32), 'F').resize((w2, h2), Image.LANCZOS)
+        chans.append(np.array(im, dtype=np.float64))
+    ai = np.array(Image.fromarray(a.astype(np.float32), 'F').resize((w2, h2), Image.LANCZOS), dtype=np.float64)
+    ai = np.clip(ai, 0, 1)
+    rgb = [np.clip(np.where(ai > 1e-4, ch / np.maximum(ai, 1e-4), 0), 0, 255) for ch in chans]
+    out = np.dstack(rgb + [ai * 255]).astype(np.uint8)
+    return Image.fromarray(out, 'RGBA')

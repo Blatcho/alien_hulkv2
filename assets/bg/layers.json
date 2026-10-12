@@ -72,7 +72,8 @@
     "fixed": false,
     "x": 0,
     "w": 1024,
-    "h": 220
+    "h": 220,
+    "normal": "ground_n.png"
    },
    {
     "key": "foreground",

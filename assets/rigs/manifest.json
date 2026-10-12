@@ -1,53 +1,71 @@
 {
- "beast": [
-  "beast_arm_l",
-  "beast_arm_u",
-  "beast_head",
-  "beast_leg_l",
-  "beast_leg_u",
-  "beast_tail1",
-  "beast_tail2",
-  "beast_torso"
- ],
- "knight": [
-  "knight_arm_l",
-  "knight_arm_u",
-  "knight_head",
-  "knight_leg_l",
-  "knight_leg_u",
-  "knight_shield",
-  "knight_torso",
-  "knight_weapon"
- ],
- "spearman": [
-  "spearman_arm_l",
-  "spearman_arm_u",
-  "spearman_head",
-  "spearman_leg_l",
-  "spearman_leg_u",
-  "spearman_torso",
-  "spearman_weapon"
- ],
- "skeleton": [
-  "skeleton_arm_l",
-  "skeleton_arm_u",
-  "skeleton_head",
-  "skeleton_leg_l",
-  "skeleton_leg_u",
-  "skeleton_torso",
-  "skeleton_weapon"
- ],
- "warden": [
-  "warden_arm_l",
-  "warden_arm_u",
-  "warden_head",
-  "warden_leg_l",
-  "warden_leg_u",
-  "warden_torso",
-  "warden_weapon"
- ],
- "bat": [
-  "bat_body",
-  "bat_wing"
- ]
+ "beast": {
+  "textures": [
+   "beast_arm_l",
+   "beast_arm_u",
+   "beast_head",
+   "beast_leg_l",
+   "beast_leg_u",
+   "beast_tail1",
+   "beast_tail2",
+   "beast_torso"
+  ],
+  "normals": true
+ },
+ "knight": {
+  "textures": [
+   "knight_arm_l",
+   "knight_arm_u",
+   "knight_head",
+   "knight_leg_l",
+   "knight_leg_u",
+   "knight_shield",
+   "knight_torso",
+   "knight_weapon"
+  ],
+  "normals": true
+ },
+ "spearman": {
+  "textures": [
+   "spearman_arm_l",
+   "spearman_arm_u",
+   "spearman_head",
+   "spearman_leg_l",
+   "spearman_leg_u",
+   "spearman_torso",
+   "spearman_weapon"
+  ],
+  "normals": true
+ },
+ "skeleton": {
+  "textures": [
+   "skeleton_arm_l",
+   "skeleton_arm_u",
+   "skeleton_head",
+   "skeleton_leg_l",
+   "skeleton_leg_u",
+   "skeleton_torso",
+   "skeleton_weapon"
+  ],
+  "normals": true
+ },
+ "warden": {
+  "textures": [
+   "warden_arm_l",
+   "warden_arm_u",
+   "warden_head",
+   "warden_leg_l",
+   "warden_leg_u",
+   "warden_torso",
+   "warden_weapon"
+  ],
+  "normals": true
+ },
+ "bat": {
+  "textures": [
+   "bat_body",
+   "bat_wing"
+  ],
+  "normals": true
+ }
 }
