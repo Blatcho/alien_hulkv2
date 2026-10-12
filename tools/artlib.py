@@ -586,10 +586,11 @@ def encode_normal_map(nx, ny, nz, alpha, scale=1):
     r = np.clip(nx * 0.5 + 0.5, 0, 1) * 255
     g = np.clip(-ny * 0.5 + 0.5, 0, 1) * 255
     b = np.clip(nz * 0.5 + 0.5, 0, 1) * 255
-    vis = a > 0.002
+    a8 = np.clip(a * 255, 0, 255).astype(np.uint8)
+    vis = a8 > 0
     r = np.where(vis, r, 128); g = np.where(vis, g, 128); b = np.where(vis, b, 255)
     rgb = np.dstack([r, g, b]).astype(np.uint8)
-    return Image.fromarray(np.dstack([rgb, np.clip(a * 255, 0, 255).astype(np.uint8)]), 'RGBA')
+    return Image.fromarray(np.dstack([rgb, a8]), 'RGBA')
 
 
 def downsample_premultiplied(rgba_arr, scale):

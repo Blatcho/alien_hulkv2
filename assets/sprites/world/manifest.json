@@ -4,5 +4,9 @@
   "platform",
   "fence"
  ],
- "normals": []
+ "normals": [
+  "gate",
+  "platform",
+  "fence"
+ ]
 }

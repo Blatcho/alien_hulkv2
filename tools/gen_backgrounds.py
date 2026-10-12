@@ -31,11 +31,11 @@ W = 2048                    # tile width for most layers
 ZONES = {
     'thornmoor': dict(
         sky=[(0, '#05060e'), (0.28, '#0f1527'), (0.52, '#232a46'), (0.68, '#443a56'), (0.8, '#6b4a48'), (0.9, '#4a3238'), (1, '#262030')],
-        mood=dict(color='#7a3f4a', y=0.5, h=0.1, strength=0.5),      # bruised dusk band
-        star_density=0.0010, milky=0.45,
+        mood=dict(color='#7a3f4a', y=0.37, h=0.09, strength=0.5),      # bruised dusk band
+        star_density=0.0006, milky=0.4,
         moon=dict(x=940, y=118, r=46, color='#ece6d6', glow='#9fa8c8'),
-        cloud_color='#141726', cloud_lit='#9a98b4', cloud_shadow='#0a0b14', cloud_cover=0.55, storm=False,
-        fog='#2e2c3c', far_mount=('#3a3a58', '#2c2c44'), near_mount=('#1c1d30', '#202134'),
+        cloud_color='#2a2c48', cloud_lit='#a09ebc', cloud_shadow='#0c0d18', cloud_cover=0.55, storm=False,
+        fog='#2e2c3c', far_mount=('#2c2c48', '#2a2a40'), near_mount=('#181a2c', '#1e1f32'),
         snow='#aab0c8', mist='#5a5a74',
         castle='#12131c', castle_lit='#f0a040', stone_var='#1d1e2a',
         trees='#0b0d12', bark_hi='#1d2028', moss='#3a4436', hedge=('#0b100d', '#151c13'), leaf='#1f2a1a',
@@ -45,11 +45,11 @@ ZONES = {
     ),
     'graveyard': dict(
         sky=[(0, '#03040a'), (0.35, '#0a101e'), (0.62, '#15202f'), (0.8, '#1f3236'), (0.92, '#24403c'), (1, '#172420')],
-        mood=dict(color='#2f6a5a', y=0.56, h=0.12, strength=0.45),        # cold green-teal haze
-        star_density=0.0018, milky=0.7,
+        mood=dict(color='#2f6a5a', y=0.4, h=0.1, strength=0.45),        # cold green-teal haze
+        star_density=0.0011, milky=0.7,
         moon=dict(x=640, y=130, r=70, color='#dfe6d8', glow='#7fb0a0'),
-        cloud_color='#0f1620', cloud_lit='#6b8f8a', cloud_shadow='#070b10', cloud_cover=0.42, storm=False,
-        fog='#223034', far_mount=('#1e2c38', '#1a2630'), near_mount=('#121a22', '#161e26'),
+        cloud_color='#1c2836', cloud_lit='#7a9e98', cloud_shadow='#080c12', cloud_cover=0.42, storm=False,
+        fog='#223034', far_mount=('#182634', '#1a2630'), near_mount=('#10171f', '#151c24'),
         snow='#9fb4b4', mist='#3e5a58',
         castle='#0d1117', castle_lit='#8fd0a0', stone_var='#161c22',
         trees='#070a0c', bark_hi='#161c1c', moss='#2f3f33', hedge=('#0c130f', '#152015'), leaf='#1b2b1c',
@@ -59,11 +59,11 @@ ZONES = {
     ),
     'castle': dict(
         sky=[(0, '#06050a'), (0.35, '#14101e'), (0.62, '#241a2c'), (0.8, '#3e2428'), (0.92, '#5a2a22'), (1, '#2a1818')],
-        mood=dict(color='#8a3a20', y=0.6, h=0.12, strength=0.55),        # red ember glow at the horizon
+        mood=dict(color='#8a3a20', y=0.44, h=0.1, strength=0.55),        # red ember glow at the horizon
         star_density=0.0004, milky=0.0,
         moon=dict(x=300, y=100, r=40, color='#e8dccc', glow='#a08890'),
-        cloud_color='#17121c', cloud_lit='#7a5a64', cloud_shadow='#08060a', cloud_cover=0.78, storm=True,
-        fog='#2e2430', far_mount=('#241c2e', '#221a28'), near_mount=('#17121e', '#1b1522'),
+        cloud_color='#1c1622', cloud_lit='#7e5e68', cloud_shadow='#08060a', cloud_cover=0.78, storm=True,
+        fog='#2e2430', far_mount=('#1e1828', '#201828'), near_mount=('#15101c', '#191420'),
         snow='#9c8a98', mist='#4e3a48',
         castle='#0f0c13', castle_lit='#ff9a30', stone_var='#1a1520',
         trees='#0a080e', bark_hi='#1c1620', moss='#3a3030', hedge=('#17131a', '#221c26'), leaf='#2a2026',
@@ -86,6 +86,38 @@ def to_img(rgb, alpha):
     return rgba(rgb, alpha)
 
 
+def gblur(arr, r):
+    """Gaussian blur of a float array that wraps horizontally (so tiles stay seamless)."""
+    if r <= 0:
+        return arr.copy()
+    pad = int(r * 3) + 2
+    ext = np.concatenate([arr[:, -pad:], arr, arr[:, :pad]], axis=1)
+    return gaussian_blur_array(ext, r)[:, pad:-pad]
+
+
+def blur_wrap(img, r):
+    """Gaussian blur of an RGBA image that wraps horizontally."""
+    if r <= 0:
+        return img
+    w, h = img.size
+    pad = int(r * 3) + 2
+    ext = Image.new('RGBA', (w + 2 * pad, h))
+    ext.paste(img, (pad, 0))
+    ext.paste(img.crop((w - pad, 0, w, h)), (0, 0))
+    ext.paste(img.crop((0, 0, pad, h)), (w + pad, 0))
+    return ext.filter(ImageFilter.GaussianBlur(r)).crop((pad, 0, pad + w, h))
+
+
+def filter_wrap(img_l, filt, pad=8):
+    """Apply a PIL filter to an 'L' image with horizontal wrap padding so tiles stay seamless."""
+    w, h = img_l.size
+    ext = Image.new(img_l.mode, (w + 2 * pad, h))
+    ext.paste(img_l, (pad, 0))
+    ext.paste(img_l.crop((w - pad, 0, w, h)), (0, 0))
+    ext.paste(img_l.crop((0, 0, pad, h)), (w + pad, 0))
+    return ext.filter(filt).crop((pad, 0, pad + w, h))
+
+
 def shift_up(a, k):
     """a[y] -> a[y-k] (rows move down), top padded with the first row."""
     out = np.empty_like(a)
@@ -104,45 +136,48 @@ def cloud_field(z, seed, cells, aspect, band_c, band_w, cover, softness, warp, o
     d = (d - d.mean()) / (d.std() + 1e-6)          # ~N(0,1)
     ys = np.linspace(0, 1, VH)[:, None]
     env = np.exp(-((ys - band_c) / band_w) ** 2)
-    dens = d + (env - 1.0) * 2.2                   # outside the band the density drops away
-    thr = 1.1 - cover * 2.0                        # cover 0.5 -> threshold at ~0.1 sigma
-    return np.clip((dens - thr) / (softness * 6), 0, 1) ** 1.3
+    dens = d + (env - 1.0) * 1.8                   # outside the band the density drops away
+    thr = 1.0 - cover * 2.0
+    return np.clip((dens - thr) / (softness * 7), 0, 1) ** 1.2
 
 
 def light_clouds(a, z, moon_x, moon_y, base_c, lit_c, shadow_c, silver=1.0, ember=None):
-    """Colour a cloud alpha field: tops lit from above, undersides in shadow, silver rims facing the moon."""
+    """Colour a cloud alpha field: billows shaded like a height field lit from the moon side, tops
+    lit from above, undersides in shadow, silver rims on edges facing the moon."""
     ys = np.arange(VH)[:, None].astype(float)
     xs = np.arange(W)[None, :].astype(float)
-    soft = gaussian_blur_array(a, 2.5)
-    thick = gaussian_blur_array(a, 14)
-    # vertical self-shadowing: compare with the density a few px above
-    top = np.clip((soft - shift_up(soft, 7)) * 1.6, 0, 1)
-    under = np.clip((shift_up(soft, 7) - soft) * 1.4, 0, 1)
+    soft = gblur(a, 3.0)
+    thick = gblur(a, 16)
+    body = gblur(a, 7)
+    # vertical self-shadowing: compare with the density some px above
+    top = np.clip((soft - shift_up(soft, 12)) * 1.1, 0, 1)
+    under = np.clip((shift_up(soft, 10) - soft) * 1.2, 0, 1)
+    # billow shading from the moon side
+    ldx = 0.55 if moon_x > W / 2 else -0.55
+    shade = height_shade(np.ones((VH, W, 1)), body * 60, light=(ldx, -0.85), strength=0.6, ambient=0.95, lo=0.45, hi=1.7)[..., 0]
     # rims facing the moon
     gy, gx = np.gradient(soft)
     dx, dy = moon_x - xs, moon_y - ys
     dist = np.sqrt(dx * dx + dy * dy) + 1e-6
     dxn, dyn = dx / dist, dy / dist
-    prox = np.clip(1 - dist / 620.0, 0, 1) ** 1.4
-    rimm = np.clip(-(gx * dxn + gy * dyn) * 9.0, 0, 1) * (0.25 + 0.75 * prox) * silver
-    # translucent glow of thin cloud near the moon
-    glow = prox * (1 - thick) * 0.45
+    prox = np.clip(1 - dist / 700.0, 0, 1) ** 1.3
+    rimm = np.clip(-(gx * dxn + gy * dyn) * 7.0, 0, 1) * (0.2 + 0.8 * prox) * silver
+    glow = prox * (1 - thick) * 0.4
     base = rgbf(base_c)[None, None, :]
     lit = rgbf(lit_c)[None, None, :]
     shd = rgbf(shadow_c)[None, None, :]
     rgb = base * np.ones((VH, W, 1))
-    # body gradient: brighter top of the bank
     rgb = rgb * (0.85 + 0.3 * (1 - ys / VH))[..., None]
-    lmix = np.clip(top * 0.9 + rimm + glow, 0, 1)[..., None]
+    lmix = np.clip((shade - 1.0) * 0.6 + top * 0.5 + rimm * 0.8 + glow, 0, 1)[..., None]
     rgb = rgb * (1 - lmix) + lit * lmix
-    smix = np.clip(under * 0.9 * (1 - lmix[..., 0]), 0, 1)[..., None]
+    dark = np.clip((1.0 - shade) * 1.2 + under * 0.8, 0, 1) * (1 - lmix[..., 0])
+    smix = dark[..., None]
     rgb = rgb * (1 - smix) + shd * smix
-    # silver highlight on the brightest rims
-    rgb = rgb + np.array([60, 62, 80.0])[None, None, :] * (np.clip(rimm - 0.4, 0, 1) * prox)[..., None]
+    rgb = rgb + np.array([58, 60, 78.0])[None, None, :] * (np.clip(rimm - 0.45, 0, 1) * prox)[..., None]
     if ember is not None:
         ecol, estr = rgbf(ember[0]), ember[1]
-        hor = np.clip((ys / VH - 0.55) / 0.35, 0, 1) ** 1.5
-        emix = (np.clip(under * 1.2, 0, 1) * hor * estr)[..., None]
+        hor = np.clip((ys / VH - 0.45) / 0.4, 0, 1) ** 1.5
+        emix = (np.clip(under * 1.2 + (1 - shade) * 0.5, 0, 1) * hor * estr)[..., None]
         rgb = rgb * (1 - emix) + ecol[None, None, :] * emix
     return rgb
 
@@ -158,7 +193,7 @@ def gen_sky(z, seed):
     var = 0.6 + 0.4 * fbm_1d(W, 3, octaves=3, seed=seed + 41)[None, :]
     band = np.exp(-((ys - m['y']) / m['h']) ** 2) * var * m['strength']
     if z['storm']:
-        band = band + np.clip((ys - 0.5) / 0.5, 0, 1) ** 2 * var * 0.5   # fire-lit horizon
+        band = band + np.clip((ys - 0.3) / 0.7, 0, 1) ** 2 * var * 0.5   # fire-lit horizon
     rgb = rgb * (1 - band[..., None]) + rgbf(m['color'])[None, None, :] * band[..., None]
     # subtle large-scale atmospheric mottling
     atm = fbm_2d(W, VH, 3, 2, octaves=3, seed=seed + 3)
@@ -208,17 +243,17 @@ def gen_sky(z, seed):
     ember = ('#7a3020', 0.6) if z['storm'] else None
     layers = []
     # thin high streaks
-    cir = cloud_field(z, seed + 11, 5, 2.2, 0.18, 0.2, z['cloud_cover'] * 0.7, 0.26, 0.5, octaves=5)
+    cir = cloud_field(z, seed + 11, 5, 2.2, 0.1, 0.16, z['cloud_cover'] * 0.7, 0.26, 0.5, octaves=5)
     cir = cir * 0.45
     layers.append((cir, 0.6))
     if z['storm']:
-        heavy = cloud_field(z, seed + 23, 6, 0.6, 0.38, 0.3, z['cloud_cover'], 0.1, 1.0, octaves=6)
-        mid = cloud_field(z, seed + 29, 9, 0.5, 0.52, 0.16, z['cloud_cover'] * 0.9, 0.14, 0.9, octaves=6)
+        heavy = cloud_field(z, seed + 23, 6, 0.6, 0.22, 0.26, z['cloud_cover'], 0.1, 1.0, octaves=6)
+        mid = cloud_field(z, seed + 29, 9, 0.5, 0.4, 0.12, z['cloud_cover'] * 0.9, 0.14, 0.9, octaves=6)
         layers.append((heavy, 0.98))
         layers.append((mid, 0.9))
     else:
-        mid = cloud_field(z, seed + 23, 7, 0.55, 0.44, 0.22, z['cloud_cover'], 0.13, 0.9, octaves=6)
-        low = cloud_field(z, seed + 29, 12, 0.5, 0.62, 0.1, z['cloud_cover'] * 0.8, 0.16, 0.7, octaves=5)
+        mid = cloud_field(z, seed + 23, 7, 0.55, 0.2, 0.2, z['cloud_cover'], 0.19, 0.9, octaves=6)
+        low = cloud_field(z, seed + 29, 12, 0.5, 0.37, 0.09, z['cloud_cover'] * 0.8, 0.2, 0.7, octaves=5)
         layers.append((mid, 0.95))
         layers.append((low, 0.8))
     for k, (a, op) in enumerate(layers):
@@ -226,13 +261,13 @@ def gen_sky(z, seed):
                             silver=1.0 if k > 0 else 0.5, ember=ember)
         # feather the alpha with fine noise so edges look wispy
         fine = fbm_2d(W, VH, 48, 16, octaves=3, seed=seed + 90 + k)
-        aa = np.clip(a * (0.8 + 0.4 * fine), 0, 1) * op
-        cimg = to_img(crgb, aa * 255).filter(ImageFilter.GaussianBlur(0.8 if k else 1.6))
+        aa = np.clip(a * (0.85 + 0.3 * fine) * 1.2, 0, 1) * op
+        cimg = blur_wrap(to_img(crgb, aa * 255), 1.2 if k else 2.0)
         carr = np.array(cimg).astype(float)
         ca = carr[..., 3:4] / 255.0
         rgb = rgb * (1 - ca) + carr[..., :3] * ca
     # distant haze above the horizon
-    haze = np.clip((ys - 0.66) / 0.34, 0, 1) ** 1.6
+    haze = np.clip((ys - 0.5) / 0.5, 0, 1) ** 1.6
     hz = rgbf(z['fog'])
     rgb = rgb * (1 - haze[..., None] * 0.6) + hz[None, None, :] * (haze[..., None] * 0.6)
     img = to_img(rgb, np.full((VH, W), 255.0))
@@ -269,15 +304,15 @@ def gen_moon(z, seed):
     maria = np.clip((n - 0.55) / 0.2, 0, 1)
     shade *= 1 - 0.22 * maria
     # craters: rings with a lit rim and a dark floor
-    for _ in range(14):
+    for _ in range(9):
         a = rs.uniform(0, 2 * math.pi); d0 = rs.uniform(0, 0.8) * r
         cx, cy = c + math.cos(a) * d0, c + math.sin(a) * d0
-        cr = rs.uniform(2, r * 0.16)
+        cr = rs.uniform(2, r * 0.12)
         dd = np.sqrt((x - cx) ** 2 + (y - cy) ** 2) / cr
         floor = np.clip(1 - dd, 0, 1) ** 0.6
         rim = np.clip(1 - np.abs(dd - 1) / 0.35, 0, 1)
-        shade *= 1 - 0.18 * floor
-        shade *= 1 + 0.12 * rim * ((x - cx) / cr < 0)
+        shade *= 1 - 0.1 * floor
+        shade *= 1 + 0.06 * rim
     shade *= np.clip(1.06 - rr ** 3 * 0.4, 0, 1)
     arr = np.array(disc).astype(float)
     arr[..., :3] *= shade[..., None]
@@ -303,14 +338,14 @@ def gen_mountains(z, seed, base_y, amp, colors, fade_start, cells=5, jag=0.5, fo
 
     # --- rock texture: domain-warped lumps, strata, cracks
     lumps = fbm_warp(W, VH, 14 if far else 18, 5, octaves=5, persistence=0.55, seed=seed + 9, warp=0.9)
-    facets = fbm_warp(W, VH, 6, 2, octaves=3, persistence=0.6, seed=seed + 19, warp=1.2, ridged=True)
+    facets = fbm_warp(W, VH, 5, 2, octaves=3, persistence=0.6, seed=seed + 19, warp=1.0)
     wn = fbm_2d(W, VH, 10, 4, octaves=3, seed=seed + 31)
     strata = 0.5 + 0.5 * np.sin(2 * math.pi * (yy + (wn - 0.5) * 90 + below * 0.15) / (11.0 if far else 15.0))
-    strata = strata ** 6
+    strata = strata ** 6 * np.clip((fbm_2d(W, VH, 8, 3, octaves=2, seed=seed + 33) - 0.45) * 3, 0, 1)
     cr = fbm_warp(W, VH, 24, 9, octaves=4, persistence=0.6, seed=seed + 47, warp=0.8, ridged=True)
     cracks = np.clip((cr - 0.86) / 0.1, 0, 1)
-    height = lumps * 1.0 + facets * 1.6 - strata * 0.08 - cracks * 0.35
-    height = height * (18.0 if far else 26.0)      # px-ish amplitude for shading gradients
+    height = lumps * 1.0 + facets * 1.4 - strata * 0.06 - cracks * 0.3
+    height = gblur(height, 1.2) * (14.0 if far else 20.0)      # px-ish amplitude for shading gradients
     # peaks are sharper: more relief near the ridge line
     relief = np.clip(1 - below / (amp * 0.9), 0.35, 1)
 
@@ -318,27 +353,31 @@ def gen_mountains(z, seed, base_y, amp, colors, fade_start, cells=5, jag=0.5, fo
     t = np.clip(below / np.maximum(1, (VH - y[None, :])), 0, 1)
     rgb = ct[None, None, :] * (1 - t[..., None]) + cb[None, None, :] * t[..., None]
     rgb = rgb * (0.86 + 0.28 * lumps)[..., None]
-    rgb = height_shade(rgb, height * relief, light=(lx, ly), strength=0.045, ambient=0.95, lo=0.4, hi=1.6)
-    rgb = rgb * (1 - cracks * 0.35)[..., None]
-    rgb = rgb * (1 - strata * 0.12)[..., None]
+    rgb = height_shade(rgb, height * relief, light=(lx, ly), strength=0.035, ambient=0.97, lo=0.5, hi=1.45)
+    rgb = rgb * (1 - cracks * 0.22)[..., None]
+    rgb = rgb * (1 - strata * 0.05)[..., None]
     # moonlit faces: slopes that face the moon get a cool highlight that fades with depth below the ridge
-    slope = np.gradient(gaussian_blur_array(y[None, :].repeat(2, 0), 0)[0]) if False else np.gradient(y)
-    slope_s = np.convolve(slope, np.ones(9) / 9, mode='same')
-    facing = np.clip(np.sign(lx) * slope_s * 0.9 + 0.05, 0, 1) if abs(lx) > 0.15 else np.clip(0.3 - np.abs(slope_s) * 0.3, 0, 0.3)
-    depthf = np.clip(1 - below / (90.0 if far else 140.0), 0, 1) ** 1.4
-    moonlit = facing[None, :] * depthf * mask
-    rgb += np.array([42, 46, 70.0])[None, None, :] * moonlit[..., None] * (0.7 + 0.5 * lumps)[..., None]
+    sig = 14.0 if far else 22.0
+    kx = np.arange(-60, 61); gk = np.exp(-(kx / sig) ** 2); gk /= gk.sum()
+    y_s = np.convolve(np.concatenate([y[-60:], y, y[:60]]), gk, mode='same')[60:-60]
+    slope_s = np.gradient(y_s)
+    facing = np.clip(np.sign(lx) * slope_s * 0.6 + 0.03, 0, 1) if abs(lx) > 0.15 else np.clip(0.25 - np.abs(slope_s) * 0.3, 0, 0.25)
+    depthf = np.clip(1 - below / (120.0 if far else 190.0), 0, 1) ** 1.1
+    warp_idx = ((xs + (wn - 0.5) * 90).astype(int)) % W
+    moonlit = facing[warp_idx] * depthf * mask
+    rgb += np.array([30, 32, 50.0])[None, None, :] * moonlit[..., None] * (0.7 + 0.5 * lumps)[..., None]
     # dark side faces
-    away = np.clip(-np.sign(lx) * slope_s * 0.7, 0, 1) if abs(lx) > 0.15 else 0
-    rgb *= (1 - (away[None, :] * depthf * 0.28))[..., None]
+    away = np.clip(-np.sign(lx) * slope_s * 0.7, 0, 1) if abs(lx) > 0.15 else np.zeros(W)
+    rgb *= (1 - (away[warp_idx] * depthf * 0.34))[..., None]
     # snow caps on the far peaks
     if far:
         alt = np.clip((base_y - y) / amp, 0, 1)
-        snow_t = np.clip((alt - 0.5) / 0.3, 0, 1)
-        depth_px = snow_t * 70 + 4
+        q = np.percentile(alt, 72)
+        snow_t = np.clip((alt - q) / max(1e-3, alt.max() - q), 0, 1) ** 1.2
+        depth_px = snow_t * 34 + 2
         sn = fbm_2d(W, VH, 40, 12, octaves=3, seed=seed + 61)
-        snow = np.clip((depth_px[None, :] - below + (sn - 0.5) * 36) / 8, 0, 1) * (snow_t[None, :] > 0.02)
-        snow = snow * (1 - cracks * 0.6) * (0.75 + 0.25 * lumps)
+        snow = np.clip((depth_px[None, :] - below + (sn - 0.5) * 56) / 10, 0, 1) * (snow_t[None, :] > 0.02)
+        snow = snow * (1 - cracks * 0.8) * (0.5 + 0.5 * lumps) * 0.7
         scol = rgbf(z['snow'])
         srgb = height_shade(np.ones((VH, W, 3)) * scol, height * relief, light=(lx, ly), strength=0.03, ambient=0.95, lo=0.5, hi=1.3)
         rgb = rgb * (1 - snow[..., None]) + srgb * snow[..., None]
@@ -357,7 +396,7 @@ def gen_mountains(z, seed, base_y, amp, colors, fade_start, cells=5, jag=0.5, fo
     img = to_img(rgb, mask * 255)
     img = paint_grain(img, 0.03, 0.03, seed)
     if far:
-        img = img.filter(ImageFilter.GaussianBlur(0.7))
+        img = blur_wrap(img, 0.7)
     return img
 
 
@@ -644,6 +683,7 @@ def gen_structures(z, seed, base_y=500):
     kind = z['structures']
 
     def draw(dx):
+        rs = np.random.RandomState(seed + 1)
         if kind == 'castle':
             draw_castle(C, 1250, int(gy[1300]) + 2, rs, dx, scale=0.62)
             draw_thorn_tower(C, 560, int(gy[580]) + 2, rs, dx, h=230)
@@ -669,24 +709,30 @@ def gen_structures(z, seed, base_y=500):
     gmask = ridge_fill(W, VH, gy, '#ffffff', '#ffffff').getchannel('A')
     sil = Image.fromarray(np.maximum(np.array(C.sil), np.array(gmask)), 'L')
     mask = mask_array(sil)
+    wall = mask_array(C.sil)
     roof = mask_array(C.roof)
     # --- stonework
     coarse = kind == 'walls'
-    hgt, sid = brick_height(W, VH, course=8 if coarse else 6, brick=32 if coarse else 16, mortar=1.2, bevel=1.5, seed=seed + 2, chip=0.4)
+    hgt, sid = brick_height(W, VH, course=8 if coarse else 7, brick=32 if coarse else 18, mortar=1.2, bevel=1.5, seed=seed + 2, chip=0.4)
     weather = fbm_warp(W, VH, 24, 8, octaves=4, persistence=0.55, seed=seed + 8, warp=0.7)
     base = rgbf(z['castle']); var = rgbf(z['stone_var'])
     rgb = (base[None, None, :] * (1 - sid[..., None] * 0.6) + var[None, None, :] * (sid[..., None] * 0.6))
     rgb = rgb * (0.85 + 0.35 * weather)[..., None]
     lx, ly = z['light']
-    rgb = height_shade(rgb, hgt * 2.2, light=(lx, ly), strength=0.35, ambient=1.0, lo=0.6, hi=1.5)
-    rgb = rgb * (0.7 + 0.3 * hgt)[..., None]          # mortar darker than the stone faces
+    rgb = height_shade(rgb, hgt * 2.6, light=(lx, ly), strength=0.45, ambient=1.0, lo=0.55, hi=1.6)
+    rgb = rgb * (0.62 + 0.38 * hgt)[..., None]          # mortar darker than the stone faces
+    # the ground under the buildings is earth and tussocks, not masonry
+    earth = fbm_2d(W, VH, 80, 24, octaves=3, seed=seed + 15)
+    ergb = base[None, None, :] * (0.75 + 0.5 * weather + 0.25 * earth)[..., None]
+    ergb = ergb * 0.5 + rgbf(z['fog'])[None, None, :] * 0.5
+    rgb = rgb * wall[..., None] + ergb * (1 - wall[..., None])
     # roofs: slate with diagonal tile lines
     yy, xx = np.mgrid[0:VH, 0:W].astype(float)
     tiles = (0.5 + 0.5 * np.sin((yy * 1.0 + xx * 0.25) * 1.4)) ** 8
     slate = rgbf(z['castle']) * 0.75
     rgb = rgb * (1 - roof[..., None]) + (slate[None, None, :] * (0.9 + 0.3 * weather - 0.25 * tiles)[..., None]) * roof[..., None]
     # rounded shading of towers/walls (soft silhouette gradient lit from the moon side)
-    soft = gaussian_blur_array(mask, 9)
+    soft = gblur(mask, 9)
     gy2, gx2 = np.gradient(soft)
     side = np.clip(1 + (-(gx2 * lx + gy2 * ly)) * 10, 0.6, 1.5)
     rgb = rgb * side[..., None]
@@ -705,7 +751,7 @@ def gen_structures(z, seed, base_y=500):
     f = np.clip((ys - 0.42) / 0.45, 0, 1) ** 1.1 * 0.9
     img = blend_toward(img, z['fog'], np.repeat(f, W, axis=1))
     img = paint_grain(img, 0.03, 0.02, seed)
-    img = img.filter(ImageFilter.GaussianBlur(0.6))
+    img = blur_wrap(img, 0.6)
     return img
 
 
@@ -720,7 +766,7 @@ def paint_trees(z, seed, specs, gy, detail=1.0, moss_prob=0.5, rim_strength=1.0,
     det = new_rgba(W, VH)
     dd = ImageDraw.Draw(det)
     moss_c = hex2rgb(z['moss'])
-    knot_c = tuple(max(0, c - 4) for c in hex2rgb(z['trees'])) + (255,)
+    knot_c = tuple(max(0, c - 2) for c in hex2rgb(z['trees'])) + (255,)
     knot_hi = hex2rgb(z['bark_hi']) + (255,)
     all_segs = []
 
@@ -745,25 +791,26 @@ def paint_trees(z, seed, specs, gy, detail=1.0, moss_prob=0.5, rim_strength=1.0,
                     draw_tapered_line(ds, (mx_, my_), (ex, ey), tw * 0.35, 2, 255)
             # knots on the trunk and main limbs
             for (x0, y0_, x1, y1, w0, w1, dpt) in segs:
-                if dpt <= 1 and w0 > 7 and rs2.rand() < 0.45 * detail:
+                if dpt <= 1 and w0 > 9 and rs2.rand() < 0.3 * detail:
                     t = rs2.uniform(0.2, 0.8)
                     kx, ky = x0 + (x1 - x0) * t, y0_ + (y1 - y0_) * t
-                    kr = w0 * rs2.uniform(0.18, 0.3)
-                    dd.ellipse([kx - kr * 1.3, ky - kr, kx + kr * 1.3, ky + kr], fill=knot_hi)
-                    dd.ellipse([kx - kr * 0.7, ky - kr * 0.55, kx + kr * 0.7, ky + kr * 0.55], fill=knot_c)
+                    kr = w0 * rs2.uniform(0.14, 0.22)
+                    dd.ellipse([kx - kr * 1.4, ky - kr, kx + kr * 1.4, ky + kr], fill=knot_hi)
+                    dd.ellipse([kx - kr * 0.8, ky - kr * 0.55, kx + kr * 0.8, ky + kr * 0.55], fill=knot_c)
+                    dd.arc([kx - kr * 1.4, ky - kr, kx + kr * 1.4, ky + kr], 200, 340, fill=lerp_rgb(knot_hi[:3], (120, 120, 130), 0.25) + (255,), width=1)
                 # hanging moss / tatters from limbs
                 if dpt >= 2 and rs2.rand() < moss_prob * detail and abs(y1 - y0_) < abs(x1 - x0) * 1.2:
                     for s in range(rs2.randint(1, 3)):
                         t = rs2.uniform(0.1, 0.9)
                         sx, sy = x0 + (x1 - x0) * t, y0_ + (y1 - y0_) * t + w0 * 0.3
-                        L = rs2.uniform(10, 40) * (1 if dpt < 4 else 0.6)
-                        col = lerp_rgb(moss_c, hex2rgb(z['trees']), rs2.rand() * 0.5) + (255,)
+                        L = rs2.uniform(8, 30) * (1 if dpt < 4 else 0.6)
+                        col = lerp_rgb(moss_c, hex2rgb(z['trees']), 0.35 + rs2.rand() * 0.45) + (255,)
                         px, py = sx, sy
                         for q in range(4):
-                            nx_ = px + rs2.uniform(-2.5, 2.5); ny_ = py + L / 4
-                            dd.line([(px, py), (nx_, ny_)], fill=col, width=max(1, int(2 - q * 0.4)))
+                            nx_ = px + rs2.uniform(-1.5, 1.5); ny_ = py + L / 4
+                            dd.line([(px, py), (nx_, ny_)], fill=col, width=1)
                             px, py = nx_, ny_
-                        dd.polygon([(sx - 2, sy), (sx + 2, sy), (sx + rs2.uniform(-2, 2), sy + L * 0.4)], fill=col)
+                        dd.polygon([(sx - 1.5, sy), (sx + 1.5, sy), (sx + rs2.uniform(-1.5, 1.5), sy + L * 0.35)], fill=col)
             all_segs.extend(segs)
     tile_draw(draw, W)
     mask = mask_array(sil)
@@ -772,17 +819,17 @@ def paint_trees(z, seed, specs, gy, detail=1.0, moss_prob=0.5, rim_strength=1.0,
     grain = fbm_2d(W, VH, 128, 48, octaves=2, seed=seed + 13)
     base = rgbf(z['trees']); hi = rgbf(z['bark_hi'])
     b = np.clip((bark - 0.5) * 2.2 + 0.5, 0, 1) * (0.7 + 0.3 * grain)
-    rgb = base[None, None, :] * (1 - b[..., None] * 0.9) + hi[None, None, :] * (b[..., None] * 0.9)
+    rgb = base[None, None, :] * (1 - b[..., None] * 0.7) + hi[None, None, :] * (b[..., None] * 0.7)
     # roundness: darker toward the silhouette edges on the side away from the light
-    soft = gaussian_blur_array(mask, 3)
+    soft = gblur(mask, 3)
     lx, ly = z['light']
     gy2, gx2 = np.gradient(soft)
-    side = np.clip(1 + (-(gx2 * lx + gy2 * ly)) * 4.0, 0.55, 1.35)
+    side = np.clip(1 + (-(gx2 * lx + gy2 * ly)) * 3.0, 0.6, 1.15)
     rgb = rgb * side[..., None]
     # moonlit rim on the side facing the moon (varies tree to tree via a slow 1D field)
     vary = fbm_1d(W, 4, octaves=2, seed=seed + 14)[None, :]
     rim = rim_light(mask, light=(lx, ly), width=2.2, power=1.0) * np.clip(vary * 1.6 - 0.2, 0, 1) * rim_strength
-    rgb += rgbf(z['rim'])[None, None, :] * (rim * 0.9)[..., None]
+    rgb += rgbf(z['rim'])[None, None, :] * (rim * 0.55)[..., None]
     img = to_img(rgb, mask * 255)
     img.alpha_composite(det)
     return img
@@ -805,9 +852,9 @@ def gen_trees(z, seed, base_y=540, count=9, big=True):
                       gnarl=0.4, twist=0.0, depth=6) for _ in range(6)]
     far = paint_trees(z, seed + 100, far_specs, gy + 6, detail=0.3, moss_prob=0.2, rim_strength=0.4, roots=False)
     far = blend_toward(far, z['fog'], np.full((VH, W), 0.45))
-    far = far.filter(ImageFilter.GaussianBlur(1.2))
+    far = blur_wrap(far, 1.2)
     img = far
-    near = paint_trees(z, seed, specs, gy, detail=1.0, moss_prob=0.55)
+    near = paint_trees(z, seed, specs, gy, detail=1.0, moss_prob=0.2)
     img.alpha_composite(near)
     # ground mound with coarse grass texture
     tex = fbm_2d(W, VH, 60, 20, octaves=3, seed=seed + 5)
@@ -847,8 +894,8 @@ def draw_bone(d, x, y, L, angle, col, dark):
 def draw_fungi(d, x, y, rs, cap, stem, gill):
     for k in range(rs.randint(2, 5)):
         fx = x + rs.uniform(-10, 10)
-        r = rs.uniform(2.5, 6)
-        h = rs.uniform(4, 10)
+        r = rs.uniform(2, 4.5)
+        h = rs.uniform(3, 8)
         d.rectangle([fx - r * 0.3, y - h, fx + r * 0.3, y], fill=stem)
         d.chord([fx - r, y - h - r * 0.9, fx + r, y - h + r * 0.9], 180, 360, fill=cap)
         d.line([(fx - r, y - h), (fx + r, y - h)], fill=gill, width=1)
@@ -868,17 +915,17 @@ def draw_bramble_layer(d, rs, gy, dx, count, c0, c1, thorn, leaf, width_rng, len
             pts.append((x + dx, y0))
         col = lerp_rgb(c0, c1, rs.rand()) + (255,)
         wv = rs.uniform(*width_rng)
-        draw_vine(d, pts, wv, col, thorn_fill=thorn, rs=rs, thorn_every=14, thorn_len=thorn_len)
+        draw_vine(d, pts, wv, col, thorn_fill=thorn, rs=rs, thorn_every=17, thorn_len=thorn_len)
         # small leaves along the vine
         if rs.rand() < leaf_prob:
             for (px, py) in pts[1:]:
                 for q in range(rs.randint(1, 3)):
                     la = rs.uniform(0, 2 * math.pi)
-                    lr = rs.uniform(3, 6)
+                    lr = rs.uniform(1.6, 3.0)
                     lx_, ly_ = px + math.cos(la) * lr * 1.2, py + math.sin(la) * lr * 1.2
                     lp = polygon_rotated(lx_, ly_, [(-lr, 0), (-lr * 0.3, -lr * 0.5), (lr * 0.3, -lr * 0.4), (lr, 0), (lr * 0.3, lr * 0.5), (-lr * 0.3, lr * 0.4)], math.degrees(la))
                     d.polygon(lp, fill=leaf)
-                    d.line([lp[0], lp[3]], fill=lerp_rgb(leaf[:3], (90, 110, 70), 0.3) + (255,), width=1)
+                    d.line([lp[0], lp[3]], fill=lerp_rgb(leaf[:3], (90, 110, 70), 0.15) + (255,), width=1)
 
 
 def gen_hedge(z, seed, top_y=500):
@@ -889,28 +936,30 @@ def gen_hedge(z, seed, top_y=500):
     # a few detailed trees standing in the hedge line (behind the brambles)
     tree_specs = [dict(x=rs.uniform(0, W), h=rs.uniform(300, 400), spread=rs.uniform(32, 44), lean=rs.uniform(-10, 10),
                        gnarl=rs.uniform(0.35, 0.5), twist=rs.uniform(-10, 10)) for _ in range(3)]
-    img = paint_trees(z, seed + 50, tree_specs, gy - 10, detail=1.3, moss_prob=0.7, rim_strength=1.2)
+    img = paint_trees(z, seed + 50, tree_specs, gy - 10, detail=1.3, moss_prob=0.25, rim_strength=1.1)
     # bramble mound with texture
     tex = fbm_warp(W, VH, 40, 14, octaves=4, seed=seed + 4, warp=0.6)
     mound = ridge_fill(W, VH, gy, z['hedge'][1], z['hedge'][0], texture=tex, texture_strength=0.3)
     img.alpha_composite(mound)
     d = ImageDraw.Draw(img)
-    thorn_hi = tuple(min(255, int(c * 2.4 + 20)) for c in c1) + (255,)
-    thorn_lo = tuple(int(c * 1.5) for c in c1) + (255,)
+    thorn_hi = tuple(min(255, int(c * 1.5 + 6)) for c in c1) + (255,)
+    thorn_lo = tuple(int(c * 1.3) for c in c1) + (255,)
     leaf = hex2rgb(z['leaf']) + (255,)
-    bone = (168, 160, 140, 255); bone_dark = (70, 64, 54, 255)
-    fence = (38, 30, 24, 255)
+    bone = (138, 130, 112, 255); bone_dark = (56, 50, 42, 255)
+    fence = (34, 27, 22, 255)
     lantern = hex2rgb(z['lantern'])
 
     def draw_back(dx):
+        rs = np.random.RandomState(seed + 21)
         draw_bramble_layer(d, rs, gy - 6, dx, 45, c0, lerp_rgb(c0, c1, 0.5), thorn_lo, lerp_rgb(leaf[:3], c0, 0.5) + (255,),
-                           (3, 6), (40, 110), 6, 0.3)
+                           (3, 6), (40, 110), 6, 0.2)
     tile_draw(draw_back, W)
-    img = img.filter(ImageFilter.GaussianBlur(0.6))
+    img = blur_wrap(img, 0.6)
     d = ImageDraw.Draw(img)
     props = []
 
     def draw_front(dx):
+        rs = np.random.RandomState(seed + 22)
         # broken fence bits
         for i in range(4):
             fx = rs.uniform(0, W)
@@ -921,7 +970,7 @@ def gen_hedge(z, seed, top_y=500):
                 d.polygon([(px - 3 + dx, fy), (px - 2 + rs.uniform(-4, 4) + dx, fy - ph), (px + 3 + rs.uniform(-4, 4) + dx, fy - ph), (px + 3 + dx, fy)], fill=fence)
                 d.polygon([(px - 3 + dx, fy - ph), (px + dx, fy - ph - 4), (px + 3 + dx, fy - ph)], fill=fence)
             d.line([(fx - 6 + dx, fy - 16 + rs.uniform(-6, 6)), (fx + 60 + dx, fy - 20 + rs.uniform(-10, 10))], fill=fence, width=3)
-        draw_bramble_layer(d, rs, gy, dx, 60, c0, c1, thorn_hi, leaf, (4, 9), (40, 130), 7, 0.55)
+        draw_bramble_layer(d, rs, gy, dx, 60, c0, c1, thorn_hi, leaf, (4, 9), (40, 130), 5, 0.35)
         for i in range(10):
             x = rs.uniform(0, W)
             y0 = gy[int(x) % W] + 10
@@ -936,10 +985,10 @@ def gen_hedge(z, seed, top_y=500):
             else:
                 draw_bone(d, x + dx, y, rs.uniform(14, 30), rs.uniform(-40, 40), bone, bone_dark)
         # fungi clusters
-        cap = lerp_rgb((150, 140, 120), lantern, 0.25) + (255,) if not z['embers'] else (120, 96, 70, 255)
-        for i in range(9):
+        cap = lerp_rgb((120, 120, 100), lantern, 0.3) + (255,) if not z['embers'] else (96, 78, 58, 255)
+        for i in range(5):
             x = rs.uniform(0, W)
-            draw_fungi(d, x + dx, gy[int(x) % W] + rs.uniform(14, 36), rs, cap, (90, 84, 70, 255), (60, 50, 40, 255))
+            draw_fungi(d, x + dx, gy[int(x) % W] + rs.uniform(14, 36), rs, cap, (76, 70, 58, 255), (50, 42, 34, 255))
         # lanterns hanging from posts
         for i in range(2):
             x = rs.uniform(0, W)
@@ -1026,10 +1075,10 @@ def gen_ground(z, seed, w=1024, h=220):
     bevel = np.zeros((h, w))
     er = stone_mask
     for i in range(4):
-        er = er.filter(ImageFilter.MinFilter(3))
+        er = filter_wrap(er, ImageFilter.MinFilter(3))
         bevel += mask_array(er)
     bevel = bevel / 4.0
-    dome = gaussian_blur_array(smask, 4) * smask
+    dome = gblur(smask, 4) * smask
     stone_h = (0.35 + 0.65 * bevel) * smask * 1.0 + dome * 0.3
     sn = fbm_2d(w, h, 64, 16, octaves=3, seed=seed + 7)
     stone_h *= (0.85 + 0.3 * sn)
@@ -1039,7 +1088,7 @@ def gen_ground(z, seed, w=1024, h=220):
     # moss in the cracks and on the lower faces
     moss_c = rgbf(z['grass']) * 1.1
     mossn = fbm_warp(w, h, 48, 12, octaves=3, seed=seed + 8, warp=0.5)
-    gap = np.clip((gaussian_blur_array(smask, 2.5) - smask * 0.6), 0, 1)
+    gap = np.clip((gblur(smask, 2.5) - smask * 0.6), 0, 1)
     moss = np.clip((mossn - 0.45) / 0.3, 0, 1) * gap * 1.6
     rgb = rgb * (1 - smask[..., None]) + srgb * smask[..., None]
     rgb = rgb * (1 - np.clip(moss, 0, 0.8)[..., None]) + moss_c[None, None, :] * np.clip(moss, 0, 0.8)[..., None]
@@ -1061,7 +1110,7 @@ def gen_ground(z, seed, w=1024, h=220):
                 a = 2 * math.pi * q / n
                 pts.append((px + dx + math.cos(a) * pw_ * rs.uniform(0.8, 1.0), py + math.sin(a) * ph_ * rs.uniform(0.75, 1.0)))
             dpu.polygon(pts, fill=255)
-    puddle = mask_array(pimg.filter(ImageFilter.GaussianBlur(1.0)))
+    puddle = mask_array(filter_wrap(pimg, ImageFilter.GaussianBlur(1.0)))
     pcol = rgbf(z['puddle'])
     sky_ref = fbm_2d(w, h, 20, 6, octaves=3, seed=seed + 21)
     prgb = pcol[None, None, :] * (0.8 + 0.5 * sky_ref)[..., None]
@@ -1108,7 +1157,7 @@ def gen_ground(z, seed, w=1024, h=220):
                 draw_tapered_line(d, P[q], P[q + 1], wq, wq * 0.8, root_c + (255,))
                 draw_tapered_line(dh, P[q], P[q + 1], wq, wq * 0.8, 255)
                 d.line([(P[q][0], P[q][1] - wq * 0.3), (P[q + 1][0], P[q + 1][1] - wq * 0.25)], fill=root_hi + (255,), width=1)
-    rh = gaussian_blur_array(mask_array(hmask), 1.5)
+    rh = gblur(mask_array(hmask), 1.5)
     height = height + rh * 1.4
     # --- bones half buried
     bone = (150, 142, 122, 255); bone_dark = (60, 54, 46, 255)
@@ -1142,7 +1191,7 @@ def gen_ground(z, seed, w=1024, h=220):
     # --- lighting from the height field and final shading
     arr = np.array(img).astype(float)
     lx, ly = z['light']
-    shaded = height_shade(arr[..., :3], gaussian_blur_array(height, 0.6) * 3.0, light=(lx, -0.9), strength=0.18, ambient=1.0, lo=0.5, hi=1.5)
+    shaded = height_shade(arr[..., :3], gblur(height, 0.6) * 3.0, light=(lx, -0.9), strength=0.3, ambient=1.0, lo=0.45, hi=1.6)
     arr[..., :3] = shaded
     arr[top + 10:, :, 3] = 255
     arr[:top + 10, :, 3] = np.array(img)[:top + 10, :, 3]
@@ -1153,23 +1202,27 @@ def gen_ground(z, seed, w=1024, h=220):
     img = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
     # normal map (rows above the soil are flat)
     hh = height.copy()
-    hh[:top + 8] = hh[top + 8]
-    nmap = normal_map_from_height(gaussian_blur_array(hh, 0.7) * 2.2, strength=1.0)
-    return img, Image.fromarray(nmap, 'RGB')
+    hh[:top + 8] = float(hh[top + 8:top + 12].mean())
+    hp = np.concatenate([hh[:, -4:], hh, hh[:, :4]], axis=1)         # wrap so the seam gradient is continuous
+    nmap = normal_map_from_height(gblur(hp, 0.7) * 2.2, strength=1.0)[:, 4:-4]
+    return img, Image.fromarray(np.ascontiguousarray(nmap), 'RGB')
 
 
 # ----------------------------------------------------------- foreground ----
 
-def draw_chain(d, x0, y0, length, angle, col, link=10, sway=0.0):
+def draw_chain(d, x0, y0, length, angle, col, link=10, sway=0.0, hi=None):
     a = math.radians(angle)
     px, py = x0, y0
     for i in range(int(length / link)):
         nx_, ny_ = px + math.cos(a) * link, py + math.sin(a) * link
         cx, cy = (px + nx_) / 2, (py + ny_) / 2
         if i % 2 == 0:
-            d.ellipse([cx - link * 0.55, cy - link * 0.35, cx + link * 0.55, cy + link * 0.35], outline=col, width=3)
+            box = [cx - link * 0.6, cy - link * 0.38, cx + link * 0.6, cy + link * 0.38]
         else:
-            d.ellipse([cx - link * 0.32, cy - link * 0.5, cx + link * 0.32, cy + link * 0.5], outline=col, width=3)
+            box = [cx - link * 0.36, cy - link * 0.55, cx + link * 0.36, cy + link * 0.55]
+        d.ellipse(box, outline=col, width=4)
+        if hi is not None:
+            d.arc(box, 200, 330, fill=hi, width=2)
         a += math.radians(sway)
         px, py = nx_, ny_
     return px, py
@@ -1189,6 +1242,7 @@ def gen_foreground(z, seed):
     leaf = lerp_rgb(hex2rgb(z['fg']), hex2rgb(z['leaf']), 0.6) + (255,)
 
     def draw(dx):
+        rs = np.random.RandomState(seed + 31)
         # bottom brambles (sharp)
         for i in range(24):
             x = rs.uniform(0, W)
@@ -1232,12 +1286,12 @@ def gen_foreground(z, seed):
                     da.polygon(lp, fill=leaf)
         for i in range(2):
             x = rs.uniform(60, 400)
-            ex, ey = draw_chain(da, x + dx, -6, rs.uniform(140, 260), rs.uniform(80, 100), fill, link=12, sway=rs.uniform(-1.5, 1.5))
+            ex, ey = draw_chain(da, x + dx, -6, rs.uniform(140, 260), rs.uniform(80, 100), fill, link=13, sway=rs.uniform(-1.5, 1.5), hi=rim)
             # hook at the end
             da.arc([ex - 10, ey - 4, ex + 10, ey + 16], 0, 220, fill=fill, width=4)
     tile_draw(draw, W)
-    far = far.filter(ImageFilter.GaussianBlur(3.2))
-    near = near.filter(ImageFilter.GaussianBlur(0.9))
+    far = blur_wrap(far, 2.4)
+    near = blur_wrap(near, 0.9)
     img = far
     img.alpha_composite(near)
     return img
@@ -1258,11 +1312,11 @@ def gen_fog(seed, w=1024, h=256):
 def gen_lightshaft(seed, w=256, h=512):
     yy, xx = np.mgrid[0:h, 0:w].astype(float)
     t = yy / h
-    half = (10 + 95 * t)                       # wedge widens toward the bottom
+    half = (26 + 84 * t)                       # wedge widens toward the bottom
     cx = w / 2
-    prof = np.clip(1 - np.abs(xx - cx) / half, 0, 1) ** 1.6
-    streaks = fbm_2d(w, h, 16, 2, octaves=3, seed=seed, wrap_x=False)
-    a = prof * (0.55 + 0.45 * streaks) * (1 - t) ** 1.2 * np.clip(t * 6, 0, 1)
+    prof = np.clip(1 - np.abs(xx - cx) / half, 0, 1) ** 1.3
+    streaks = fbm_2d(w, h, 14, 2, octaves=3, seed=seed, wrap_x=False)
+    a = prof * (0.5 + 0.5 * streaks) * np.sin(t * math.pi) ** 0.55 * 0.9
     rgb = np.ones((h, w, 3)) * 255
     return rgba(rgb, a * 255)
 
@@ -1297,27 +1351,25 @@ def gen_lightning(seed, w=400, h=600):
     def bolt(x, y, length, angle, width, depth):
         pts = [(x, y)]
         remaining = length
-        while remaining > 0:
-            step = rs.uniform(10, 26)
-            angle += rs.uniform(-28, 28)
-            x += math.sin(math.radians(angle)) * step
+        while remaining > 0 and y < h - 4:
+            step = rs.uniform(6, 18)
+            angle = float(np.clip(angle + rs.uniform(-32, 32) + (w / 2 - x) * 0.12, -55, 55))
+            x = float(np.clip(x + math.sin(math.radians(angle)) * step, 4, w - 4))
             y += math.cos(math.radians(angle)) * step
             pts.append((x, y))
             remaining -= step
-            if depth < 3 and rs.rand() < 0.16 and remaining > 40:
-                bolt(x, y, remaining * rs.uniform(0.3, 0.6), angle + rs.choice([-1, 1]) * rs.uniform(25, 55), max(1, width * 0.55), depth + 1)
-        d.line(pts, fill=(255, 255, 255, 255), width=max(1, int(width)), joint='curve')
-    bolt(w * 0.5, 0, h * 0.98, 0, 5, 0)
-    glow = img.filter(ImageFilter.GaussianBlur(10))
-    glow = multiply_alpha(glow, 0.9)
-    core = img.filter(ImageFilter.GaussianBlur(1.2))
+            if depth < 3 and rs.rand() < 0.1 and remaining > 40:
+                bolt(x, y, remaining * rs.uniform(0.25, 0.55), angle + rs.choice([-1, 1]) * rs.uniform(30, 60), max(1, width * 0.5), depth + 1)
+        d.line(pts, fill=(255, 255, 255, 255), width=max(1, int(round(width))))
+    bolt(w * 0.5, 0, h * 1.05, 0, 4, 0)
+    glow = multiply_alpha(img.filter(ImageFilter.GaussianBlur(14)), 1.0)
+    halo = multiply_alpha(img.filter(ImageFilter.GaussianBlur(4)), 0.9)
     out = new_rgba(w, h)
-    # bluish halo under a white core
-    garr = np.array(glow).astype(float)
-    garr[..., :3] = np.array([170, 190, 255.0])[None, None, :]
-    out.alpha_composite(Image.fromarray(garr.astype(np.uint8), 'RGBA'))
-    out.alpha_composite(core)
-    out.alpha_composite(img)
+    for layer, col in ((glow, (150, 170, 255)), (halo, (210, 220, 255))):
+        arr = np.array(layer).astype(float)
+        arr[..., :3] = np.array(col, float)[None, None, :]
+        out.alpha_composite(Image.fromarray(arr.astype(np.uint8), 'RGBA'))
+    out.alpha_composite(img.filter(ImageFilter.GaussianBlur(0.8)))
     return out
 
 
@@ -1376,7 +1428,7 @@ def build_zone(name, preview_dir=None):
     moon = gen_moon(z, seed); moon.save(os.path.join(outdir, 'moon.png'))
     mx, my = z['moon']['x'] - moon.size[0] // 2, z['moon']['y'] - moon.size[1] // 2
     layers.append(dict(key='moon', img=moon, scroll=0.0, fixed=True, x=mx, y=my))
-    far = gen_mountains(z, seed + 1, 480, 330, z['far_mount'], 0.45, cells=3, jag=0.8, fog_strength=0.85, far=True)
+    far = gen_mountains(z, seed + 1, 480, 330, z['far_mount'], 0.45, cells=3, jag=1.4, fog_strength=0.85, far=True)
     far.save(os.path.join(outdir, 'mountains_far.png'))
     layers.append(dict(key='mountains_far', img=far, scroll=0.08))
     near = gen_mountains(z, seed + 2, 500, 170, z['near_mount'], 0.55, cells=6, jag=1.0, fog_strength=0.75)

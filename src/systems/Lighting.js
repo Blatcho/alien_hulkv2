@@ -11,15 +11,14 @@ export default class Lighting {
     const ambient = zoneMeta.ambient || 0x6a7290;
     scene.lights.enable().setAmbientColor(ambient);
     const m = zoneMeta.moon || { x: 900, y: 120 };
-    this.moonLight = scene.lights.addLight(m.x, m.y, 1400, zoneMeta.moonLight || 0x9fb4e8, 0.55);
+    this.moonLight = scene.lights.addLight(m.x, m.y, 1700, zoneMeta.moonLight || 0x9fb4e8, 0.9);
     this.moonPos = m;
-    // camera post effects: subtle bloom for torches/moon, filmic contrast, vignette
+    // camera post effects: a light filmic contrast/brightness grade
     const cam = scene.cameras.main;
     try {
-      cam.postFX.addBloom(0xffffff, 1, 1, 0.42, 1.0, 4);
+      // (Phaser's bloom pass darkens the frame under some renderers; glow sprites + lights do that job instead)
       const cm = cam.postFX.addColorMatrix();
-      cm.contrast(0.12).saturate(-0.06);
-      cam.postFX.addVignette(0.5, 0.5, 0.92, 0.38);
+      cm.contrast(0.06).brightness(1.06);
     } catch (e) { /* older renderer */ }
   }
 
@@ -31,7 +30,7 @@ export default class Lighting {
     return obj;
   }
 
-  addTorch(x, y, { color = 0xffa040, radius = 300, intensity = 1.3 } = {}) {
+  addTorch(x, y, { color = 0xffa040, radius = 380, intensity = 1.6 } = {}) {
     if (!this.enabled) return null;
     const l = this.scene.lights.addLight(x, y, radius, color, intensity);
     this.torches.push({ light: l, base: intensity, radius, phase: Math.random() * 10 });

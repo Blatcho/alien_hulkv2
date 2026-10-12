@@ -3,7 +3,7 @@
 export const ZONES = {
   thornmoor: {
     name: 'Thornmoor', subtitle: 'Where the thorns remember', music: 'music_moor', width: 7400, level: 1, next: 'graveyard',
-    ambient: 0x6c7494, moonLight: 0xa0b4e8, weather: 'leaves', lightning: false, shafts: true,
+    ambient: 0xa0a8c4, moonLight: 0xb0c4f0, weather: 'leaves', lightning: false, shafts: true,
     start: 220,
     platforms: [
       { x: 1500, y: 470, w: 260 }, { x: 2650, y: 480, w: 200 }, { x: 2900, y: 380, w: 200 },
@@ -30,7 +30,7 @@ export const ZONES = {
   },
   graveyard: {
     name: 'The Hollow Graves', subtitle: 'The dead keep poor company', music: 'music_graveyard', width: 7800, level: 2, next: 'castle',
-    ambient: 0x5c7080, moonLight: 0x90d0c0, weather: 'rain', lightning: true, shafts: false,
+    ambient: 0x90a8b0, moonLight: 0xa0e0d0, weather: 'rain', lightning: true, shafts: false,
     start: 220,
     platforms: [
       { x: 1200, y: 470, w: 220 }, { x: 2300, y: 460, w: 260 }, { x: 2580, y: 360, w: 160 }, { x: 3900, y: 470, w: 240 },
@@ -58,7 +58,7 @@ export const ZONES = {
   },
   castle: {
     name: 'The Warden\'s Gate', subtitle: 'None pass unbidden', music: 'music_castle', width: 6400, level: 3, next: null,
-    ambient: 0x706068, moonLight: 0xc0a0a0, weather: 'ash', lightning: true, shafts: false,
+    ambient: 0xa89aa0, moonLight: 0xd0b0a8, weather: 'ash', lightning: true, shafts: false,
     start: 220,
     platforms: [
       { x: 1100, y: 470, w: 240 }, { x: 2200, y: 460, w: 260 }, { x: 2480, y: 360, w: 160 }, { x: 3500, y: 470, w: 260 },
