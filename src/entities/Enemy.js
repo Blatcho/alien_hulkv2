@@ -46,7 +46,7 @@ export default class Enemy {
     const clips = t.flying ? batClips() : humanoidClips(t.clipOpts || {});
     this.rig = new Rig(scene, x, y, def, clips, { scale: t.scale });
     this.rig.setDepth(DEPTH.enemies + (t.boss ? 2 : 0));
-    this.hipHeight = t.flying ? 0 : def.leg_len * 0.88 * t.scale;
+    this.hipHeight = t.flying ? 0 : def.leg_len * 0.88 * t.scale * (def.scale || 1);
     this.shadow = scene.add.image(x, y, 'fx_shadow').setDepth(DEPTH.enemies - 1).setAlpha(0.5).setScale(t.scale * (t.flying ? 0.6 : 1));
     this.rig.onEvent = (n, ev) => this.onRigEvent(n, ev);
     this.rig.play(t.flying ? 'fly' : 'idle');

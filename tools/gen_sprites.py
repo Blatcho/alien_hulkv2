@@ -1885,6 +1885,12 @@ def pose_preview(rig, outdir, path, scale=2):
     parts = {p['name']: p for p in rig['parts']}
     imgs = {p['name']: Image.open(os.path.join(outdir, p['tex'] + '.png')).convert('RGBA') for p in rig['parts']}
     nimgs = {p['name']: Image.open(os.path.join(outdir, p['tex'] + '_n.png')).convert('RGBA') for p in rig['parts']}
+    sc = rig.get('scale', 1)
+    if sc != 1:   # a rig cut from a painting at native resolution: preview it at the size the game draws it
+        parts = {p['name']: dict(p, at=[p['at'][0] * sc, p['at'][1] * sc], pivot=[p['pivot'][0] * sc, p['pivot'][1] * sc]) for p in rig['parts']}
+        rs = lambda im: im.resize((max(1, int(im.width * sc)), max(1, int(im.height * sc))), Image.LANCZOS)
+        imgs = {k: rs(v) for k, v in imgs.items()}
+        nimgs = {k: rs(v) for k, v in nimgs.items()}
     W, H = 320, 320
     origin = (W // 2, H - 110)
 
@@ -1922,8 +1928,17 @@ def main():
     if '--preview' in sys.argv:
         preview = sys.argv[sys.argv.index('--preview') + 1]
         mkdir(preview)
+    # The beast is built from the painted concept sheet by tools/beast_from_concept.py; when that rig
+    # is in place (source == "concept") keep its textures and JSON instead of the procedural ones.
+    beast_json = os.path.join(RIGS, 'beast.json')
+    concept = {}
+    if os.path.exists(beast_json):
+        try:
+            concept = json.load(open(beast_json))
+        except ValueError:
+            concept = {}
     rigs = [
-        beast_parts(SPR),
+        concept if concept.get('source') == 'concept' else beast_parts(SPR),
         armored_parts('knight', KNIGHT, SPR, helmet='great', weapon='sword', shield=True),
         armored_parts('spearman', SPEARMAN, SPR, helmet='kettle', weapon='spear', shield=False),
         armored_parts('skeleton', SKELETON, SPR, helmet='none', weapon='rusty', shield=False, bony=True),
@@ -1932,7 +1947,8 @@ def main():
     ]
     manifest = {}
     for rig in rigs:
-        json.dump(rig, open(os.path.join(RIGS, rig['name'] + '.json'), 'w'), indent=1)
+        if rig.get('source') != 'concept':
+            json.dump(rig, open(os.path.join(RIGS, rig['name'] + '.json'), 'w'), indent=1)
         manifest[rig['name']] = dict(textures=sorted({p['tex'] for p in rig['parts']}), normals=True)
         if preview:
             pose_preview(rig, SPR, os.path.join(preview, f"rig_{rig['name']}.png"))
