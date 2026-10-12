@@ -90,7 +90,7 @@ export default class Enemy {
     switch (this.state) {
       case 'stagger':
         this.friction(dts, 1400);
-        if (this.stateTime > 450) this.setState('idle');
+        if (this.stateTime > (this.rig.clipName === 'stagger' ? 500 / Math.max(0.3, this.rig.speed) : 450)) this.setState('idle');
         break;
       case 'guard':
         this.friction(dts, 2000);
@@ -301,6 +301,19 @@ export default class Enemy {
       this.body.setVelocityX(info.dir * kb * 0.4);
     }
     return true;
+  }
+
+  // The player parried this enemy's attack: cancel it and stagger (bosses recover faster).
+  takeParry(player) {
+    if (!this.alive) return;
+    this.clearHitbox(); this.lunge = 0;
+    this.poiseDamage = 0;
+    this.cooldown = this.t.attack.cooldown + (this.t.boss ? 400 : 900);
+    this.setState('stagger');
+    this.rig.play('stagger', { fade: 20, restart: true, speed: this.t.boss ? 1.6 : 0.8 });
+    this.body.setVelocity(Math.sign(this.x - player.x) * (this.t.boss ? 60 : 220), -120);
+    this.rig.flash(60);
+    this.scene.audio.play(this.t.hurtSfx, { volume: 0.6 });
   }
 
   die(info) {

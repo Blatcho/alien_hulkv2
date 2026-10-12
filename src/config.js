@@ -14,10 +14,16 @@ export const PLAYER = {
   coyoteTime: 110,             // ms after leaving a ledge during which jump still works
   jumpBuffer: 120,             // ms a jump press is remembered before landing
   maxFallSpeed: 1500,
-  dodgeSpeed: 620,
-  dodgeDuration: 380,
-  dodgeInvuln: 260,
-  dodgeStamina: 22,
+  dodgeSpeed: 560,             // backstep: horizontal speed away from facing
+  dodgeHop: -330,              // backstep: small hop
+  dodgeDuration: 300,
+  dodgeInvuln: 240,
+  dodgeStamina: 18,
+  doubleJumpVelocity: -820,
+  blockDamageMult: 0.2,        // damage taken through a raised guard
+  blockStamina: 14,            // stamina per blocked hit
+  parryWindow: 160,            // ms after raising the guard during which a hit is parried
+  parryStagger: 900,
   lightStamina: 12,
   heavyStamina: 30,
   staminaRegen: 28,            // per second

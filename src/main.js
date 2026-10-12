@@ -14,6 +14,7 @@ const config = {
   height: HEIGHT,
   backgroundColor: '#05060a',
   antialias: true,
+  render: { maxLights: 16 },
   pixelArt: false,
   roundPixels: false,
   scale: {

@@ -24,6 +24,7 @@ export default class Parallax {
       }
       const ts = scene.add.tileSprite(0, L.y + (L.key === 'foreground' ? 50 : 0), WIDTH, L.h, key).setOrigin(0, 0).setScrollFactor(0).setDepth(depth);
       if (L.key === 'foreground') ts.setAlpha(0.8);
+      if ((L.key === 'ground' || L.key === 'hedge') && scene.lighting) scene.lighting.lit(ts);
       this.layers.push({ obj: ts, meta: L, fixed: false });
     });
 
@@ -44,13 +45,73 @@ export default class Parallax {
     }).setScrollFactor(0).setDepth(DEPTH.fx + 2);
     this.embers.setEmitZone({ type: 'random', source: new Phaser.Geom.Rectangle(0, HEIGHT * 0.35, WIDTH, HEIGHT * 0.7) });
 
+    this.buildWeather(meta);
+
     // Vignette on top of the world (under the HUD scene).
     this.vignette = scene.add.image(WIDTH / 2, HEIGHT / 2, 'ui_vignette').setScrollFactor(0).setDepth(DEPTH.hud - 1).setAlpha(0.5);
     this.cam = cam;
   }
 
+  buildWeather(meta) {
+    const scene = this.scene;
+    const tex = (k, fb) => (scene.textures.exists(k) ? k : fb);
+    this.weatherEmitters = [];
+    if (meta.weather === 'rain') {
+      const e = scene.add.particles(0, 0, tex('bg_rain', 'fx_shard'), {
+        x: { min: -100, max: WIDTH + 100 }, y: -30, lifespan: 900, speedY: { min: 900, max: 1200 }, speedX: { min: -140, max: -100 },
+        scale: { min: 0.7, max: 1.2 }, alpha: { start: 0.38, end: 0.2 }, quantity: 3, frequency: 14, rotate: 8, tint: 0xc8d8f0,
+      }).setScrollFactor(0).setDepth(DEPTH.fx + 3);
+      this.weatherEmitters.push(e);
+    } else if (meta.weather === 'leaves') {
+      const e = scene.add.particles(0, 0, tex('bg_leaf', 'particle_hard'), {
+        x: { min: -40, max: WIDTH + 40 }, y: -20, lifespan: { min: 6000, max: 9000 }, speedY: { min: 40, max: 90 }, speedX: { min: -90, max: -30 },
+        scale: { min: 0.7, max: 1.3 }, alpha: { start: 0.9, end: 0.5 }, rotate: { start: 0, end: 720 }, frequency: 420, tint: [0x7a5a30, 0x5a4020, 0x8a6a30],
+      }).setScrollFactor(0).setDepth(DEPTH.fx + 3);
+      this.weatherEmitters.push(e);
+    } else if (meta.weather === 'ash') {
+      const e = scene.add.particles(0, 0, tex('bg_ash', 'particle_soft'), {
+        x: { min: -40, max: WIDTH + 40 }, y: { min: -20, max: HEIGHT }, lifespan: { min: 7000, max: 11000 }, speedY: { min: -14, max: 24 }, speedX: { min: -30, max: 10 },
+        scale: { min: 0.3, max: 0.9 }, alpha: { start: 0, end: 0.6, ease: 'Sine.easeIn' }, frequency: 120, tint: [0x9a9aa0, 0x6a6a70, 0xc0b0a0],
+      }).setScrollFactor(0).setDepth(DEPTH.fx + 3);
+      this.weatherEmitters.push(e);
+    }
+    this.lightning = !!meta.lightning;
+    this.nextLightning = 6000 + Math.random() * 10000;
+    this.shafts = [];
+    if (meta.shafts && scene.textures.exists('bg_lightshaft')) {
+      const m = meta.moon || { x: 900, y: 120 };
+      for (let i = 0; i < 4; i++) {
+        const img = scene.add.image(m.x + (i - 1.5) * 90, m.y + 300, 'bg_lightshaft').setScrollFactor(0).setDepth(DEPTH.bgFar + 4.5)
+          .setBlendMode('ADD').setAlpha(0.09 + i * 0.02).setAngle(-18 + i * 12).setScale(1.6, 1.4).setTint(0xc0d0ff);
+        this.shafts.push({ img, phase: i * 1.3 });
+      }
+    }
+  }
+
+  strike() {
+    const scene = this.scene;
+    const cam = scene.cameras.main;
+    cam.flash(140, 200, 210, 255, false);
+    if (scene.textures.exists('bg_lightning')) {
+      const bolt = scene.add.image(200 + Math.random() * (WIDTH - 400), 40, 'bg_lightning').setOrigin(0.5, 0).setScrollFactor(0)
+        .setDepth(DEPTH.bgFar + 1.5).setBlendMode('ADD').setAlpha(0.9).setScale(0.8 + Math.random() * 0.5).setFlipX(Math.random() < 0.5);
+      scene.tweens.add({ targets: bolt, alpha: 0, duration: 260, ease: 'Expo.easeOut', onComplete: () => bolt.destroy() });
+    }
+    if (scene.lighting && scene.lighting.moonLight) {
+      const L = scene.lighting.moonLight; const base = L.intensity;
+      L.intensity = base * 3.5;
+      scene.tweens.add({ targets: L, intensity: base, duration: 400, ease: 'Expo.easeOut' });
+    }
+    scene.time.delayedCall(300 + Math.random() * 700, () => scene.audio && scene.audio.play('sfx_thunder', { volume: 0.7 }));
+  }
+
   update(time, dt) {
     this.time += dt;
+    if (this.lightning) {
+      this.nextLightning -= dt;
+      if (this.nextLightning <= 0) { this.strike(); this.nextLightning = 9000 + Math.random() * 16000; }
+    }
+    for (const s of this.shafts) s.img.setAlpha(0.07 + 0.05 * Math.sin(this.time / 1700 + s.phase)).setAngle(s.img.angle + Math.sin(this.time / 2600 + s.phase) * 0.004);
     const sx = this.cam.scrollX;
     const sy = this.cam.scrollY;
     for (const L of this.layers) {
@@ -70,6 +131,8 @@ export default class Parallax {
   destroy() {
     for (const L of this.layers) L.obj.destroy();
     for (const f of this.fogs) f.destroy();
+    for (const e of this.weatherEmitters || []) e.destroy();
+    for (const s of this.shafts || []) s.img.destroy();
     this.embers.destroy();
     this.vignette.destroy();
   }

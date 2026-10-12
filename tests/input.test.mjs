@@ -53,3 +53,24 @@ test('keyboard keys map to actions', () => {
   assert.equal(im.pressed.jump, true);
   assert.equal(im.padConnected, false);
 });
+
+test('virtual (autopilot) input merges in and real activity is flagged separately', () => {
+  const im = new InputManager();
+  im.getPad = () => null;
+  im.virtual = { moveX: 1, actions: new Set(['light', 'defend']) };
+  im.update(1);
+  assert.equal(im.moveX, 1);
+  assert.equal(im.pressed.light, true);
+  assert.equal(im.held.defend, true);
+  assert.equal(im.realActivity, false);
+  im.keys.add('KeyJ');
+  im.update(2);
+  assert.equal(im.realActivity, true);
+});
+
+test('left trigger maps to defend', () => {
+  const im = new InputManager();
+  im.getPad = () => fakePad({ [PAD.LT]: true });
+  im.update(1);
+  assert.equal(im.held.defend, true);
+});

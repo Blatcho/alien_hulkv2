@@ -10,6 +10,8 @@ import Player from '../entities/Player.js';
 import Enemy from '../entities/Enemy.js';
 import Pickup from '../entities/Pickup.js';
 import { ZONES } from '../data/zones.js';
+import Autopilot from '../systems/Autopilot.js';
+import Lighting from '../systems/Lighting.js';
 
 export default class GameScene extends Phaser.Scene {
   constructor() { super('Game'); }
@@ -20,6 +22,7 @@ export default class GameScene extends Phaser.Scene {
     this.carry = (data && data.carry) || null;      // gold/potions/inventory carried between zones or from a save
     this.startX = data && data.startX;
     this.openedChests = new Set((data && data.openedChests) || []);
+    this.demo = !!(data && data.demo);
     // Resuming from the title's "Continue": unpack the saved snapshot.
     if (data && data.save) {
       const sv = data.save;
@@ -46,7 +49,8 @@ export default class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, -2000, zone.width, HEIGHT + 2000);
     const bgMeta = this.cache.json.get('bg_layers')[this.zoneKey];
     this.groundY = bgMeta.ground_y;
-    this.parallax = new Parallax(this, this.zoneKey, bgMeta);
+    this.lighting = new Lighting(this, { ...bgMeta, ambient: zone.ambient, moonLight: zone.moonLight });
+    this.parallax = new Parallax(this, this.zoneKey, { ...bgMeta, weather: zone.weather, lightning: zone.lightning, shafts: zone.shafts });
 
     this.ground = this.physics.add.staticGroup();
     this.ground.add(this.add.rectangle(0, this.groundY, zone.width, 200, 0, 0).setOrigin(0));
@@ -81,22 +85,40 @@ export default class GameScene extends Phaser.Scene {
     if (new URLSearchParams(location.search).get('debug')) this.combat.debug = true;
 
     this.events.on('restart-checkpoint', () => this.restartFromCheckpoint());
-    this.events.on('player-died', () => this.time.delayedCall(1600, () => { if (!this.player.alive) this.scene.launch('GameOver'); }));
+    this.events.on('player-died', () => this.time.delayedCall(1600, () => { if (!this.player.alive && !this.demo) this.scene.launch('GameOver'); }));
     this.events.on('boss-aggro', (boss) => this.onBossAggro(boss));
     this.prompt = this.add.bitmapText(0, 0, 'body', '', 20).setOrigin(0.5).setDepth(DEPTH.fx + 3).setVisible(false);
     this.gateOpen = false;
     this.transitioning = false;
+    this.autopilot = null;
+    if (this.demo) {
+      this.autopilot = new Autopilot(this);
+      this.player.potions = 5;
+      this.time.delayedCall(2600, () => this.events.emit('toast', 'DEMO  -  press any button to take control', 3500));
+      this.events.on('player-died', () => this.time.delayedCall(2400, () => { if (this.demo && !this.player.alive) this.restartFromCheckpoint(); }));
+    }
     this.events.once('shutdown', () => this.cleanup());
+  }
+
+  // Leave the self-playing demo as soon as a real device produces input.
+  endDemo() {
+    if (!this.demo) return;
+    this.demo = false;
+    if (this.autopilot) { this.autopilot.detach(); this.autopilot = null; }
+    this.events.emit('toast', 'You have the beast', 1800);
+    this.events.emit('demo-ended');
   }
 
   cleanup() {
     this.audio.stopMusic(200);
+    if (this.autopilot) this.autopilot.detach();
+    this.input_.virtual = null;
     for (const ev of ['restart-checkpoint', 'player-died', 'boss-aggro']) this.events.off(ev);
   }
 
   // ------------------------------------------------------------------ world
   buildPlatform(p) {
-    const ts = this.add.tileSprite(p.x, p.y, p.w, 28, 'world_platform').setOrigin(0, 0).setDepth(DEPTH.props);
+    const ts = this.lighting.lit(this.add.tileSprite(p.x, p.y, p.w, 28, 'world_platform').setOrigin(0, 0).setDepth(DEPTH.props));
     const body = this.add.rectangle(p.x, p.y, p.w, 20, 0, 0).setOrigin(0, 0);
     this.platforms.add(body);
     body.body.checkCollision.down = false; body.body.checkCollision.left = false; body.body.checkCollision.right = false;
@@ -105,7 +127,7 @@ export default class GameScene extends Phaser.Scene {
 
   buildProp(p) {
     const key = `prop_${p.type}`;
-    if (p.type === 'fence') { this.add.image(p.x, this.groundY + 2, 'world_fence').setOrigin(0.5, 1).setDepth(DEPTH.props - 1); return; }
+    if (p.type === 'fence') { this.lighting.lit(this.add.image(p.x, this.groundY + 2, 'world_fence').setOrigin(0.5, 1).setDepth(DEPTH.props - 1)); return; }
     if (!this.textures.exists(key)) return;
     if (p.type === 'torch') {
       // standing torch: iron post from the ground up to the bracket
@@ -119,19 +141,28 @@ export default class GameScene extends Phaser.Scene {
         alpha: { start: 0.9, end: 0 }, tint: [0xffa040, 0xff6020], frequency: 90, blendMode: 'ADD',
       }).setDepth(DEPTH.props + 1);
       this.torches.push({ glow, flame, emitter, phase: Math.random() * 10 });
+      this.lighting.addTorch(p.x, this.groundY - 165);
       return;
     }
     if (p.type === 'cage') {
-      const img = this.add.image(p.x, p.y || 230, key).setOrigin(0.5, 0).setDepth(DEPTH.props - 2);
+      const img = this.lighting.lit(this.add.image(p.x, p.y || 230, key).setOrigin(0.5, 0).setDepth(DEPTH.props - 2));
       this.tweens.add({ targets: img, angle: { from: -2.5, to: 2.5 }, duration: 2600 + Math.random() * 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       return;
     }
     const pivotY = p.type === 'pillar' || p.type.startsWith('gravestone') || p.type === 'skull' ? 1 : 1;
-    this.add.image(p.x, this.groundY + 4, key).setOrigin(0.5, pivotY).setDepth(DEPTH.props - 2).setTint(0xb0b0c0);
+    if (p.type === 'brazier' && this.textures.exists(key)) {
+      this.lighting.lit(this.add.image(p.x, this.groundY + 4, key).setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
+      const flame = this.add.sprite(p.x, this.groundY - 62, 'fx_flame').setOrigin(0.5, 0.8).setDepth(DEPTH.props).setBlendMode('ADD').setScale(1.5, 1.3);
+      flame.play({ key: 'flame', startFrame: Math.floor(Math.random() * 6) });
+      this.lighting.addTorch(p.x, this.groundY - 70, { radius: 340, intensity: 1.5 });
+      return;
+    }
+    if (p.type === 'banner') { this.lighting.lit(this.add.image(p.x, p.y || 240, key).setOrigin(0.5, 0).setDepth(DEPTH.props - 2)); return; }
+    this.lighting.lit(this.add.image(p.x, this.groundY + 4, key).setOrigin(0.5, pivotY).setDepth(DEPTH.props - 2));
   }
 
   buildShrine(c) {
-    const img = this.add.sprite(c.x, this.groundY + 2, 'prop_shrine', 0).setOrigin(0.5, 1).setDepth(DEPTH.props - 1);
+    const img = this.lighting.lit(this.add.sprite(c.x, this.groundY + 2, 'prop_shrine', 0).setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
     const glow = this.add.image(c.x, this.groundY - 110, 'glow').setDepth(DEPTH.props).setBlendMode('ADD').setAlpha(0).setScale(1.4).setTint(0x80c0ff);
     const shrine = { kind: 'shrine', x: c.x, img, glow, lit: false, range: 70 };
     this.interactables.push(shrine);
@@ -141,12 +172,12 @@ export default class GameScene extends Phaser.Scene {
     const y = c.y !== undefined ? c.y : this.groundY;
     const id = `${this.zoneKey}:${c.x}`;
     const opened = this.openedChests.has(id);
-    const img = this.add.sprite(c.x, y + 2, 'prop_chest', opened ? 1 : 0).setOrigin(0.5, 1).setDepth(DEPTH.props - 1);
+    const img = this.lighting.lit(this.add.sprite(c.x, y + 2, 'prop_chest', opened ? 1 : 0).setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
     this.interactables.push({ kind: 'chest', x: c.x, y, img, id, opened, range: 70 });
   }
 
   buildGate(g) {
-    const img = this.add.image(g.x, this.groundY + 4, 'world_gate').setOrigin(0.5, 1).setDepth(DEPTH.props - 1);
+    const img = this.lighting.lit(this.add.image(g.x, this.groundY + 4, 'world_gate').setOrigin(0.5, 1).setDepth(DEPTH.props - 1));
     this.gate = { kind: 'gate', x: g.x, img, range: 90 };
     this.interactables.push(this.gate);
     // invisible wall until the gate opens
@@ -265,6 +296,7 @@ export default class GameScene extends Phaser.Scene {
       it.img.setFrame(1);
       it.glow.setAlpha(0.5);
       this.tweens.add({ targets: it.glow, alpha: 0.3, duration: 1200, yoyo: true, repeat: -1 });
+      this.lighting.addPoint(it.x, this.groundY - 120, 260, 0x80c0ff, 1.0);
       p.hp = p.maxHp; p.stamina = p.maxStamina; p.potions = Math.max(p.potions, 3);
       this.checkpointX = it.x;
       this.writeCheckpoint();
@@ -296,7 +328,7 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       const next = this.zone.next;
       const carry = { gold: this.player.gold, potions: this.player.potions, inventory: this.player.inventory || [], kills: this.player.kills };
-      this.scene.restart({ zone: next, stats: this.stats, carry, openedChests: [...this.openedChests] });
+      this.scene.restart({ zone: next, stats: this.stats, carry, openedChests: [...this.openedChests], demo: this.demo });
       this.time.delayedCall(50, () => this.writeCheckpoint());
     });
   }
@@ -307,15 +339,18 @@ export default class GameScene extends Phaser.Scene {
 
   restartFromCheckpoint() {
     const carry = { gold: this.player.gold, potions: Math.max(this.player.potions, 2), inventory: this.player.inventory || [], kills: this.player.kills };
-    this.scene.restart({ zone: this.zoneKey, stats: this.stats, carry, startX: this.checkpointX, openedChests: [...this.openedChests] });
+    this.scene.restart({ zone: this.zoneKey, stats: this.stats, carry, startX: this.checkpointX, openedChests: [...this.openedChests], demo: this.demo });
   }
 
   // ------------------------------------------------------------------ update
   update(time, delta) {
     const dt = Math.min(delta, 50);
     const inp = this.input_;
+    if (this.autopilot) this.autopilot.update(dt);
     inp.update(this.game.loop.frame);
+    if (this.demo && inp.realActivity) { for (const a of Object.keys(inp.pressed)) inp.consume(a); this.endDemo(); }
     this.parallax.update(time, dt);
+    this.lighting.update(time);
     for (const t of this.torches) {
       const f = 0.4 + 0.12 * Math.sin(time / 90 + t.phase) + 0.06 * Math.sin(time / 37 + t.phase * 2);
       t.glow.setAlpha(f).setScale(1.5 + 0.1 * Math.sin(time / 120 + t.phase));

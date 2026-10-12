@@ -38,6 +38,9 @@ export default class Player {
     this.dodgeDir = 1;
     this.potions = 3;
     this.kills = 0;
+    this.jumpsLeft = 2;
+    this.guardRaisedAt = -1e9;
+    this.blocking = false;
     this.rig.onEvent = (name, ev) => this.onRigEvent(name, ev);
     this.rig.play('idle');
   }
@@ -58,7 +61,8 @@ export default class Player {
     this.staminaDelay = PLAYER.staminaRegenDelay;
   }
 
-  canAct() { return ['idle', 'run', 'jump', 'fall', 'land'].includes(this.state); }
+  canAct() { return ['idle', 'run', 'jump', 'fall', 'land', 'double_jump'].includes(this.state); }
+  get airborneState() { return ['jump', 'fall', 'double_jump', 'air_attack'].includes(this.state); }
 
   // ------------------------------------------------------------------ update
   update(inp, dt) {
@@ -71,11 +75,12 @@ export default class Player {
     // timers
     if (this.staminaDelay > 0) this.staminaDelay -= dt;
     else if (this.stamina < this.maxStamina && this.state !== 'charge') this.stamina = Math.min(this.maxStamina, this.stamina + this.stats.staminaRegen * dts);
-    if (grounded) this.coyote = PLAYER.coyoteTime; else this.coyote -= dt;
+    const standing = grounded && b.velocity.y >= -1;   // not in the launch frame of a jump
+    if (standing) this.coyote = PLAYER.coyoteTime; else this.coyote -= dt;
     if (inp.pressed.jump) this.jumpBuffer = PLAYER.jumpBuffer; else this.jumpBuffer -= dt;
     if (grounded && !this.wasGrounded && this.state !== 'dead') this.onLand();
     this.wasGrounded = grounded;
-    if (grounded) this.airAttacked = false;
+    if (standing) { this.airAttacked = false; this.jumpsLeft = 2; }
 
     const moveX = inp.moveX;
     const wantMove = Math.abs(moveX) > 0.05;
@@ -87,8 +92,19 @@ export default class Player {
       this.applyFriction(dts, PLAYER.friction * 0.6);
       if (this.stateTime > 320) this.setState(grounded ? 'idle' : 'fall');
     } else if (this.state === 'dodge') {
-      b.setVelocityX(this.dodgeDir * PLAYER.dodgeSpeed * (1 - 0.5 * this.stateTime / PLAYER.dodgeDuration));
-      if (this.stateTime > PLAYER.dodgeDuration) { this.setState(grounded ? 'idle' : 'fall'); }
+      // backstep: hop away from the facing direction, keep facing the threat
+      b.setVelocityX(-this.facing * PLAYER.dodgeSpeed * (1 - 0.6 * this.stateTime / PLAYER.dodgeDuration));
+      if (this.stateTime > PLAYER.dodgeDuration && grounded) { this.setState('idle'); this.rig.play('idle', { fade: 120 }); }
+      else if (this.stateTime > PLAYER.dodgeDuration + 400) { this.setState('fall'); this.rig.play('fall', { fade: 120 }); }
+    } else if (this.state === 'guard' || this.state === 'guard_hit' || this.state === 'parry') {
+      this.applyFriction(dts, PLAYER.friction);
+      if (this.state === 'guard' && wantMove) this.facing = moveX > 0 ? 1 : -1;
+      const stillHeld = inp.held.defend && grounded;
+      if (this.state === 'guard' && !stillHeld) { this.blocking = false; this.setState('idle'); this.rig.play('idle', { fade: 140 }); }
+      else if (this.state !== 'guard' && this.rig.finished) {
+        if (stillHeld) { this.setState('guard'); this.rig.play('guard', { fade: 80 }); }
+        else { this.blocking = false; this.setState('idle'); this.rig.play('idle', { fade: 120 }); }
+      }
     } else if (this.state === 'attack' || this.state === 'heavy' || this.state === 'air_attack') {
       // lunge decays; air attack keeps air control
       if (this.state === 'air_attack') this.airControl(moveX, dts);
@@ -111,16 +127,24 @@ export default class Player {
       if (grounded) this.groundMove(moveX, dts); else this.airControl(moveX, dts);
       if (wantMove && this.state !== 'land') this.facing = moveX > 0 ? 1 : -1;
 
-      // jump (buffered + coyote)
-      if (this.jumpBuffer > 0 && this.coyote > 0 && this.state !== 'jump') {
-        this.jumpBuffer = 0; this.coyote = 0;
+      // jump (buffered + coyote), then one double jump in the air
+      if (this.jumpBuffer > 0 && this.coyote > 0 && this.state !== 'jump' && this.jumpsLeft === 2) {
+        this.jumpBuffer = 0; this.coyote = 0; this.jumpsLeft = 1;
         b.setVelocityY(PLAYER.jumpVelocity);
         this.setState('jump');
         this.rig.play('jump', { fade: 60 });
         this.scene.audio.play('sfx_jump', { volume: 0.6 });
         this.scene.fx.landDust(this.x, this.y + PLAYER.bodyHeight / 2, 4);
+      } else if (this.jumpBuffer > 0 && !standing && this.jumpsLeft === 1) {
+        this.jumpBuffer = 0; this.jumpsLeft = 0;
+        b.setVelocityY(PLAYER.doubleJumpVelocity);
+        if (wantMove) this.facing = moveX > 0 ? 1 : -1;
+        this.setState('double_jump');
+        this.rig.play('double_jump', { fade: 40, restart: true });
+        this.scene.audio.play('sfx_jump', { volume: 0.7, detune: 300 });
+        this.scene.fx.airRing(this.x, this.y + 30);
       }
-      if (this.state === 'jump' && inp.released.jump && b.velocity.y < 0) b.setVelocityY(b.velocity.y * PLAYER.jumpCutMultiplier);
+      if ((this.state === 'jump' || this.state === 'double_jump') && inp.released.jump && b.velocity.y < 0) b.setVelocityY(b.velocity.y * PLAYER.jumpCutMultiplier);
 
       // actions
       if (inp.pressed.light && this.stamina >= PLAYER.lightStamina) {
@@ -135,6 +159,8 @@ export default class Player {
       } else if (inp.pressed.dodge && grounded && this.stamina >= PLAYER.dodgeStamina) {
         inp.consume('dodge');
         this.startDodge(moveX);
+      } else if (inp.held.defend && grounded) {
+        this.raiseGuard(moveX);
       } else if (inp.pressed.potion) {
         inp.consume('potion');
         this.usePotion();
@@ -144,9 +170,13 @@ export default class Player {
       if (!this.canAct()) { this.syncRig(dt); return; }
       if (this.state === 'land') {
         if (this.stateTime > 160) this.setState('idle');
-      } else if (grounded) {
+      } else if (standing) {
         if (wantMove) { this.setState('run'); this.rig.play('run', { fade: 100 }); this.rig.speed = 0.8 + 0.5 * Math.abs(b.velocity.x) / PLAYER.runSpeed; }
         else { this.setState('idle'); this.rig.play('idle', { fade: 160 }); this.rig.speed = 1; }
+      } else if (this.state === 'double_jump') {
+        if (this.rig.finished) { this.setState('fall'); this.rig.play('fall', { fade: 100 }); }
+      } else if (this.state === 'jump' && !standing) {
+        if (b.velocity.y > 80) { this.setState('fall'); this.rig.play('fall', { fade: 140 }); }
       } else {
         if (b.velocity.y > 80 && this.state !== 'fall') { this.setState('fall'); this.rig.play('fall', { fade: 140 }); }
         else if (this.state !== 'jump' && this.state !== 'fall') { this.setState('fall'); this.rig.play('fall', { fade: 140 }); }
@@ -193,7 +223,7 @@ export default class Player {
     // invulnerability blink
     if (this.scene.time.now < this.invulnUntil && this.state !== 'dodge') this.rig.setAlpha(Math.floor(this.scene.time.now / 60) % 2 ? 0.35 : 1);
     else this.rig.setAlpha(1);
-    if (this.hitbox) {
+    if (this.hitbox && !this.hitbox.heavy) {
       const tip = this.rig.boneTip(this.hitbox.bone || 'arm_l_near', 44);
       this.hitbox.x = this.x + this.facing * this.hitbox.reach * 0.55;
       this.hitbox.y = Math.min(this.y + 20, Math.max(this.y - 40, tip.y));
@@ -228,16 +258,27 @@ export default class Player {
   }
 
   startDodge(moveX) {
-    this.dodgeDir = Math.abs(moveX) > 0.05 ? Math.sign(moveX) : this.facing;
-    this.facing = this.dodgeDir;
+    // Backstep away from the direction the beast is facing (a stick direction can re-face first).
+    if (Math.abs(moveX) > 0.05 && this.state !== 'attack') this.facing = moveX > 0 ? 1 : -1;
+    this.dodgeDir = -this.facing;
     this.setState('dodge');
     this.spendStamina(PLAYER.dodgeStamina);
     this.invulnUntil = this.scene.time.now + PLAYER.dodgeInvuln;
-    this.rig.play('dodge', { fade: 40, restart: true });
+    this.body.setVelocity(this.dodgeDir * PLAYER.dodgeSpeed, PLAYER.dodgeHop);
+    this.rig.play('backstep', { fade: 40, restart: true });
     this.scene.audio.play('sfx_dodge', { volume: 0.7 });
     this.scene.fx.landDust(this.x, this.y + PLAYER.bodyHeight / 2, 5);
     this.clearHitbox();
     this.scene.combat.clearOwner(this);
+  }
+
+  raiseGuard(moveX) {
+    if (Math.abs(moveX) > 0.05) this.facing = moveX > 0 ? 1 : -1;
+    this.blocking = true;
+    this.guardRaisedAt = this.scene.time.now;
+    this.setState('guard');
+    this.rig.play('guard', { fade: 90 });
+    this.clearHitbox(); this.lunge = 0;
   }
 
   usePotion() {
@@ -257,6 +298,14 @@ export default class Player {
       s.audio.play(heavy ? 'sfx_heavy_swing' : 'sfx_swing', { variants: heavy ? 0 : 3, volume: 0.7 });
       const tip = this.rig.bonePos('torso');
       s.fx.slash(this.x + this.facing * 58, tip.y - 20, this.facing, 'claw', heavy ? 1.5 : 1.0 + this.combo * 0.12, heavy ? 0xff9060 : 0xffffff);
+    } else if (name === 'slam') {
+      const gy = this.y + PLAYER.bodyHeight / 2;
+      s.fx.shockwave(this.x + this.facing * 30, gy, this.facing, 1 + 0.5 * ((this.chargeMult || 1) - 1));
+      s.fx.landDust(this.x, gy, 14);
+      s.fx.shake(0.012, 260);
+      s.input_.rumble(1, 0.6, 260);
+      s.audio.play('sfx_land', { volume: 1, detune: -600 });
+      s.audio.play('sfx_thunder', { volume: 0.35, rate: 1.8 });
     } else if (name === 'hit_on') {
       const heavy = this.state === 'heavy';
       const air = this.state === 'air_attack';
@@ -264,8 +313,11 @@ export default class Player {
       const mult = heavy ? 2.2 * (this.chargeMult || 1) : (this.combo === 3 ? 1.5 : air ? 1.2 : 1);
       const reach = (heavy ? 110 : 92) * this.stats.reachMult;
       this.clearHitbox();
+      // the slam is a low, wide ground shock; swipes are a forward box
+      const hbW = heavy ? reach * 2.2 : reach, hbH = heavy ? 90 : 110;
+      const hbY = heavy ? this.y + PLAYER.bodyHeight / 2 - 40 : this.y - 10;
       this.hitbox = s.combat.add({
-        owner: this, faction: 'player', x: this.x + this.facing * reach * 0.55, y: this.y - 10, w: reach, h: heavy ? 150 : 110,
+        owner: this, faction: 'player', x: this.x + this.facing * (heavy ? reach * 0.5 : reach * 0.55), y: hbY, w: hbW, h: hbH,
         damage: base * mult, knockback: heavy ? COMBAT.heavyKnockback : (this.combo === 3 ? COMBAT.knockback * 1.6 : COMBAT.knockback),
         heavy: heavy || this.combo === 3, kind: 'claw', critChance: this.stats.critChance, reach,
       });
@@ -302,6 +354,44 @@ export default class Player {
   // ------------------------------------------------------------------ damage
   takeHit(info) {
     if (!this.alive || this.invulnerable) return false;
+    const now = this.scene.time.now;
+    const src = info.source;
+    const fromFront = src ? Math.sign(src.x - this.x) === this.facing : -info.dir === this.facing;
+    if (this.blocking && fromFront && ['guard', 'guard_hit', 'parry'].includes(this.state)) {
+      const s = this.scene;
+      if (now - this.guardRaisedAt <= PLAYER.parryWindow) {
+        // perfect block: no damage, the attacker is thrown into a stagger
+        this.setState('parry');
+        this.rig.play('parry', { fade: 20, restart: true });
+        s.fx.parry(this.x + this.facing * 40, this.y - 20);
+        s.fx.hitStop(110);
+        s.fx.shake(0.006, 120);
+        s.audio.play('sfx_block', { volume: 1, detune: 500 });
+        s.input_.rumble(0.4, 0.9, 140);
+        s.fx.number(this.x, this.y - 80, 'PARRY', { color: 0x80d0ff, size: 0.9 });
+        if (src && src.takeParry) src.takeParry(this);
+        this.stamina = Math.min(this.maxStamina, this.stamina + 10);
+        return true;
+      }
+      if (this.stamina >= PLAYER.blockStamina) {
+        const blocked = Math.max(1, Math.round(info.damage * this.stats.damageTakenMult * PLAYER.blockDamageMult));
+        this.hp -= blocked;
+        this.spendStamina(PLAYER.blockStamina);
+        this.setState('guard_hit');
+        this.rig.play('guard_hit', { fade: 20, restart: true });
+        this.body.setVelocityX(info.dir * 140);
+        s.fx.guardFlash(this.x + this.facing * 34, this.y - 10, this.facing);
+        s.fx.number(this.x, this.y - 70, blocked, { color: 0xa0c0ff, size: 0.8 });
+        s.audio.play('sfx_block', { volume: 0.8 });
+        s.input_.rumble(0.3, 0.5, 100);
+        s.fx.hitStop(40);
+        if (this.hp <= 0) { this.die(); }
+        return true;
+      }
+      // guard broken: exhausted
+      this.blocking = false;
+      s.fx.number(this.x, this.y - 80, 'GUARD BROKEN', { color: 0xff8040, size: 0.8 });
+    }
     const dmg = Math.max(1, Math.round(info.damage * this.stats.damageTakenMult));
     this.hp -= dmg;
     this.scene.fx.number(this.x, this.y - 70, dmg, { color: 0xff6060 });
@@ -312,6 +402,7 @@ export default class Player {
     this.rig.flash(80);
     if (this.hp <= 0) { this.die(); return true; }
     this.scene.audio.play('sfx_player_hurt');
+    this.blocking = false;
     this.invulnUntil = this.scene.time.now + PLAYER.hurtInvuln;
     this.setState('hurt');
     this.rig.play('hurt', { fade: 30, restart: true });

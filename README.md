@@ -28,16 +28,24 @@ blocked on the `file:` origin. Any static server works (`python3 -m http.server`
 |---|---|---|
 | Move | Left stick / D-pad | A / D or ← / → |
 | Jump (hold for height) | A | Space / W |
-| Light attack (3-hit combo) | X | J |
-| Heavy attack (hold to charge) | Y | K |
-| Dodge roll (invulnerable) | B / RT | L / Shift |
+| Double jump | A again in the air | Space again |
+| Light attack (3-swipe combo) | X | J |
+| Heavy attack: ground slam (hold to charge) | Y | K |
+| Defend (hold; raise just before a hit to parry) | LT | Shift / I |
+| Backstep (invulnerable hop away from the threat) | B / RT | L |
 | Drink potion | RB | Q |
 | Interact (shrines, chests, gates) | LB | E |
 | Pause / character sheet | Start | Esc / Enter |
 
-Stamina (green) is spent by attacks and dodges and regenerates after a short delay. Enemies telegraph
-their swings; dodge through them or step back. Armoured knights sometimes block light attacks from the
-front; heavy attacks break guards and stagger. Rumble is used on hits when the pad supports it.
+Stamina (green) is spent by attacks, blocks and backsteps and regenerates after a short delay. Enemies
+telegraph their swings: raise the guard to take a fifth of the damage, time it within a few frames of
+the hit to parry (no damage, the attacker staggers and is open to a slam), or backstep clear. Armoured
+knights sometimes block light attacks from the front; the slam breaks guards and staggers everything
+in reach. Rumble is used on hits when the pad supports it.
+
+**Demo mode.** "Watch the Beast (demo)" on the title (also starts by itself after 45 s idle) lets the
+game play itself: the autopilot explores, fights, parries, drinks potions, lights shrines, opens chests
+and passes gates. Press any key or pad button to take over mid-run.
 
 ### Progression
 
@@ -82,6 +90,10 @@ vendor/phaser.min.js         Phaser 3.90 (MIT)
 - `tools/gen_backgrounds.py` builds the tileable parallax layers (sky, moon, mountains, castles,
   trees, thorn hedges, ground, foreground thorns, fog) for each zone from noise and procedural
   silhouettes.
+- Rendering uses Phaser's Light2D pipeline: torches, braziers, lit shrines and the moon are real
+  lights, and the generators emit tangent-space normal maps for characters, props, platforms and the
+  ground so they catch that light. The camera adds bloom, contrast grading and a vignette; zones have
+  weather (drifting leaves, rain with lightning and thunder, falling ash) and moonlight shafts.
 - `tools/gen_sprites.py` paints body parts for every character and writes the rig definitions
   (`assets/rigs/*.json`) consumed by `src/rig/Rig.js`. Characters are animated at runtime by rotating
   parts around their joints with keyframed clips, so there are no frame-by-frame sprite sheets.

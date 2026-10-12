@@ -46,6 +46,7 @@ export default class Rig extends Phaser.GameObjects.Container {
     const zsorted = [...def.parts].sort((a, b) => a.z - b.z);
     for (const p of zsorted) this.add(this.bones[p.name].img);
     scene.add.existing(this);
+    if (scene.lighting) scene.lighting.lit(this);
 
     this.clip = null;
     this.clipTime = 0;
