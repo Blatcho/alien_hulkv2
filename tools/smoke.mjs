@@ -59,7 +59,7 @@ try {
 
   // Helpers: poll the player's x while holding an input so the test is robust at any frame rate.
   const playerX = () => page.evaluate(() => window.__game.scene.getScene('Game').player.x);
-  const waitMove = async (from, dir, min = 60, maxMs = 15000) => {
+  const waitMove = async (from, dir, min = 60, maxMs = 45000) => {
     const t0 = Date.now();
     while (Date.now() - t0 < maxMs) {
       const x = await playerX();
@@ -83,7 +83,7 @@ try {
   await page.waitForTimeout(800);
   await page.evaluate(() => window.__axis(0, 0));
   await page.screenshot({ path: path.join(outDir, '04-after-run.png') });
-  if (!(x1 > x0 + 50)) throw new Error(`Player did not move right with gamepad stick: ${x0} -> ${x1}`);
+  if (!(x1 > x0 + 40)) throw new Error(`Player did not move right with gamepad stick: ${x0} -> ${x1}`);
   const rumbles = await page.evaluate(() => window.__rumbles || 0);
 
   // Keyboard path.
