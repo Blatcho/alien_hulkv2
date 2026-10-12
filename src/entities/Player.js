@@ -19,7 +19,7 @@ export default class Player {
     this.rig = new Rig(scene, x, y, this.def, beastClips());
     this.rig.setDepth(DEPTH.player);
     this.shadow = scene.add.image(x, y, 'fx_shadow').setDepth(DEPTH.player - 1).setAlpha(0.6);
-    this.hipHeight = this.def.leg_len * 0.88;
+    this.hipHeight = this.def.leg_len * 0.88 * (this.def.scale || 1);
 
     this.facing = 1;
     this.state = 'idle';

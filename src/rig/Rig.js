@@ -18,8 +18,9 @@ export default class Rig extends Phaser.GameObjects.Container {
     this.order = [];
     this.facing = 1;
     this.tintColor = opts.tint || null;
+    this.base = {};
     this.farTint = opts.farTint === undefined ? 0x9a9ab0 : opts.farTint;
-    this.scaleFactor = opts.scale || 1;
+    this.scaleFactor = (opts.scale || 1) * (def.scale || 1);
     this.setScale(this.scaleFactor);
 
     // Build bone table in parent-first order.
@@ -40,6 +41,7 @@ export default class Rig extends Phaser.GameObjects.Container {
       img.setOrigin(p.pivot[0] / tex.width, p.pivot[1] / tex.height);
       if (p.name.endsWith('_far') || p.name === 'shield') img.setTint(this.farTint);
       this.bones[p.name] = { def: p, img, angle: 0, wx: 0, wy: 0, wr: 0, sx: 1, sy: 1, visible: true };
+      if (p.rest) this.base[p.name] = (this.base[p.name] || 0) + p.rest;
       this.order.push(p.name);
     }
     // add images in z order
@@ -60,8 +62,7 @@ export default class Rig extends Phaser.GameObjects.Container {
     this.firedEvents = new Set();
     this.onEvent = null;
     this.hitFlash = 0;
-    this.base = {};
-    if (def.hunch) this.base.torso = def.hunch;
+    if (def.hunch) this.base.torso = (this.base.torso || 0) + def.hunch;
   }
 
   emptyPose() {
