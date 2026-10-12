@@ -158,7 +158,7 @@ export default class Autopilot {
     } else if (wp.type === 'ladder') {
       if (p.feetY <= wp.topY + 4 && Math.abs(dx) < 90) { this.next(); return; }
       if (p.state === 'climb') { this.actions.add('up'); return; }
-      if (Math.abs(dx) > 10) this.moveX = Math.sign(dx) * (Math.abs(dx) < 60 ? 0.45 : 1);
+      if (Math.abs(dx) > 20) this.moveX = Math.sign(dx) * (Math.abs(dx) < 160 ? 0.3 : 1);
       else { this.moveX = 0; this.actions.add('up'); }
     } else if (wp.type === 'gate') {
       if (Math.abs(dx) < 50) {
