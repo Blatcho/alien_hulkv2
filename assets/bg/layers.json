@@ -9,7 +9,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "sky.webp"
    },
    {
     "key": "moon",
@@ -18,7 +19,8 @@
     "fixed": true,
     "x": 779,
     "w": 322,
-    "h": 322
+    "h": 322,
+    "file": "moon.png"
    },
    {
     "key": "mountains_far",
@@ -27,7 +29,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "mountains_far.webp"
    },
    {
     "key": "mountains_near",
@@ -36,7 +39,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "mountains_near.webp"
    },
    {
     "key": "structures",
@@ -45,7 +49,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "structures.webp"
    },
    {
     "key": "trees",
@@ -54,7 +59,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "trees.webp"
    },
    {
     "key": "hedge",
@@ -63,7 +69,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "hedge.webp"
    },
    {
     "key": "ground",
@@ -73,7 +80,8 @@
     "x": 0,
     "w": 1024,
     "h": 220,
-    "normal": "ground_n.png"
+    "normal": "ground_n.webp",
+    "file": "ground.webp"
    },
    {
     "key": "foreground",
@@ -82,7 +90,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "foreground.webp"
    }
   ],
   "moon": {
@@ -102,7 +111,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "sky.webp"
    },
    {
     "key": "moon",
@@ -111,7 +121,8 @@
     "fixed": true,
     "x": 395,
     "w": 490,
-    "h": 490
+    "h": 490,
+    "file": "moon.png"
    },
    {
     "key": "mountains_far",
@@ -120,7 +131,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "mountains_far.webp"
    },
    {
     "key": "mountains_near",
@@ -129,7 +141,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "mountains_near.webp"
    },
    {
     "key": "structures",
@@ -138,7 +151,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "structures.webp"
    },
    {
     "key": "trees",
@@ -147,7 +161,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "trees.webp"
    },
    {
     "key": "hedge",
@@ -156,7 +171,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "hedge.webp"
    },
    {
     "key": "ground",
@@ -166,7 +182,8 @@
     "x": 0,
     "w": 1024,
     "h": 220,
-    "normal": "ground_n.png"
+    "normal": "ground_n.webp",
+    "file": "ground.webp"
    },
    {
     "key": "foreground",
@@ -175,7 +192,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "foreground.webp"
    }
   ],
   "moon": {
@@ -195,7 +213,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "sky.webp"
    },
    {
     "key": "moon",
@@ -204,7 +223,8 @@
     "fixed": true,
     "x": 160,
     "w": 280,
-    "h": 280
+    "h": 280,
+    "file": "moon.png"
    },
    {
     "key": "mountains_far",
@@ -213,7 +233,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "mountains_far.webp"
    },
    {
     "key": "mountains_near",
@@ -222,7 +243,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "mountains_near.webp"
    },
    {
     "key": "structures",
@@ -231,7 +253,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "structures.webp"
    },
    {
     "key": "trees",
@@ -240,7 +263,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "trees.webp"
    },
    {
     "key": "hedge",
@@ -249,7 +273,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "hedge.webp"
    },
    {
     "key": "ground",
@@ -259,7 +284,8 @@
     "x": 0,
     "w": 1024,
     "h": 220,
-    "normal": "ground_n.png"
+    "normal": "ground_n.webp",
+    "file": "ground.webp"
    },
    {
     "key": "foreground",
@@ -268,7 +294,8 @@
     "fixed": false,
     "x": 0,
     "w": 2048,
-    "h": 720
+    "h": 720,
+    "file": "foreground.webp"
    }
   ],
   "moon": {
