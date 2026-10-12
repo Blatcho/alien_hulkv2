@@ -1,0 +1,64 @@
+# Continuous deployment of Beast of Thornmoor to blatcho.com/games/sotb over FTP.
+#
+# Runs on every push to main (and on demand from the Actions tab). It copies only the files the
+# browser needs (index.html, src/, vendor/, assets/) into a staging folder and mirrors that folder
+# to the server directory, uploading only what changed since the last deploy.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions → Secrets):
+#   FTP_SERVER    hostname of the FTP server, e.g. ftp.blatcho.com (no protocol, no path)
+#   FTP_USERNAME  FTP login
+#   FTP_PASSWORD  FTP password
+# Optional repository variables (Settings → Secrets and variables → Actions → Variables):
+#   FTP_SERVER_DIR  remote path of the games/sotb folder as seen by the FTP account, with a trailing
+#                   slash. Defaults to /public_html/games/sotb/ — change it if your host maps the
+#                   web root elsewhere (e.g. /htdocs/games/sotb/ or /games/sotb/ when the account
+#                   already lands in the web root).
+#   FTP_PROTOCOL    ftps (default, explicit TLS on port 21), ftp (plain, only if the host has no
+#                   TLS) or ftps-legacy (implicit TLS on port 990).
+#   FTP_PORT        defaults to 21 (use 990 for ftps-legacy).
+
+name: Deploy to blatcho.com
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-sotb
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: FTP deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Run unit tests
+        run: node --test "tests/**/*.test.mjs"
+
+      - name: Stage the runtime files
+        run: |
+          rm -rf dist && mkdir dist
+          cp index.html dist/
+          cp -r src vendor assets dist/
+          find dist -name '.DS_Store' -delete
+          echo "Staged $(find dist -type f | wc -l) files, $(du -sh dist | cut -f1)"
+
+      - name: Upload over FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          port: ${{ vars.FTP_PORT || 21 }}
+          local-dir: ./dist/
+          server-dir: ${{ vars.FTP_SERVER_DIR || '/public_html/games/sotb/' }}
+          state-name: .ftp-deploy-sync-state.json
+          exclude: |
+            **/.git*
+            **/.git*/**

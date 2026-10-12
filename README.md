@@ -59,6 +59,15 @@ and passes gates. Press any key or pad button to take over mid-run.
 - Each zone's gate opens once every foe in the zone has fallen. Three zones: Thornmoor, The Hollow
   Graves and The Warden's Gate, which ends in the boss fight.
 
+## Deployment
+
+Pushes to `main` deploy the runtime files (`index.html`, `src/`, `vendor/`, `assets/`) to
+https://blatcho.com/games/sotb/ over FTP via `.github/workflows/deploy.yml`. The workflow needs the
+`FTP_SERVER`, `FTP_USERNAME` and `FTP_PASSWORD` repository secrets, and optionally the
+`FTP_SERVER_DIR`, `FTP_PROTOCOL` and `FTP_PORT` repository variables (see the comments at the top of
+the workflow). `.htaccess.example` lists the MIME types the host must serve if they are not already
+configured.
+
 ## Development
 
 ```
