@@ -1974,8 +1974,16 @@ def main():
             fxm = {}
     fxm['extra'] = ['shockwave', 'dust_ring', 'air_ring', 'parry', 'guard_flash']
     json.dump(fxm, open(fxm_path, 'w'), indent=1)
-    json.dump(dict(textures=['gate', 'platform', 'fence'], normals=['gate', 'platform', 'fence']),
-              open(os.path.join(ROOT, 'assets', 'sprites', 'world', 'manifest.json'), 'w'), indent=1)
+    # world manifest: our props plus whatever tools/gen_world_tiles.py wrote to tiles.json
+    world_dir = os.path.join(ROOT, 'assets', 'sprites', 'world')
+    names = ['gate', 'platform', 'fence']
+    tiles_path = os.path.join(world_dir, 'tiles.json')
+    if os.path.exists(tiles_path):
+        try:
+            names += [k for k in json.load(open(tiles_path)).get('tiles', {}) if k not in names]
+        except ValueError:
+            pass
+    json.dump(dict(textures=names, normals=list(names)), open(os.path.join(world_dir, 'manifest.json'), 'w'), indent=1)
     print('rigs:', ', '.join(manifest))
 
 

@@ -63,3 +63,29 @@ test('stair slopes end on a landing with headroom and never cross a ladder top',
     }
   }
 });
+
+test('every horizontal connection has a door or a breakable wall, arenas sit on the path with company', () => {
+  for (const seed of [1, 2, 3, 7, 42, 99, 2024]) {
+    const L = generateLevel({ seed, cols: 6, rows: 5, cloudRow: 2, highRow: 4, zoneIndex: 1 });
+    const info = new Map(L.cellInfo.map((ci) => [`${ci.c},${ci.r}`, ci]));
+    const rights = L.cellInfo.filter((ci) => ci.exits.includes('R')).length;
+    assert.equal(L.doors.length, rights, `seed ${seed}: one door per R exit`);
+    for (const d of L.doors) {
+      assert.ok(['door', 'breakable'].includes(d.kind));
+      const [a, b] = d.cells;
+      assert.ok(info.get(`${a[0]},${a[1]}`).exits.includes('R') && info.get(`${b[0]},${b[1]}`).exits.includes('L'), `seed ${seed}: door joins two connected cells`);
+      assert.equal(d.x, (a[0] + 1) * ROOM_W, 'door sits on the cell boundary');
+      assert.equal(d.y, L.groundY - a[1] * ROOM_H, 'door foot is on the floor of its row');
+      if (d.kind === 'breakable') assert.ok(info.get(`${a[0]},${a[1]}`).template !== 'start', 'the start room never opens with a wall to break');
+    }
+    const arenas = L.rooms.filter((r) => r.arena);
+    for (const r of arenas) {
+      assert.ok(r.onPath && !['start', 'exit', 'shrine'].includes(r.template), `seed ${seed}: arena on the path`);
+      const fighters = L.enemies.filter((e) => e.cell[0] === r.c && e.cell[1] === r.r && e.type !== 'bat').length;
+      assert.ok(fighters >= 2, `seed ${seed}: arena ${r.c},${r.r} has ${fighters} fighters`);
+      for (const q of arenas) if (q !== r) assert.ok(Math.abs(q.c - r.c) + Math.abs(q.r - r.r) > 1, `seed ${seed}: arenas are not adjacent`);
+    }
+    // the generated level also obeys the template rules: nothing floats, everything stands on something
+    assert.equal(L.platforms.filter((p) => !p.ladderTop).length, 0, `seed ${seed}: no floating platforms`);
+  }
+});

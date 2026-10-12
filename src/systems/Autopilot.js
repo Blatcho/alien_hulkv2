@@ -145,6 +145,20 @@ export default class Autopilot {
       else this.moveX = Math.sign(dx);
       return;
     }
+    // a cracked wall across the way: square up and smash it (a charged slam when there is stamina)
+    const wall = (s.breakables || []).find((w) => w.alive && Math.abs(w.y - p.feetY) < 140 && Math.abs(w.x - p.x) < 170);
+    if (wall) {
+      const dx = wall.x - p.x;
+      if (Math.abs(dx) > 92) this.moveX = Math.sign(dx);
+      else {
+        this.moveX = p.facing === Math.sign(dx) ? 0 : Math.sign(dx) * 0.3;
+        if (this.attackCadence <= 0 && p.canAct() && p.grounded) {
+          if (p.stamina >= PLAYER.heavyStamina) { this.tap('heavy', 520); this.attackCadence = 1400; }
+          else if (p.stamina >= PLAYER.lightStamina) { this.tap('light'); this.attackCadence = 420; }
+        }
+      }
+      return;
+    }
     // follow the generated critical path
     const route = s.level ? s.level.route : [];
     const wp = route[this.routeIndex];

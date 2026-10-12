@@ -215,21 +215,22 @@ export function beastClips() {
     K(0.35, { torso: 18, head: -8, arm_u_near: -130, arm_l_near: -10, arm_u_far: -40, arm_l_far: -100, leg_u_near: -40, leg_l_near: 40, leg_u_far: 26, leg_l_far: 40, rootX: 8, rootY: 6, ...T(20, 0) }),
     K(1, { torso: 10, head: -6, arm_u_near: -70, arm_l_near: -110, arm_u_far: -60, arm_l_far: -120, leg_u_near: -30, leg_l_near: 36, leg_u_far: 22, leg_l_far: 30, rootX: 0, rootY: 8, ...T(40, 20) }),
   ]);
-  // Ladder climb (loops, speed follows the climb): reach up with one claw while the opposite knee drives
-  // up, pull through with the body hugging the rungs, then the other side. Rung grabs fire `rung`.
-  const CLIMB_A = { torso: -6, head: -18, arm_u_near: 176, arm_l_near: -20, arm_u_far: 118, arm_l_far: -70, leg_u_near: -84, leg_l_near: 96, leg_u_far: -16, leg_l_far: 30, rootX: 2, rootY: 0, ...T(76, 64) };
-  const CLIMB_B = { torso: -8, head: -16, arm_u_near: 150, arm_l_near: -44, arm_u_far: 146, arm_l_far: -48, leg_u_near: -50, leg_l_near: 64, leg_u_far: -50, leg_l_far: 64, rootX: 4, rootY: -6, ...T(70, 70) };
-  const CLIMB_C = { torso: -6, head: -18, arm_u_near: 118, arm_l_near: -70, arm_u_far: 176, arm_l_far: -20, leg_u_near: -16, leg_l_near: 30, leg_u_far: -84, leg_l_far: 96, rootX: 2, rootY: 0, ...T(64, 76) };
-  c.climb = clip(760, [K(0, CLIMB_A), K(0.25, CLIMB_B), K(0.5, CLIMB_C), K(0.75, { ...CLIMB_B, ...T(74, 66) })],
+  // Ladder climb (loops, speed follows the climb): in profile beside the rungs, one claw reaching
+  // high in front while the opposite knee drives up, then the pull with the body drawn in, then the
+  // other side. One cycle covers four rungs (two per hand). Rung grabs fire `rung`.
+  const CLIMB_A = { torso: 6, head: -26, arm_u_near: -158, arm_l_near: -8, arm_u_far: -104, arm_l_far: -46, leg_u_near: -96, leg_l_near: 92, leg_u_far: -34, leg_l_far: 46, rootX: 0, rootY: 0, ...T(70, 56) };
+  const CLIMB_B = { torso: 10, head: -22, arm_u_near: -130, arm_l_near: -30, arm_u_far: -128, arm_l_far: -34, leg_u_near: -64, leg_l_near: 70, leg_u_far: -64, leg_l_far: 70, rootX: 2, rootY: -5, ...T(62, 62) };
+  const CLIMB_C = { torso: 6, head: -26, arm_u_near: -104, arm_l_near: -46, arm_u_far: -158, arm_l_far: -8, leg_u_near: -34, leg_l_near: 46, leg_u_far: -96, leg_l_far: 92, rootX: 0, rootY: 0, ...T(56, 70) };
+  c.climb = clip(560, [K(0, CLIMB_A), K(0.25, CLIMB_B), K(0.5, CLIMB_C), K(0.75, { ...CLIMB_B, ...T(66, 58) })],
     { loop: true, events: [{ t: 0.02, name: 'rung' }, { t: 0.52, name: 'rung' }] });
-  // Hanging still on the rungs: both claws hooked above, knees up, a slow breathing sway.
+  // Hanging still: both claws hooked on rungs in front, knees up against the ladder, a slow sway.
   c.climb_hold = clip(1500, [
-    K(0, { torso: -6, head: -14, arm_u_near: 160, arm_l_near: -36, arm_u_far: 150, arm_l_far: -46, leg_u_near: -60, leg_l_near: 76, leg_u_far: -36, leg_l_far: 56, rootX: 2, rootY: 0, ...T(70, 60) }),
-    K(0.5, { torso: -8, head: -12, arm_u_near: 158, arm_l_near: -40, arm_u_far: 148, arm_l_far: -50, leg_u_near: -62, leg_l_near: 78, leg_u_far: -38, leg_l_far: 58, rootX: 3, rootY: -3, ...T(76, 66) }),
+    K(0, { torso: 8, head: -20, arm_u_near: -144, arm_l_near: -20, arm_u_far: -118, arm_l_far: -40, leg_u_near: -80, leg_l_near: 84, leg_u_far: -44, leg_l_far: 56, rootX: 0, rootY: 0, ...T(64, 56) }),
+    K(0.5, { torso: 10, head: -18, arm_u_near: -142, arm_l_near: -24, arm_u_far: -116, arm_l_far: -44, leg_u_near: -82, leg_l_near: 86, leg_u_far: -46, leg_l_far: 58, rootX: 1, rootY: -3, ...T(70, 62) }),
   ], { loop: true });
   // Topping out: claws planted on the ledge, one knee thrown up over the edge, press up and stand.
   c.climb_top = clip(380, [
-    K(0, { torso: 10, head: -16, arm_u_near: 160, arm_l_near: -60, arm_u_far: 150, arm_l_far: -60, leg_u_near: -70, leg_l_near: 90, leg_u_far: -30, leg_l_far: 50, rootX: 2, rootY: 0, ...T(70, 60) }),
+    K(0, { torso: 12, head: -22, arm_u_near: -150, arm_l_near: -30, arm_u_far: -130, arm_l_far: -40, leg_u_near: -84, leg_l_near: 90, leg_u_far: -40, leg_l_far: 50, rootX: 0, rootY: 0, ...T(66, 56) }),
     K(0.4, { torso: 40, head: -22, arm_u_near: -70, arm_l_near: -60, arm_u_far: -60, arm_l_far: -70, leg_u_near: -110, leg_l_near: 100, leg_u_far: -20, leg_l_far: 60, rootX: 14, rootY: 10, ...T(50, 30) }),
     K(0.75, { torso: 30, head: -16, arm_u_near: -30, arm_l_near: -60, arm_u_far: 10, arm_l_far: -60, leg_u_near: -60, leg_l_near: 80, leg_u_far: 10, leg_l_far: 50, rootX: 18, rootY: 16, ...T(44, 24) }),
     K(1, { torso: 16, head: -14, arm_u_near: 34, arm_l_near: -34, arm_u_far: 40, arm_l_far: -40, leg_u_near: -30, leg_l_near: 46, leg_u_far: 4, leg_l_far: 26, rootX: 0, rootY: 8, ...T(44, 24) }),

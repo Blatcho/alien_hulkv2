@@ -115,6 +115,7 @@ export function generateLevel({ seed, zoneIndex = 0, cols = 5, rows = 4, cloudRo
   const out = {
     seed, cols, rows, worldW: cols * ROOM_W, topY: GROUND_Y + TILE - rows * ROOM_H, groundY: GROUND_Y,
     solids: [], platforms: [], ladders: [], stairs: [], enemies: [], chests: [], shrines: [], torches: [], props: [], rails: [],
+    doors: [], rooms: [],
     start: null, gate: null, route: [], cellInfo: [], bandOf: (r) => (r >= highRow ? 'sky' : r >= cloudRow ? 'cloud' : 'ground'),
     cloudRow, highRow,
   };
@@ -141,9 +142,38 @@ export function generateLevel({ seed, zoneIndex = 0, cols = 5, rows = 4, cloudRo
       extractGeometry(out, chars, c, r, rng, enemyTypes, level);
     }
   }
+  buildRooms(out, cells, rng);
   buildRoute(out, path);
   out.enemyCount = out.enemies.length;
   return out;
+}
+
+// Rooms (with the arenas whose doors lock until the room is cleared) and the doors between them:
+// an iron portcullis that opens as the player nears, or a cracked wall that must be broken through.
+function buildRooms(out, cells, rng) {
+  const arenas = new Set();
+  for (const ci of out.cellInfo) {
+    const cell = cells[`${ci.c},${ci.r}`];
+    if (!cell) continue;
+    const o = cellOrigin(ci.c, ci.r);
+    const fighters = out.enemies.filter((e) => e.cell[0] === ci.c && e.cell[1] === ci.r && e.type !== 'bat').length;
+    const neighbourArena = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dc, dr]) => arenas.has(`${ci.c + dc},${ci.r + dr}`));
+    const arena = ci.onPath && !['start', 'exit', 'shrine'].includes(ci.template) && fighters >= 2 && !neighbourArena && rng() < 0.6;
+    if (arena) arenas.add(`${ci.c},${ci.r}`);
+    out.rooms.push({ c: ci.c, r: ci.r, x: o.x, y: o.y, w: ROOM_W, h: ROOM_H, template: ci.template, arena, onPath: ci.onPath, branch: ci.branch, order: cell.order });
+  }
+  for (const ci of out.cellInfo) {
+    const cell = cells[`${ci.c},${ci.r}`];
+    if (!cell || !cell.exits.has('R')) continue;
+    const nb = cells[`${ci.c + 1},${ci.r}`];
+    if (!nb) continue;
+    const o = cellOrigin(ci.c, ci.r);
+    const side = cell.branch || nb.branch;
+    // a side room usually hides behind a cracked wall; now and then one bars the path itself
+    const breakable = cell.order !== 0 && rng() < (side ? 0.7 : 0.15);
+    out.doors.push({ x: o.x + ROOM_W, y: o.y + (ROOM_ROWS - 1) * TILE, w: 2 * TILE, h: 3 * TILE, kind: breakable ? 'breakable' : 'door',
+      band: out.bandOf(ci.r), cells: [[ci.c, ci.r], [ci.c + 1, ci.r]] });
+  }
 }
 
 function extractGeometry(out, chars, c, r, rng, enemyTypes, level) {
@@ -215,8 +245,8 @@ function extractGeometry(out, chars, c, r, rng, enemyTypes, level) {
       const floorY = floorBelow(chars, tc, tr, wy);
       if (ch === 'S') {
         const type = band === 'sky' && rng() < 0.4 ? 'bat' : enemyTypes[Math.floor(rng() * enemyTypes.length)];
-        out.enemies.push({ type, x, y: type === 'bat' ? floorY - 160 : floorY, band, level });
-      } else if (ch === 'B') out.enemies.push({ type: 'bat', x, y: floorY - 140, band, level });
+        out.enemies.push({ type, x, y: type === 'bat' ? floorY - 160 : floorY, band, level, cell: [c, r] });
+      } else if (ch === 'B') out.enemies.push({ type: 'bat', x, y: floorY - 140, band, level, cell: [c, r] });
       else if (ch === 'C') out.chests.push({ x, y: floorY, band });
       else if (ch === 'F') out.shrines.push({ x, y: floorY, band });
       else if (ch === 'T') out.torches.push({ x, y: floorY, band });

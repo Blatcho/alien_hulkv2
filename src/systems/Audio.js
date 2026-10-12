@@ -52,6 +52,6 @@ export const SFX_KEYS = [
   'sfx_block', 'sfx_player_hurt', 'sfx_player_death', 'sfx_enemy_hurt', 'sfx_enemy_death', 'sfx_skeleton_rattle', 'sfx_bat',
   'sfx_jump', 'sfx_land', 'sfx_dodge', 'sfx_footstep1', 'sfx_footstep2', 'sfx_coin', 'sfx_gem', 'sfx_potion', 'sfx_levelup',
   'sfx_loot', 'sfx_chest', 'sfx_checkpoint', 'sfx_gate', 'sfx_ui_move', 'sfx_ui_confirm', 'sfx_ui_back', 'sfx_boss_roar',
-  'sfx_thunder', 'sfx_torch',
+  'sfx_thunder', 'sfx_torch', 'sfx_door', 'sfx_wall_hit', 'sfx_wall_break', 'sfx_room_clear',
 ];
 export const MUSIC_KEYS = ['music_title', 'music_moor', 'music_graveyard', 'music_castle', 'music_boss', 'music_victory'];

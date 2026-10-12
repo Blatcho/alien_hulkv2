@@ -16,7 +16,14 @@
   "ladder_sky",
   "stair",
   "stair_sky",
-  "rail"
+  "rail",
+  "door_frame",
+  "door_frame_sky",
+  "portcullis",
+  "crack_wall",
+  "crack_wall2",
+  "crack_wall_sky",
+  "crack_wall2_sky"
  ],
  "normals": [
   "gate",
@@ -35,6 +42,13 @@
   "ladder_sky",
   "stair",
   "stair_sky",
-  "rail"
+  "rail",
+  "door_frame",
+  "door_frame_sky",
+  "portcullis",
+  "crack_wall",
+  "crack_wall2",
+  "crack_wall_sky",
+  "crack_wall2_sky"
  ]
 }
