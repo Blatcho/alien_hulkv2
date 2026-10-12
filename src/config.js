@@ -9,24 +9,28 @@ export const BG_SCALE = HEIGHT / DESIGN_HEIGHT;   // screen-fixed parallax layer
 export const ZOOM_STEPS = [0.6, 0.7, 0.8, 0.9, 1.0, 1.15, 1.3];
 export const DEFAULT_ZOOM = 1.0;
 
-export const GRAVITY = 2400;
+export const GRAVITY = 3100;   // heavy, fast arcs; jump impulses below are matched so heights stay similar
 
 export const PLAYER = {
-  runSpeed: 340,
-  runAccel: 2600,
-  airAccel: 1400,
-  friction: 2800,
-  jumpVelocity: -900,
-  jumpCutMultiplier: 0.45,     // releasing jump early shortens the arc
+  runSpeed: 350,
+  runAccel: 1900,              // wind-up: a beat to reach full stride
+  airAccel: 1150,
+  friction: 2300,              // momentum carries a little after the stick is released
+  turnSkidSpeed: 170,          // reversing above this speed plants the feet and skids
+  turnSkidMs: 140,
+  jumpVelocity: -1060,
+  jumpCutMultiplier: 0.5,      // releasing jump early shortens the arc
   coyoteTime: 110,             // ms after leaving a ledge during which jump still works
   jumpBuffer: 120,             // ms a jump press is remembered before landing
-  maxFallSpeed: 1500,
+  maxFallSpeed: 1750,
+  hardLandFall: 330,           // fall distance (px) that triggers the heavy landing squat
+  hardLandLock: 210,           // ms of recovery after a hard landing (attacks and jumps still cancel it)
   dodgeSpeed: 560,             // backstep: horizontal speed away from facing
-  dodgeHop: -330,              // backstep: small hop
+  dodgeHop: -380,              // backstep: small hop
   dodgeDuration: 300,
   dodgeInvuln: 240,
   dodgeStamina: 18,
-  doubleJumpVelocity: -820,
+  doubleJumpVelocity: -940,
   blockDamageMult: 0.2,        // damage taken through a raised guard
   blockStamina: 14,            // stamina per blocked hit
   parryWindow: 160,            // ms after raising the guard during which a hit is parried
