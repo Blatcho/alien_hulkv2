@@ -1,0 +1,13 @@
+# Optional: copy to the games/sotb folder on the server if the host does not already serve these
+# types correctly (ES modules need text/javascript; Phaser loads .ogg, .json and .xml via XHR).
+AddType text/javascript .js .mjs
+AddType application/json .json
+AddType audio/ogg .ogg
+AddType application/xml .xml
+# Cache the (large, content-stable) generated assets for a day; keep the entry point fresh.
+<FilesMatch "\.(png|ogg|xml)$">
+  Header set Cache-Control "public, max-age=86400"
+</FilesMatch>
+<FilesMatch "\.(html|js|json)$">
+  Header set Cache-Control "no-cache"
+</FilesMatch>
