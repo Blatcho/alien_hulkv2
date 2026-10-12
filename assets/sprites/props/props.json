@@ -1,9 +1,10 @@
 {
   "generator": "tools/blender_props.py",
-  "notes": "pivot is the sprite origin as fractions of the frame (x right, y down): [0.5, 1.0] = bottom centre for ground props, [0.5, 0.5] = centre for pickups, [0.5, 0.0] = top centre for hanging props.",
+  "notes": "pivot is the sprite origin as fractions of the frame (x right, y down): [0.5, 1.0] = bottom centre for ground props, [0.5, 0.5] = centre for pickups, [0.5, 0.0] = top centre for hanging props. 'normal' is the matching normal map (same frame layout, OpenGL convention: +X right, +Y up, flat = 128,128,255) for Phaser's Light2D pipeline.",
   "sprites": {
     "coin": {
       "file": "coin_sheet.png",
+      "normal": "coin_sheet_n.png",
       "frame_width": 40,
       "frame_height": 40,
       "frames": 12,
@@ -11,10 +12,11 @@
         0.5,
         0.5
       ],
-      "description": "Gold coin spinning about its vertical axis; 12 frames over 180 degrees, loops."
+      "description": "Gold coin with a raised beast emblem and reeded edge, spinning about its vertical axis; 12 frames over 180 degrees, loops."
     },
     "gem": {
       "file": "gem_sheet.png",
+      "normal": "gem_sheet_n.png",
       "frame_width": 40,
       "frame_height": 40,
       "frames": 12,
@@ -22,10 +24,11 @@
         0.5,
         0.5
       ],
-      "description": "Floating soul gem, glowing teal/violet; 12 frames over a quarter turn, loops."
+      "description": "Floating faceted soul gem, glowing teal/violet; 12 frames over a quarter turn, loops."
     },
     "potion_red": {
       "file": "potion_red.png",
+      "normal": "potion_red_n.png",
       "frame_width": 36,
       "frame_height": 44,
       "frames": 1,
@@ -33,10 +36,11 @@
         0.5,
         0.5
       ],
-      "description": "Health potion flask (red)."
+      "description": "Health potion flask (red) with meniscus, bubbles and glass highlights."
     },
     "potion_green": {
       "file": "potion_green.png",
+      "normal": "potion_green_n.png",
       "frame_width": 36,
       "frame_height": 44,
       "frames": 1,
@@ -44,10 +48,11 @@
         0.5,
         0.5
       ],
-      "description": "Stamina potion flask (green)."
+      "description": "Stamina potion flask (green) with meniscus, bubbles and glass highlights."
     },
     "chest": {
       "file": "chest_sheet.png",
+      "normal": "chest_sheet_n.png",
       "frame_width": 96,
       "frame_height": 80,
       "frames": 2,
@@ -55,10 +60,11 @@
         0.5,
         1.0
       ],
-      "description": "Treasure chest: frame 0 closed, frame 1 open with glow."
+      "description": "Iron-bound, studded treasure chest with padlock: frame 0 closed, frame 1 open with inner glow."
     },
     "shrine": {
       "file": "shrine.png",
+      "normal": "shrine_n.png",
       "frame_width": 120,
       "frame_height": 200,
       "frames": 2,
@@ -66,10 +72,11 @@
         0.5,
         1.0
       ],
-      "description": "Checkpoint shrine / obelisk: frame 0 unlit, frame 1 lit rune."
+      "description": "Checkpoint shrine / obelisk with carved runes: frame 0 unlit, frame 1 runes lit."
     },
     "skull": {
       "file": "skull.png",
+      "normal": "skull_n.png",
       "frame_width": 36,
       "frame_height": 32,
       "frames": 1,
@@ -77,10 +84,11 @@
         0.5,
         1.0
       ],
-      "description": "Small weathered skull (ground decoration)."
+      "description": "Small weathered, cracked skull (ground decoration)."
     },
     "gravestone1": {
       "file": "gravestone1.png",
+      "normal": "gravestone1_n.png",
       "frame_width": 90,
       "frame_height": 120,
       "frames": 1,
@@ -88,10 +96,11 @@
         0.5,
         1.0
       ],
-      "description": "Rounded gravestone with carved cross."
+      "description": "Rounded gravestone with carved cross and chipped shoulder."
     },
     "gravestone2": {
       "file": "gravestone2.png",
+      "normal": "gravestone2_n.png",
       "frame_width": 90,
       "frame_height": 120,
       "frames": 1,
@@ -103,6 +112,7 @@
     },
     "gravestone3": {
       "file": "gravestone3.png",
+      "normal": "gravestone3_n.png",
       "frame_width": 90,
       "frame_height": 120,
       "frames": 1,
@@ -114,6 +124,7 @@
     },
     "torch": {
       "file": "torch.png",
+      "normal": "torch_n.png",
       "frame_width": 40,
       "frame_height": 90,
       "frames": 1,
@@ -121,10 +132,11 @@
         0.5,
         0.5
       ],
-      "description": "Wall-mounted iron torch bracket, no flame (flame animated in-game). Wall is behind."
+      "description": "Wall-mounted iron torch bracket with sooted plate, no flame (flame animated in-game). Wall is behind."
     },
     "pillar": {
       "file": "pillar.png",
+      "normal": "pillar_n.png",
       "frame_width": 100,
       "frame_height": 300,
       "frames": 1,
@@ -132,10 +144,11 @@
         0.5,
         1.0
       ],
-      "description": "Broken fluted gothic pillar with rubble."
+      "description": "Broken fluted gothic pillar with carved arcading and rubble."
     },
     "cage": {
       "file": "cage.png",
+      "normal": "cage_n.png",
       "frame_width": 90,
       "frame_height": 180,
       "frames": 1,
@@ -143,7 +156,31 @@
         0.5,
         0.0
       ],
-      "description": "Hanging gibbet cage with skeleton; pivot at the chain top."
+      "description": "Hanging rusted gibbet cage with a shackled skeleton and chains; pivot at the chain top."
+    },
+    "brazier": {
+      "file": "brazier.png",
+      "normal": "brazier_n.png",
+      "frame_width": 60,
+      "frame_height": 80,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        1.0
+      ],
+      "description": "Standing iron brazier bowl on a clawed tripod, coals but no flame (flame animated in-game)."
+    },
+    "banner": {
+      "file": "banner.png",
+      "normal": "banner_n.png",
+      "frame_width": 70,
+      "frame_height": 160,
+      "frames": 1,
+      "pivot": [
+        0.5,
+        0.0
+      ],
+      "description": "Hanging tattered crimson banner on a crossbar with a faded beast emblem; pivot at the chain top."
     }
   }
 }
