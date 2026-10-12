@@ -1,4 +1,4 @@
-import { WIDTH, HEIGHT, PLAYER, DEPTH, VIEW_TOP, BG_SCALE } from '../config.js';
+import { WIDTH, HEIGHT, PLAYER, DEPTH, VIEW_TOP, BG_SCALE, ZOOM_STEPS, DEFAULT_ZOOM } from '../config.js';
 import { getInput, promptFor } from '../input/Input.js';
 import Parallax from '../systems/Parallax.js';
 import Combat from '../systems/Combat.js';
@@ -77,9 +77,12 @@ export default class GameScene extends Phaser.Scene {
     this.boss = null;
 
     const cam = this.cameras.main;
-    cam.setBounds(0, VIEW_TOP, zone.width, HEIGHT);
-    cam.startFollow(this.player.body_, true, 0.1, 0.1, 0, 120);
+    // Horizontal follow only; the vertical framing is set by applyZoom so the ground line stays put.
+    cam.setBounds(0, -100000, zone.width, 200000);
+    cam.startFollow(this.player.body_, true, 0.1, 0, 0, 0);
     cam.setDeadzone(120, 60);
+    this.zoom = this.loadZoom();
+    this.applyZoom(this.zoom, true);
     cam.fadeIn(600, 0, 0, 0);
     // Zone music (and the boss/victory tracks) are fetched on demand to keep the first load small.
     const zoneKey = this.zoneKey;
@@ -116,6 +119,31 @@ export default class GameScene extends Phaser.Scene {
     if (this.autopilot) { this.autopilot.detach(); this.autopilot = null; }
     this.events.emit('toast', 'You have the beast', 1800);
     this.events.emit('demo-ended');
+  }
+
+  // ------------------------------------------------------------------ zoom
+  loadZoom() {
+    try { const z = parseFloat(localStorage.getItem('botm_zoom')); if (ZOOM_STEPS.includes(z)) return z; } catch (e) { /* ignore */ }
+    return DEFAULT_ZOOM;
+  }
+
+  applyZoom(z, silent = false) {
+    this.zoom = z;
+    const cam = this.cameras.main;
+    cam.setZoom(z);
+    // keep the world ground line at the same screen height as the zoom-1 framing (780 of 900)
+    const groundScreen = this.groundY - VIEW_TOP;
+    const centerY = this.groundY - (groundScreen - HEIGHT / 2) / z;
+    cam.scrollY = centerY - HEIGHT / 2;
+    this.parallax.setZoom(z);
+    try { localStorage.setItem('botm_zoom', String(z)); } catch (e) { /* ignore */ }
+    if (!silent) this.events.emit('toast', `Zoom ${Math.round(z * 100)}%`, 900);
+  }
+
+  stepZoom(dir) {
+    const i = ZOOM_STEPS.indexOf(this.zoom);
+    const j = Math.max(0, Math.min(ZOOM_STEPS.length - 1, (i < 0 ? ZOOM_STEPS.indexOf(DEFAULT_ZOOM) : i) + dir));
+    if (ZOOM_STEPS[j] !== this.zoom) this.applyZoom(ZOOM_STEPS[j]);
   }
 
   cleanup() {
@@ -232,7 +260,7 @@ export default class GameScene extends Phaser.Scene {
     const [a, b] = this.bossDef.arena;
     this.platforms.add(this.add.rectangle(a - 10, this.groundY - 400, 20, 400, 0, 0).setOrigin(0.5, 0));
     this.platforms.add(this.add.rectangle(b + 10, this.groundY - 400, 20, 400, 0, 0).setOrigin(0.5, 0));
-    this.cameras.main.setBounds(a - 140, VIEW_TOP, (b - a) + 280, HEIGHT);
+    this.cameras.main.setBounds(a - 140, -100000, (b - a) + 280, 200000);
   }
 
   onEnemyKilled(enemy, info) {
@@ -365,6 +393,8 @@ export default class GameScene extends Phaser.Scene {
       t.glow.setAlpha(f).setScale(1.5 + 0.1 * Math.sin(time / 120 + t.phase));
     }
     if (this.fx.stopped) { this.physics.world.pause(); } else if (this.physics.world.isPaused) { this.physics.world.resume(); }
+    if (inp.pressed.zoomOut) { inp.consume('zoomOut'); this.stepZoom(-1); }
+    if (inp.pressed.zoomIn) { inp.consume('zoomIn'); this.stepZoom(1); }
     if (inp.pressed.pause && this.player.alive && !this.transitioning) {
       inp.consume('pause');
       if (this.scene.manager.keys.Pause) { this.scene.launch('Pause'); this.scene.pause(); return; }

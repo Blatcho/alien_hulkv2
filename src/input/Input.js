@@ -5,7 +5,7 @@
 
 export const ACTIONS = [
   'left', 'right', 'up', 'down',
-  'jump', 'light', 'heavy', 'dodge', 'defend', 'potion', 'interact', 'pause', 'confirm', 'back',
+  'jump', 'light', 'heavy', 'dodge', 'defend', 'potion', 'interact', 'pause', 'confirm', 'back', 'zoomIn', 'zoomOut',
 ];
 
 // Standard gamepad button indices (Xbox labels).
@@ -46,6 +46,8 @@ const KEY_MAP = {
   pause: ['Escape', 'Enter', 'Tab'],
   confirm: ['Enter', 'Space', 'KeyJ'],
   back: ['Escape', 'Backspace', 'KeyK'],
+  zoomIn: ['Equal', 'NumpadAdd', 'BracketRight'],
+  zoomOut: ['Minus', 'NumpadSubtract', 'BracketLeft'],
 };
 
 export const DEADZONE = 0.22;

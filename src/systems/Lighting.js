@@ -47,7 +47,8 @@ export default class Lighting {
   update(time) {
     if (!this.enabled) return;
     const cam = this.scene.cameras.main;
-    this.moonLight.setPosition(cam.scrollX + this.moonPos.x, cam.scrollY + this.moonPos.y);
+    const wv = cam.worldView;
+    this.moonLight.setPosition(wv.x + this.moonPos.x / cam.zoom, wv.y + this.moonPos.y / cam.zoom);
     for (const t of this.torches) {
       t.light.intensity = t.base * (0.82 + 0.14 * Math.sin(time / 83 + t.phase) + 0.08 * Math.sin(time / 31 + t.phase * 1.7));
       t.light.radius = t.radius * (0.95 + 0.05 * Math.sin(time / 140 + t.phase));

@@ -6,6 +6,8 @@ export const HEIGHT = 900;
 export const DESIGN_HEIGHT = 720;
 export const VIEW_TOP = DESIGN_HEIGHT - HEIGHT;
 export const BG_SCALE = HEIGHT / DESIGN_HEIGHT;   // screen-fixed parallax layers are scaled to fill the taller view
+export const ZOOM_STEPS = [0.6, 0.7, 0.8, 0.9, 1.0, 1.15, 1.3];
+export const DEFAULT_ZOOM = 1.0;
 
 export const GRAVITY = 2400;
 

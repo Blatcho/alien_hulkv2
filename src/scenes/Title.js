@@ -23,6 +23,7 @@ const CONTROLS = [
   { action: 'Use potion', glyph: 'ui_button_rb', pad: 'RB', key: 'Q' },
   { action: 'Interact', glyph: 'ui_button_lb', pad: 'LB', key: 'E' },
   { action: 'Pause / inventory', glyph: 'ui_button_start', pad: 'Start', key: 'Esc / Enter' },
+  { action: 'Zoom out / in', glyph: null, pad: '', key: '- / +' },
 ];
 
 function readSave() {
