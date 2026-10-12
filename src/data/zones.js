@@ -68,8 +68,9 @@ export const ZONES = {
       { type: 'torch', x: 300 }, { type: 'pillar', x: 500 }, { type: 'torch', x: 800 }, { type: 'cage', x: 1000, y: 220 }, { type: 'pillar', x: 1400 },
       { type: 'torch', x: 1600 }, { type: 'skull', x: 1750 }, { type: 'pillar', x: 2000 }, { type: 'torch', x: 2700 }, { type: 'cage', x: 2900, y: 230 },
       { type: 'pillar', x: 3100 }, { type: 'torch', x: 3300 }, { type: 'skull', x: 3450 }, { type: 'pillar', x: 3800 }, { type: 'torch', x: 4000 },
-      { type: 'torch', x: 4600 }, { type: 'pillar', x: 4800 }, { type: 'torch', x: 5100 }, { type: 'torch', x: 5400 }, { type: 'torch', x: 5800 },
-      { type: 'pillar', x: 6200 },
+      { type: 'torch', x: 4600 }, { type: 'pillar', x: 4800 }, { type: 'torch', x: 5100 }, { type: 'brazier', x: 5500 }, { type: 'brazier', x: 6250 },
+      { type: 'banner', x: 5600, y: 200 }, { type: 'banner', x: 6150, y: 200 }, { type: 'banner', x: 2350, y: 210 }, { type: 'banner', x: 700, y: 210 },
+      { type: 'brazier', x: 1200 }, { type: 'brazier', x: 3550 }, { type: 'pillar', x: 6350 },
     ],
     enemies: [
       { type: 'knight', x: 700 }, { type: 'spearman', x: 900 }, { type: 'bat', x: 1200 }, { type: 'knight', x: 1500 }, { type: 'knight', x: 1650 },
