@@ -1,4 +1,4 @@
-import { WIDTH, HEIGHT, DEPTH } from '../config.js';
+import { VIEW_TOP, WIDTH, HEIGHT, DEPTH } from '../config.js';
 import { getInput, promptFor } from '../input/Input.js';
 import Parallax from '../systems/Parallax.js';
 import AudioSystem from '../systems/Audio.js';
@@ -49,6 +49,7 @@ export default class TitleScene extends Phaser.Scene {
     const meta = this.cache.json.get('bg_layers');
     this.parallax = meta && meta.thornmoor ? new Parallax(this, 'thornmoor', meta.thornmoor) : null;
     this.cameras.main.scrollX = 0;
+    this.cameras.main.scrollY = VIEW_TOP;   // same vertical framing as the Game scene
     // dark wash so the title reads over the scenery
     this.add.rectangle(0, 0, WIDTH, HEIGHT, 0x05060a, 0.35).setOrigin(0).setScrollFactor(0).setDepth(UI - 2);
 

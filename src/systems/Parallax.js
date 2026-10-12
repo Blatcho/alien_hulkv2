@@ -1,4 +1,4 @@
-import { WIDTH, HEIGHT, DEPTH } from '../config.js';
+import { WIDTH, HEIGHT, DEPTH, VIEW_TOP, BG_SCALE } from '../config.js';
 
 // Builds the multi-layer parallax backdrop for a zone from assets/bg/layers.json.
 // Every layer is a screen-fixed TileSprite whose tilePosition follows the camera at its own
@@ -16,13 +16,19 @@ export default class Parallax {
       const key = `bg_${zoneKey}_${L.key}`;
       const depth = L.key === 'foreground' ? DEPTH.foreground : DEPTH.bgFar + i;
       if (L.fixed) {
-        const img = scene.add.image(L.x + L.w / 2, L.y + L.h / 2, key).setScrollFactor(0).setDepth(depth);
+        const img = scene.add.image((L.x + L.w / 2) * BG_SCALE, (L.y + L.h / 2) * BG_SCALE, key).setScrollFactor(0).setDepth(depth).setScale(BG_SCALE);
         this.layers.push({ obj: img, meta: L, fixed: true });
         // gentle pulse on the moon glow
         scene.tweens.add({ targets: img, alpha: 0.9, duration: 4000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         return;
       }
-      const ts = scene.add.tileSprite(0, L.y + (L.key === 'foreground' ? 50 : 0), WIDTH, L.h, key).setOrigin(0, 0).setScrollFactor(0).setDepth(depth);
+      // The ground strip stays at world scale, anchored to the physics ground line; every other layer is
+      // scaled up to fill the taller view (its ground line lands close to the world ground).
+      const isGround = L.key === 'ground';
+      const y = isGround ? meta.ground_y - 20 - VIEW_TOP : (L.y + (L.key === 'foreground' ? 50 : 0)) * BG_SCALE;
+      const h = isGround ? L.h : HEIGHT;
+      const ts = scene.add.tileSprite(0, y, WIDTH, h, key).setOrigin(0, 0).setScrollFactor(0).setDepth(depth);
+      if (!isGround) ts.setTileScale(BG_SCALE, BG_SCALE);
       if (L.key === 'foreground') ts.setAlpha(0.8);
       if ((L.key === 'ground' || L.key === 'hedge') && scene.lighting) scene.lighting.lit(ts);
       this.layers.push({ obj: ts, meta: L, fixed: false });
@@ -30,9 +36,10 @@ export default class Parallax {
 
     // Fog banks: one behind the hedge, one in front of the ground.
     const fogColor = Phaser.Display.Color.HexStringToColor(meta.fog || '#2c2f3d').color;
+    const groundScreen = meta.ground_y - VIEW_TOP;
     this.fogs = [
-      scene.add.tileSprite(0, meta.ground_y - 170, WIDTH, 256, 'fog').setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bgFar + 5.5).setAlpha(0.22).setTint(fogColor | 0x404040),
-      scene.add.tileSprite(0, meta.ground_y - 90, WIDTH, 256, 'fog').setOrigin(0).setScrollFactor(0).setDepth(DEPTH.fx + 1).setAlpha(0.16),
+      scene.add.tileSprite(0, groundScreen - 170, WIDTH, 256, 'fog').setOrigin(0).setScrollFactor(0).setDepth(DEPTH.bgFar + 5.5).setAlpha(0.22).setTint(fogColor | 0x404040),
+      scene.add.tileSprite(0, groundScreen - 90, WIDTH, 256, 'fog').setOrigin(0).setScrollFactor(0).setDepth(DEPTH.fx + 1).setAlpha(0.16),
     ];
 
     // Drifting embers / spores.
@@ -48,7 +55,7 @@ export default class Parallax {
     this.buildWeather(meta);
 
     // Vignette on top of the world (under the HUD scene).
-    this.vignette = scene.add.image(WIDTH / 2, HEIGHT / 2, 'ui_vignette').setScrollFactor(0).setDepth(DEPTH.hud - 1).setAlpha(0.5);
+    this.vignette = scene.add.image(WIDTH / 2, HEIGHT / 2, 'ui_vignette').setScrollFactor(0).setDepth(DEPTH.hud - 1).setAlpha(0.5).setDisplaySize(WIDTH, HEIGHT);
     this.cam = cam;
   }
 
@@ -79,9 +86,9 @@ export default class Parallax {
     this.nextLightning = 6000 + Math.random() * 10000;
     this.shafts = [];
     if (meta.shafts && scene.textures.exists('bg_lightshaft')) {
-      const m = meta.moon || { x: 900, y: 120 };
+      const m = { x: (meta.moon || { x: 900 }).x * BG_SCALE, y: (meta.moon || { y: 120 }).y * BG_SCALE };
       for (let i = 0; i < 4; i++) {
-        const img = scene.add.image(m.x + (i - 1.5) * 90, m.y + 300, 'bg_lightshaft').setScrollFactor(0).setDepth(DEPTH.bgFar + 4.5)
+        const img = scene.add.image(m.x + (i - 1.5) * 90, m.y + 300 * BG_SCALE, 'bg_lightshaft').setScrollFactor(0).setDepth(DEPTH.bgFar + 4.5)
           .setBlendMode('ADD').setAlpha(0.09 + i * 0.02).setAngle(-18 + i * 12).setScale(1.6, 1.4).setTint(0xc0d0ff);
         this.shafts.push({ img, phase: i * 1.3 });
       }
@@ -113,15 +120,14 @@ export default class Parallax {
     }
     for (const s of this.shafts) s.img.setAlpha(0.07 + 0.05 * Math.sin(this.time / 1700 + s.phase)).setAngle(s.img.angle + Math.sin(this.time / 2600 + s.phase) * 0.004);
     const sx = this.cam.scrollX;
-    const sy = this.cam.scrollY;
     for (const L of this.layers) {
       if (L.fixed) continue;
       const m = L.meta;
       let drift = 0;
       if (m.key === 'sky') drift = this.time * 0.004;        // clouds roll slowly
-      L.obj.tilePositionX = sx * m.scroll + drift;
-      // vertical parallax is much weaker so layers stay anchored to the ground line
-      L.obj.y = m.y + (m.key === 'foreground' ? 50 : 0) - sy * Math.min(1, m.scroll);
+      // tilePosition is in texture pixels; scaled layers move at the same on-screen rate as before
+      const k = m.key === 'ground' ? 1 : 1 / BG_SCALE;
+      L.obj.tilePositionX = (sx * m.scroll + drift) * k;
     }
     this.fogs[0].tilePositionX = sx * 0.7 + this.time * 0.012;
     this.fogs[1].tilePositionX = sx * 1.05 - this.time * 0.02;
