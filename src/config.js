@@ -39,6 +39,7 @@ export const PLAYER = {
   wallCoyote: 110,             // ms after leaving a wall during which a wall jump still counts
   stairsUpSpeed: 0.86,         // run speed multiplier climbing a stair slope
   climbSpeed: 230,
+  climbOffset: 18,             // how far the body hangs to the side of a ladder's centre line
   parryWindow: 160,            // ms after raising the guard during which a hit is parried
   parryStagger: 900,
   lightStamina: 12,

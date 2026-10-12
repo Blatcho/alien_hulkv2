@@ -30,7 +30,7 @@ export default class Combat {
       if (!hb.active) continue;
       if (hb.follow) hb.follow(hb);
       if (this.gfx) this.gfx.lineStyle(1, hb.faction === 'player' ? 0x40ff40 : 0xff4040).strokeRect(hb.x - hb.w / 2, hb.y - hb.h / 2, hb.w, hb.h);
-      const targets = hb.faction === 'player' ? enemies : [player];
+      const targets = hb.faction === 'player' ? [...enemies, ...(this.scene.breakables || [])] : [player];
       for (const t of targets) {
         if (!t || !t.alive || hb.hits.has(t)) continue;
         if (t.invulnerable) continue;

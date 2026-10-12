@@ -146,8 +146,26 @@ export default class Enemy {
         }
       }
     }
+    this.hopStep();
     this.snapStairs();
     this.syncRig(dt);
+  }
+
+  // Pushing against a low block (a single step) while walking: hop onto it.
+  hopStep() {
+    const b = this.body;
+    if (this.t.flying || !(this.state === 'chase' || this.state === 'patrol') || !this.grounded) return;
+    const dir = b.velocity.x > 1 ? 1 : b.velocity.x < -1 ? -1 : 0;
+    if (!dir || !(dir > 0 ? b.blocked.right : b.blocked.left)) return;
+    const feetY = this.y + this.t.bodyH / 2;
+    const ahead = this.x + dir * (this.t.bodyW / 2 + 10);
+    const step = this.scene.level.solids.find((s) => !s.noBody && ahead >= s.x && ahead <= s.x + s.w && s.y < feetY - 4 && s.y >= feetY - 72);
+    if (!step || !this.scene.hasFloor) return;
+    if (this.scene.hasFloor(ahead, step.y) && this.scene.time.now - (this.hoppedAt || 0) > 500) {
+      this.hoppedAt = this.scene.time.now;
+      b.setVelocityY(-560);
+      this.onStairs = false; b.setAllowGravity(true);
+    }
   }
 
   // Walking clip for a direction of travel: the stair climb or descent on a slope, else the gait.

@@ -17,6 +17,10 @@ export default class FX {
       speed: { min: 20, max: 90 }, angle: { min: 220, max: 320 }, lifespan: { min: 300, max: 600 },
       scale: { start: 0.5, end: 1.2 }, alpha: { start: 0.35, end: 0 }, tint: 0x8a7a66, emitting: false,
     }).setDepth(DEPTH.player - 1);
+    this.rubble = scene.add.particles(0, 0, 'fx_shard', {
+      speed: { min: 120, max: 420 }, angle: { min: 180, max: 360 }, gravityY: 1500, lifespan: { min: 500, max: 1100 },
+      scale: { start: 1.6, end: 0.8 }, rotate: { min: 0, max: 720 }, tint: [0x6a665e, 0x4e4a44, 0x8a8478], emitting: false,
+    }).setDepth(DEPTH.fx);
     this.bones = scene.add.particles(0, 0, 'fx_shard', {
       speed: { min: 100, max: 300 }, angle: { min: 200, max: 340 }, gravityY: 1200, lifespan: { min: 400, max: 800 },
       scale: { start: 1.2, end: 0.6 }, rotate: { min: 0, max: 720 }, tint: [0xd8d0b8, 0xa89c80], emitting: false,

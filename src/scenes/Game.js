@@ -71,6 +71,12 @@ export default class GameScene extends Phaser.Scene {
     this.ladders = L.ladders;
     this.stairs = L.stairs;
     this.buildTiles(L);
+    this.doorBodies = this.physics.add.staticGroup();
+    this.walls = this.physics.add.staticGroup();
+    this.doors = []; this.breakables = [];
+    for (const d of L.doors) { if (d.kind === 'breakable') this.buildBreakable(d); else this.buildDoor(d); }
+    this.rooms = L.rooms.map((r) => ({ ...r, active: false, cleared: false, enemies: [] }));
+    this.playerRoom = null; this.arena = null;
     for (const t of L.torches) this.buildTorch(t.x, t.y);
     for (const p of L.props) this.buildProp(p.kind, p.x, p.y);
     for (const r of L.rails) this.buildRail(r.x, r.y);
@@ -86,6 +92,8 @@ export default class GameScene extends Phaser.Scene {
     }
     this.physics.add.collider(this.player.body_, this.ground);
     this.physics.add.collider(this.player.body_, this.platforms, null, () => !this.player.dropThrough && !this.player.climbing);
+    this.physics.add.collider(this.player.body_, this.doorBodies);
+    this.physics.add.collider(this.player.body_, this.walls);
     this.enemyDefs = L.enemies.map((e, i) => ({ ...e, id: i }));
     this.bossDef = zone.boss ? { type: zone.boss.type, x: L.gate.x - 420, y: L.gate.y, arena: [L.gate.x - 1100, L.gate.x + 120] } : null;
     this.bossSpawned = false;
@@ -240,7 +248,7 @@ export default class GameScene extends Phaser.Scene {
   // Ladders overlapping the vertical span top..bottom at x. The feet may rest exactly on the landing at
   // a ladder's top (climbing down starts from there), so a ladder whose top is at the feet counts too.
   laddersAt(x, top, bottom) {
-    return this.ladders.filter((l) => Math.abs(l.x - x) <= 26 && bottom > l.top - 6 && top < l.bottom);
+    return this.ladders.filter((l) => Math.abs(l.x - x) <= 32 && bottom > l.top - 6 && top < l.bottom);
   }
 
   ladderAt(x, top, bottom) {
@@ -315,8 +323,156 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.collider(e.body_, this.ground);
     // one-way platforms: enemies drop through when the player is well below them
     this.physics.add.collider(e.body_, this.platforms, null, () => !(e.aggro && this.player.y > e.y + 60));
+    this.physics.add.collider(e.body_, this.doorBodies);
+    this.physics.add.collider(e.body_, this.walls);
     this.enemies.push(e);
     return e;
+  }
+
+  spawnDef(d) {
+    this.spawned.add(d.id);
+    const e = this.spawnEnemy(d.type, d.x, this.zone.level, { y: d.y, patrol: null });
+    e.def = d;
+    return e;
+  }
+
+  // ---------------------------------------------------------------- doors, walls, arenas
+  buildDoor(d) {
+    const sky = d.band !== 'ground';
+    const has = (k) => this.textures.exists(k);
+    const frameKey = sky && has('world_door_frame_sky') ? 'world_door_frame_sky' : 'world_door_frame';
+    const door = { ...d, open: 0, target: 0, locked: false, sfxAt: 0 };
+    if (has(frameKey)) door.frame = this.lighting.lit(this.add.image(d.x, d.y, frameKey).setOrigin(0.5, 1).setDepth(DEPTH.props - 2.6));
+    if (has('world_portcullis')) door.leaf = this.lighting.lit(this.add.image(d.x, d.y, 'world_portcullis').setOrigin(0.5, 1).setDepth(DEPTH.props - 2.7));
+    else door.leaf = this.add.rectangle(d.x, d.y, d.w, d.h, 0x303038, 0.9).setOrigin(0.5, 1).setDepth(DEPTH.props - 2.7);
+    door.body = this.add.rectangle(d.x - 20, d.y - d.h, 40, d.h, 0, 0).setOrigin(0, 0);
+    this.doorBodies.add(door.body);
+    this.doors.push(door);
+    return door;
+  }
+
+  setDoorOpen(door, k) {
+    door.open = k;
+    const lift = Math.round(k * (door.h - 12));
+    door.leaf.y = door.y - lift;
+    if (door.leaf.setCrop) door.leaf.setCrop(0, lift, door.w, door.h - lift);
+    door.body.body.enable = k < 0.55;
+  }
+
+  updateDoors(dt) {
+    const p = this.player;
+    for (const d of this.doors) {
+      const dx = Math.abs(p.x - d.x), dy = Math.abs(p.feetY - d.y);
+      if (dx > 1400) continue;
+      let target = d.target;
+      if (d.locked) target = 0;
+      else if (dx < 150 && dy < 240 && p.alive) target = 1;
+      else if (dx > 320 || dy > 400) target = 0;
+      // never drop the gate on whoever stands in the doorway
+      if (target === 0 && d.open > 0 && dx < 50 && dy < 240) target = d.open;
+      if (target !== d.target) {
+        d.target = target;
+        if (target === 1 && d.open < 1) this.audio.play('sfx_door', { volume: 0.55 });
+        else if (target === 0 && d.open > 0) this.audio.play('sfx_door', { volume: 0.45, detune: -300 });
+      }
+      if (d.open !== target) {
+        const step = dt / (target > d.open ? 520 : 380);
+        const k = target > d.open ? Math.min(target, d.open + step) : Math.max(target, d.open - step);
+        this.setDoorOpen(d, k);
+        if (k === 0 && target === 0 && dx < 900) { this.fx.landDust(d.x, d.y, 3); this.fx.shake(0.002, 60); }
+      }
+    }
+  }
+
+  buildBreakable(d) {
+    const sky = d.band !== 'ground';
+    const has = (k) => this.textures.exists(k);
+    const keys = [sky && has('world_crack_wall_sky') ? 'world_crack_wall_sky' : 'world_crack_wall', sky && has('world_crack_wall2_sky') ? 'world_crack_wall2_sky' : 'world_crack_wall2'];
+    const wall = { ...d, hp: 4, maxHp: 4, alive: true, invulnerable: false, faction: 'wall', keys };
+    wall.img = has(keys[0]) ? this.lighting.lit(this.add.image(d.x, d.y, keys[0]).setOrigin(0.5, 1).setDepth(DEPTH.props - 2.6))
+      : this.add.rectangle(d.x, d.y, d.w, d.h, 0x4a4640).setOrigin(0.5, 1).setDepth(DEPTH.props - 2.6);
+    wall.body = this.add.rectangle(d.x - d.w / 2, d.y - d.h, d.w, d.h, 0, 0).setOrigin(0, 0);
+    this.walls.add(wall.body);
+    wall.hitBounds = () => ({ x: d.x, y: d.y - d.h / 2, w: d.w, h: d.h });
+    wall.takeHit = (info) => this.hitBreakable(wall, info);
+    this.breakables.push(wall);
+    return wall;
+  }
+
+  hitBreakable(wall, info) {
+    if (!wall.alive) return false;
+    wall.hp -= info.heavy ? 4 : 1;
+    const x = wall.x + (info.x !== undefined ? Math.sign(info.x - wall.x) : -1) * 40;
+    this.fx.sparks.explode(info.heavy ? 10 : 5, x, wall.y - 90);
+    this.fx.landDust(x, wall.y - 60, info.heavy ? 8 : 4);
+    this.audio.play('sfx_wall_hit', { volume: info.heavy ? 0.9 : 0.7, detune: Math.round(Math.random() * 200 - 100) });
+    this.fx.shake(info.heavy ? 0.008 : 0.003, info.heavy ? 160 : 70);
+    this.input_.rumble(info.heavy ? 0.7 : 0.3, 0.4, info.heavy ? 160 : 70);
+    this.tweens.add({ targets: wall.img, x: wall.x + 3, yoyo: true, repeat: 2, duration: 30 });
+    if (wall.hp <= 0) { this.breakWall(wall); return true; }
+    if (wall.hp <= 2 && this.textures.exists(wall.keys[1]) && wall.img.setTexture) wall.img.setTexture(wall.keys[1]);
+    return true;
+  }
+
+  breakWall(wall) {
+    wall.alive = false;
+    wall.body.destroy();
+    wall.img.destroy();
+    this.fx.rubble.explode(30, wall.x, wall.y - 100);
+    this.fx.landDust(wall.x, wall.y - 10, 14);
+    this.fx.shake(0.012, 260);
+    this.input_.rumble(0.9, 0.6, 320);
+    this.fx.hitStop(60);
+    this.audio.play('sfx_wall_break', { volume: 1 });
+    this.events.emit('toast', 'The wall gives way', 1600);
+  }
+
+  roomAt(x, feetY) {
+    return this.rooms.find((r) => x >= r.x && x < r.x + r.w && feetY > r.y && feetY <= r.y + r.h + 4) || null;
+  }
+
+  roomDoors(room) { return this.doors.filter((d) => d.cells.some(([c, r]) => c === room.c && r === room.r)); }
+
+  updateRooms() {
+    const p = this.player;
+    const room = this.roomAt(p.x, p.feetY);
+    this.playerRoom = room;
+    if (room && room.arena && !room.cleared && !room.active && p.alive && !this.arena && p.x > room.x + 170 && p.x < room.x + room.w - 170 && p.grounded) this.startArena(room);
+    if (this.arena) {
+      const left = this.arena.enemies.filter((e) => e.alive && !e.t.flying);
+      if (!left.length) this.clearArena();
+    }
+  }
+
+  // Arena: the doors slam shut and the room's enemies wake; the doors unbar when they are all down.
+  startArena(room) {
+    room.active = true;
+    this.arena = room;
+    for (const d of this.enemyDefs) {
+      if (d.cell[0] !== room.c || d.cell[1] !== room.r) continue;
+      if (!this.spawned.has(d.id)) this.spawnDef(d);
+    }
+    room.enemies = this.enemies.filter((e) => e.alive && e.def && e.def.cell[0] === room.c && e.def.cell[1] === room.r);
+    for (const e of room.enemies) e.aggro = true;
+    for (const d of this.roomDoors(room)) d.locked = true;
+    this.audio.play('sfx_gate', { volume: 0.8, detune: -400 });
+    this.fx.shake(0.005, 200);
+    this.events.emit('toast', 'The doors slam shut', 1800);
+  }
+
+  clearArena() {
+    const room = this.arena;
+    room.cleared = true; room.active = false;
+    this.arena = null;
+    for (const d of this.roomDoors(room)) d.locked = false;
+    this.audio.play('sfx_room_clear', { volume: 0.9 });
+    this.events.emit('banner', 'ROOM CLEARED', { tint: 0xffd070, sub: 'the doors unbar', hold: 1400 });
+    // a shower of coins where the last one fell, and sometimes a potion
+    const p = this.player;
+    const n = 4 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) this.pickups.push(new Pickup(this, p.x + (Math.random() - 0.5) * 160, p.y - 120 - Math.random() * 60, { type: 'gold', amount: 6 + Math.floor(Math.random() * 8) * (this.zone.level) }));
+    if (Math.random() < 0.35) this.pickups.push(new Pickup(this, p.x, p.y - 150, { type: 'potion' }));
+    this.writeCheckpoint();
   }
 
   // Enemies spawn when the camera approaches so the world stays cheap.
@@ -327,8 +483,7 @@ export default class GameScene extends Phaser.Scene {
     for (const d of this.enemyDefs) {
       if (this.spawned.has(d.id)) continue;
       if (d.x > wv.x - 400 && d.x < wv.right + 400 && d.y > wv.y - 400 && d.y < wv.bottom + 400) {
-        this.spawned.add(d.id);
-        this.spawnEnemy(d.type, d.x, lvl, { y: d.y, patrol: null });
+        this.spawnDef(d);
       }
     }
     if (this.bossDef && !this.bossSpawned && Math.abs(this.player.x - this.bossDef.x) < 700 && Math.abs(this.player.y - this.bossDef.y) < 400) {
@@ -481,7 +636,9 @@ export default class GameScene extends Phaser.Scene {
       if (this.scene.manager.keys.Pause) { this.scene.launch('Pause'); this.scene.pause(); return; }
     }
     this.spawnNearby();
+    this.updateDoors(dt);
     this.player.update(inp, dt);
+    this.updateRooms();
     for (const e of [...this.enemies]) e.update(dt);
     for (const p of [...this.pickups]) p.update(dt);
     this.combat.update(this.player, this.enemies);

@@ -64,9 +64,14 @@ and passes gates. Press any key or pad button to take over mid-run.
   resumes from the last shrine.
 - Levels are generated from a seed: each zone is a grid of rooms knitted together by a critical
   path that climbs from the moor through the cloud bank into the high sky, with side rooms holding
-  chests. Ladders (hold up/down on them, jump to let go) and stairs connect the heights; hold down
-  and jump to drop through a thin ledge. The seed is shown at the bottom of the screen, kept in the
-  checkpoint save, and can be forced with `?seed=12345` on the URL.
+  chests. Nothing floats: every raised floor is solid masonry reached by stairs or single steps, and
+  ladders run between rooms (hold up/down on them, jump to let go; hold down and jump on a ladder's
+  trapdoor to drop through). The seed is shown at the bottom of the screen, kept in the checkpoint
+  save, and can be forced with `?seed=12345` on the URL.
+- Rooms are separated by iron portcullises that lift as you approach. Some rooms are arenas: step
+  in and the gates slam shut until every foe in the room is down, then they unbar with a shower of
+  gold (and sometimes a potion) and a checkpoint. Side rooms usually hide behind cracked walls, and
+  now and then one blocks the path itself: four light hits or one charged slam breaks through.
 - Each zone's gate, in the top room, opens once six in ten of the zone's foes have fallen. Three
   zones: Thornmoor, The Hollow Graves and The Warden's Gate, where the Warden guards the gate.
 

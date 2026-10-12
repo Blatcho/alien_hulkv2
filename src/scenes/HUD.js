@@ -119,6 +119,7 @@ export default class HUDScene extends Phaser.Scene {
       'gold': (n) => this.pulseGold(n),
       'toast': (text, ms) => this.toast(text, ms),
       'zone-title': (text) => this.zoneTitle(text),
+      'banner': (text, opts) => this.banner(text, opts || {}),
       'boss-start': (name, getter) => this.showBoss(name, getter),
       'boss-end': () => this.hideBoss(),
     };

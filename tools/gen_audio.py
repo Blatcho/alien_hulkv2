@@ -510,6 +510,57 @@ def _(rng):
     clank = metal(secs(0.35), 420, [1, 1.4, 2.1, 2.9], [0.2, 0.15, 0.1, 0.06], rng) + thump(secs(0.35), 120, 45, 0.08, click=0.5, rng=rng)
     return y + 1.2 * delay(clank, 1.18, n)
 
+@sfx("sfx_door", rev=dict(rt60=1.2, wet=0.3, damp=3000))
+def _(rng):
+    # a portcullis hauled up: chain rattle over a stone grind, a clank at the end
+    n = secs(0.7)
+    t = tline(n)
+    grind = fft_filter(noise(n, rng), "bp", 420, 1.0) * (0.5 + 0.5 * slow_noise(n, 30, rng)) * adsr(n, 0.05, 0.2, 0.6, 0.15, 0.5)
+    rattle = np.zeros(n)
+    for k in range(14):
+        at = int((0.04 + k * 0.038 + rng.uniform(0, 0.01)) * SR)
+        m = secs(0.06)
+        if at + m < n:
+            rattle[at:at + m] += 0.5 * metal(m, 1800 + rng.uniform(-300, 300), [1.0, 1.9, 2.7], [0.03, 0.02, 0.015], rng)
+    clank = delay(0.8 * metal(secs(0.3), 380, [1.0, 1.6, 2.4, 3.3], [0.14, 0.1, 0.07, 0.05], rng), 0.55, n)
+    return grind * 0.9 + rattle + clank
+
+@sfx("sfx_wall_hit")
+def _(rng):
+    # a blow landing on masonry: dull stone thud with a short gravel scatter
+    n = secs(0.3)
+    y = 1.1 * thump(n, 150, 55, 0.06, click=0.5, rng=rng)
+    gravel = fft_filter(noise(n, rng), "bp", 2200, 0.8) * env_exp(n, 0.05) * (0.4 + 0.6 * slow_noise(n, 400, rng) ** 2)
+    return y + 0.7 * gravel
+
+@sfx("sfx_wall_break", rev=dict(rt60=1.4, wet=0.3, damp=2500))
+def _(rng):
+    # the wall gives way: a deep crack, then a cascade of falling stone
+    n = secs(1.1)
+    crack = 1.2 * thump(secs(0.25), 90, 35, 0.08, click=0.8, rng=rng)
+    y = np.zeros(n); y[:len(crack)] += crack
+    for k in range(18):
+        at = int((0.08 + k * 0.045 + rng.uniform(0, 0.03)) * SR)
+        m = secs(0.12)
+        if at + m < n:
+            y[at:at + m] += (0.9 - k * 0.035) * thump(m, 220 + rng.uniform(-80, 120), 70, 0.03, click=0.6, rng=rng)
+    rumble = fft_filter(noise(n, rng), "lp", 180, 0.7) * adsr(n, 0.02, 0.3, 0.4, 0.5, 0.5) * 1.6
+    dust = fft_filter(noise(n, rng), "bp", 1600, 0.6) * adsr(n, 0.1, 0.4, 0.3, 0.4, 0.6) * 0.5
+    return y + rumble + dust
+
+@sfx("sfx_room_clear", rev=dict(rt60=2.0, wet=0.4, damp=5000))
+def _(rng):
+    # a short rising brass-like sting: the doors unbar
+    n = secs(1.4)
+    t = tline(n)
+    y = np.zeros(n)
+    for i, (f, at, d) in enumerate([(196.0, 0.0, 0.5), (261.6, 0.18, 0.5), (392.0, 0.36, 0.9)]):
+        a = int(at * SR); m = n - a
+        tone = (saw(f, m) * 0.5 + saw(f * 1.005, m) * 0.5) * adsr(m, 0.02, 0.1, 0.7, 0.35, d)
+        y[a:] += fft_filter(tone, "lp", 1800 + i * 600, 0.8) * (0.5 + 0.2 * i)
+    shimmer = chime(n, 1568, 0.5, rng, mod=0.8) * 0.25
+    return y * 0.6 + shimmer
+
 @sfx("sfx_ui_move", peak=-6.0)
 def _(rng):
     n = secs(0.1)

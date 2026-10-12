@@ -386,6 +386,10 @@ export default class Player {
     this.scene.combat.clearOwner(this);
   }
 
+  // Side of the ladder the body hangs on: it keeps facing the way it arrived and grips the rungs in
+  // front of it, so the rig sits a little off the ladder's centre line.
+  climbX(L) { return L.x - this.facing * PLAYER.climbOffset; }
+
   startClimb(ladder) {
     this.ladder = ladder;
     this.climbing = true;
@@ -429,8 +433,8 @@ export default class Player {
     const speed = PLAYER.climbSpeed;
     const dir = inp.held.up ? -1 : inp.held.down ? 1 : 0;
     b.setVelocity(0, dir * speed);
-    // ease toward the ladder's centre line
-    this.body_.x += (L.x - this.body_.x) * Math.min(1, dt / 90);
+    // ease to the climbing position beside the rungs
+    this.body_.x += (this.climbX(L) - this.body_.x) * Math.min(1, dt / 90);
     // moving: the climb loop (run backwards on the way down); still: hang on the rungs
     if (dir !== 0) { this.rig.play('climb', { fade: 110 }); this.rig.speed = dir < 0 ? 1.15 : -0.95; }
     else this.rig.play('climb_hold', { fade: 160 });
@@ -448,7 +452,7 @@ export default class Player {
     if (top && dir <= 0) {
       // pull up onto the landing above the ladder (the body rises over the clip's length)
       b.setVelocity(0, 0);
-      this.climbTop = { y0: this.body_.y, y1: L.top - PLAYER.bodyHeight / 2 - 2, x: L.x };
+      this.climbTop = { y0: this.body_.y, y1: L.top - PLAYER.bodyHeight / 2 - 2, x: L.x + this.facing * 26 };
       this.ladder = null;
       this.setState('climb_top'); this.rig.play('climb_top', { fade: 60, restart: true });
       return;

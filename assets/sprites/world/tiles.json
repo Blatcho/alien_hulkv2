@@ -129,6 +129,78 @@
    "normal": true,
    "role": "decoration",
    "anchor": "bottom"
+  },
+  "door_frame": {
+   "w": 176,
+   "h": 224,
+   "tile_x": false,
+   "tile_y": false,
+   "normal": true,
+   "role": "door_frame",
+   "jamb": 24,
+   "lintel": 32,
+   "opening": [
+    128,
+    192
+   ]
+  },
+  "door_frame_sky": {
+   "w": 176,
+   "h": 224,
+   "tile_x": false,
+   "tile_y": false,
+   "normal": true,
+   "role": "door_frame",
+   "jamb": 24,
+   "lintel": 32,
+   "opening": [
+    128,
+    192
+   ]
+  },
+  "portcullis": {
+   "w": 128,
+   "h": 192,
+   "tile_x": false,
+   "tile_y": false,
+   "normal": true,
+   "role": "portcullis"
+  },
+  "crack_wall": {
+   "w": 128,
+   "h": 192,
+   "tile_x": true,
+   "tile_y": false,
+   "normal": true,
+   "role": "breakable",
+   "stage": 1
+  },
+  "crack_wall2": {
+   "w": 128,
+   "h": 192,
+   "tile_x": true,
+   "tile_y": false,
+   "normal": true,
+   "role": "breakable",
+   "stage": 2
+  },
+  "crack_wall_sky": {
+   "w": 128,
+   "h": 192,
+   "tile_x": true,
+   "tile_y": false,
+   "normal": true,
+   "role": "breakable",
+   "stage": 1
+  },
+  "crack_wall2_sky": {
+   "w": 128,
+   "h": 192,
+   "tile_x": true,
+   "tile_y": false,
+   "normal": true,
+   "role": "breakable",
+   "stage": 2
   }
  }
 }
