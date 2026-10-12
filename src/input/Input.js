@@ -5,7 +5,7 @@
 
 export const ACTIONS = [
   'left', 'right', 'up', 'down',
-  'jump', 'light', 'heavy', 'dodge', 'potion', 'interact', 'pause', 'confirm', 'back',
+  'jump', 'light', 'heavy', 'dodge', 'defend', 'potion', 'interact', 'pause', 'confirm', 'back',
 ];
 
 // Standard gamepad button indices (Xbox labels).
@@ -19,6 +19,7 @@ const PAD_MAP = {
   light: [PAD.X],
   heavy: [PAD.Y],
   dodge: [PAD.B, PAD.RT],
+  defend: [PAD.LT],
   potion: [PAD.RB],
   interact: [PAD.LB],
   pause: [PAD.START],
@@ -38,7 +39,8 @@ const KEY_MAP = {
   jump: ['Space', 'KeyW', 'ArrowUp'],
   light: ['KeyJ', 'KeyZ'],
   heavy: ['KeyK', 'KeyX'],
-  dodge: ['KeyL', 'ShiftLeft', 'ShiftRight', 'KeyC'],
+  dodge: ['KeyL', 'KeyC'],
+  defend: ['ShiftLeft', 'ShiftRight', 'KeyI'],
   potion: ['KeyQ'],
   interact: ['KeyE'],
   pause: ['Escape', 'Enter', 'Tab'],
@@ -71,6 +73,8 @@ export class InputManager {
     this.enabled = true;
     this.rumbleEnabled = true;
     this._pad = null;
+    this.virtual = null;          // { moveX, moveY, actions: Set } supplied by the demo autopilot
+    this.realActivity = false;    // true when a physical device produced input this frame
     for (const a of ACTIONS) { this.held[a] = false; this.pressed[a] = false; this.released[a] = false; this.prevHeld[a] = false; }
 
     if (typeof window !== 'undefined') {
@@ -112,6 +116,7 @@ export class InputManager {
     let mx = 0, my = 0;
     const raw = {};
     for (const a of ACTIONS) raw[a] = false;
+    this.realActivity = this.keys.size > 0;
 
     if (this.enabled) {
       for (const a of ACTIONS) {
@@ -131,7 +136,11 @@ export class InputManager {
         const ay = applyDeadzone(pad.axes[1] || 0);
         if (ax !== 0 || ay !== 0) padActive = true;
         mx += ax; my += ay;
-        if (padActive) this.lastDevice = 'gamepad';
+        if (padActive) { this.lastDevice = 'gamepad'; this.realActivity = true; }
+      }
+      if (this.virtual) {
+        for (const a of this.virtual.actions || []) raw[a] = true;
+        mx += this.virtual.moveX || 0; my += this.virtual.moveY || 0;
       }
     }
 
@@ -182,7 +191,7 @@ export function getInput() {
 
 // Human-readable prompt glyphs for the current device.
 export function promptFor(action, device) {
-  const pad = { jump: 'A', light: 'X', heavy: 'Y', dodge: 'B', potion: 'RB', interact: 'LB', pause: 'Start', confirm: 'A', back: 'B' };
-  const key = { jump: 'Space', light: 'J', heavy: 'K', dodge: 'L', potion: 'Q', interact: 'E', pause: 'Esc', confirm: 'Enter', back: 'Esc' };
+  const pad = { jump: 'A', light: 'X', heavy: 'Y', dodge: 'B', defend: 'LT', potion: 'RB', interact: 'LB', pause: 'Start', confirm: 'A', back: 'B' };
+  const key = { jump: 'Space', light: 'J', heavy: 'K', dodge: 'L', defend: 'Shift', potion: 'Q', interact: 'E', pause: 'Esc', confirm: 'Enter', back: 'Esc' };
   return (device === 'gamepad' ? pad : key)[action] || action;
 }

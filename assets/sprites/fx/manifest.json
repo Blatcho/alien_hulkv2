@@ -1,0 +1,16 @@
+{
+ "extra": [
+  "shockwave",
+  "dust_ring",
+  "air_ring",
+  "parry",
+  "guard_flash"
+ ],
+ "common": [
+  "lightshaft",
+  "rain",
+  "leaf",
+  "ash",
+  "lightning"
+ ]
+}

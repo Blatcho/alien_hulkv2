@@ -18,7 +18,8 @@ export default class BootScene extends Phaser.Scene {
     this.load.json('rig_manifest', 'assets/rigs/manifest.json');
     this.load.json('props_manifest', 'assets/sprites/props/props.json');
     for (const k of ['slash_claw', 'slash_sword', 'impact', 'drop', 'shard', 'shadow']) this.load.image(`fx_${k}`, `assets/sprites/fx/${k}.png`);
-    for (const k of ['gate', 'platform', 'fence']) this.load.image(`world_${k}`, `assets/sprites/world/${k}.png`);
+    this.load.json('fx_manifest', 'assets/sprites/fx/manifest.json');
+    this.load.json('world_manifest', 'assets/sprites/world/manifest.json');
     this.load.spritesheet('fx_flame', 'assets/sprites/fx/flame_sheet.png', { frameWidth: 32, frameHeight: 48 });
     for (const k of SFX_KEYS) this.load.audio(k, `assets/audio/${k}.ogg`);
     for (const k of MUSIC_KEYS) this.load.audio(k, `assets/audio/${k}.ogg`);
@@ -42,18 +43,37 @@ export default class BootScene extends Phaser.Scene {
     const meta = this.cache.json.get('bg_layers');
     for (const zone of ZONE_KEYS) {
       if (!meta[zone]) continue;
-      for (const L of meta[zone].layers) this.load.image(`bg_${zone}_${L.key}`, `assets/bg/${zone}/${L.key}.png`);
+      for (const L of meta[zone].layers) {
+        const url = `assets/bg/${zone}/${L.key}.png`;
+        this.load.image(`bg_${zone}_${L.key}`, L.normal ? [url, `assets/bg/${zone}/${L.normal}`] : url);
+      }
     }
     const props = this.cache.json.get('props_manifest').sprites;
     for (const [name, p] of Object.entries(props)) {
-      if (p.frames > 1) this.load.spritesheet(`prop_${name}`, `assets/sprites/props/${p.file}`, { frameWidth: p.frame_width, frameHeight: p.frame_height });
-      else this.load.image(`prop_${name}`, `assets/sprites/props/${p.file}`);
+      const url = p.normal ? [`assets/sprites/props/${p.file}`, `assets/sprites/props/${p.normal}`] : `assets/sprites/props/${p.file}`;
+      if (p.frames > 1) this.load.spritesheet(`prop_${name}`, url, { frameWidth: p.frame_width, frameHeight: p.frame_height });
+      else this.load.image(`prop_${name}`, url);
+    }
+    // optional manifests written by the generators (extra fx, world sprites with normal maps)
+    const fxm = this.cache.json.get('fx_manifest');
+    if (fxm && Array.isArray(fxm.extra)) for (const k of fxm.extra) this.load.image(`fx_${k}`, `assets/sprites/fx/${k}.png`);
+    if (fxm && Array.isArray(fxm.common)) for (const k of fxm.common) this.load.image(`bg_${k}`, `assets/bg/common/${k}.png`);
+    const wm = this.cache.json.get('world_manifest') || { textures: ['gate', 'platform', 'fence'], normals: [] };
+    for (const k of wm.textures) {
+      const hasN = (wm.normals || []).includes(k);
+      this.load.image(`world_${k}`, hasN ? [`assets/sprites/world/${k}.png`, `assets/sprites/world/${k}_n.png`] : `assets/sprites/world/${k}.png`);
     }
     import('../systems/Loot.js').then((m) => this.registry.set('loot', m)).catch((e) => console.warn('Loot module unavailable', e));
     const manifest = this.cache.json.get('rig_manifest');
     for (const rig of Object.keys(manifest)) {
       this.load.json(`rig_${rig}`, `assets/rigs/${rig}.json`);
-      for (const tex of manifest[rig]) this.load.image(`rig_${tex}`, `assets/sprites/rigs/${tex}.png`);
+      const entry = manifest[rig];
+      const textures = Array.isArray(entry) ? entry : entry.textures;
+      const normals = !Array.isArray(entry) && !!entry.normals;
+      for (const tex of textures) {
+        const url = `assets/sprites/rigs/${tex}.png`;
+        this.load.image(`rig_${tex}`, normals ? [url, `assets/sprites/rigs/${tex}_n.png`] : url);
+      }
     }
     this.load.once('complete', () => {
       this.anims.create({ key: 'coin_spin', frames: this.anims.generateFrameNumbers('prop_coin', { start: 0, end: 11 }), frameRate: 14, repeat: -1 });

@@ -40,6 +40,39 @@ export default class FX {
 
   landDust(x, y, n = 6) { this.dust.explode(n, x, y); }
 
+  // Ground slam: expanding shock ring along the ground plus a dust burst.
+  shockwave(x, y, facing, scale = 1) {
+    const key = this.scene.textures.exists('fx_shockwave') ? 'fx_shockwave' : 'fx_impact';
+    const img = this.scene.add.image(x, y - 6, key).setDepth(DEPTH.fx).setOrigin(0.5, 0.6).setScale(0.3 * scale, 0.5 * scale).setBlendMode('ADD').setTint(0xffc080);
+    this.scene.tweens.add({ targets: img, scaleX: 2.6 * scale, scaleY: 0.9 * scale, alpha: 0, duration: 420, ease: 'Cubic.easeOut', onComplete: () => img.destroy() });
+    const dkey = this.scene.textures.exists('fx_dust_ring') ? 'fx_dust_ring' : 'particle_soft';
+    const d = this.scene.add.image(x, y, dkey).setDepth(DEPTH.fx - 1).setOrigin(0.5, 0.8).setScale(0.6 * scale, 0.6 * scale).setAlpha(0.7).setTint(0x8a7a66);
+    this.scene.tweens.add({ targets: d, scaleX: 2.2 * scale, scaleY: 1.4 * scale, alpha: 0, duration: 600, ease: 'Sine.easeOut', onComplete: () => d.destroy() });
+    this.sparks.explode(10, x, y - 10);
+  }
+
+  airRing(x, y) {
+    const key = this.scene.textures.exists('fx_air_ring') ? 'fx_air_ring' : 'particle_hard';
+    const img = this.scene.add.image(x, y, key).setDepth(DEPTH.fx).setScale(0.4, 0.25).setAlpha(0.8).setBlendMode('ADD');
+    this.scene.tweens.add({ targets: img, scaleX: 1.4, scaleY: 0.5, alpha: 0, duration: 300, ease: 'Cubic.easeOut', onComplete: () => img.destroy() });
+    this.dust.explode(5, x, y);
+  }
+
+  parry(x, y) {
+    const key = this.scene.textures.exists('fx_parry') ? 'fx_parry' : 'fx_impact';
+    const img = this.scene.add.image(x, y, key).setDepth(DEPTH.fx + 1).setScale(0.5).setBlendMode('ADD').setTint(0xa0e0ff).setAngle(Math.random() * 90);
+    this.scene.tweens.add({ targets: img, scale: 1.6, alpha: 0, duration: 260, ease: 'Cubic.easeOut', onComplete: () => img.destroy() });
+    this.sparks.explode(16, x, y);
+    this.flashScreen(0x80c0ff, 60, 0.15);
+  }
+
+  guardFlash(x, y, facing) {
+    const key = this.scene.textures.exists('fx_guard_flash') ? 'fx_guard_flash' : 'fx_impact';
+    const img = this.scene.add.image(x, y, key).setDepth(DEPTH.fx + 1).setScale(0.8 * facing, 0.8).setBlendMode('ADD').setTint(0xc0d8ff).setAlpha(0.9);
+    this.scene.tweens.add({ targets: img, scaleX: 1.2 * facing, scaleY: 1.3, alpha: 0, duration: 200, onComplete: () => img.destroy() });
+    this.sparks.explode(5, x, y);
+  }
+
   number(x, y, value, { color = 0xffffff, crit = false, size = 1 } = {}) {
     const t = this.scene.add.bitmapText(x + (Math.random() * 20 - 10), y, 'small', String(value), 16 * (crit ? 1.6 : 1.15) * size)
       .setOrigin(0.5).setDepth(DEPTH.fx + 2).setTint(color);

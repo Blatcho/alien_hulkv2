@@ -1,0 +1,12 @@
+{
+ "textures": [
+  "gate",
+  "platform",
+  "fence"
+ ],
+ "normals": [
+  "gate",
+  "platform",
+  "fence"
+ ]
+}

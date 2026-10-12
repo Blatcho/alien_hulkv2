@@ -15,10 +15,11 @@ const DIM = 0x7a7468;
 
 const CONTROLS = [
   { action: 'Move', glyph: null, pad: 'Left stick / D-pad', key: 'A / D or Arrows' },
-  { action: 'Jump', glyph: 'ui_button_a', pad: 'A', key: 'Space / W' },
-  { action: 'Light attack (combo)', glyph: 'ui_button_x', pad: 'X', key: 'J' },
-  { action: 'Heavy attack (hold)', glyph: 'ui_button_y', pad: 'Y', key: 'K' },
-  { action: 'Dodge roll', glyph: 'ui_button_b', pad: 'B', key: 'L / Shift' },
+  { action: 'Jump / double jump', glyph: 'ui_button_a', pad: 'A (again in air)', key: 'Space / W' },
+  { action: 'Light attack (3-swipe combo)', glyph: 'ui_button_x', pad: 'X', key: 'J' },
+  { action: 'Heavy slam (hold to charge)', glyph: 'ui_button_y', pad: 'Y', key: 'K' },
+  { action: 'Defend / parry (hold)', glyph: 'ui_button_lb', pad: 'LT', key: 'Shift / I' },
+  { action: 'Backstep', glyph: 'ui_button_b', pad: 'B / RT', key: 'L' },
   { action: 'Use potion', glyph: 'ui_button_rb', pad: 'RB', key: 'Q' },
   { action: 'Interact', glyph: 'ui_button_lb', pad: 'LB', key: 'E' },
   { action: 'Pause / inventory', glyph: 'ui_button_start', pad: 'Start', key: 'Esc / Enter' },
@@ -65,7 +66,9 @@ export default class TitleScene extends Phaser.Scene {
     this.save = readSave();
     this.items = [{ key: 'begin', label: 'Begin the Hunt' }];
     if (this.save) this.items.push({ key: 'continue', label: 'Continue' });
+    this.items.push({ key: 'demo', label: 'Watch the Beast (demo)' });
     this.items.push({ key: 'controls', label: 'Controls' });
+    this.idleMs = 0;
     const my = HEIGHT * 0.56;
     this.menuTexts = this.items.map((it, i) => this.add.bitmapText(WIDTH / 2, my + i * 44, 'body', it.label, 26)
       .setOrigin(0.5).setScrollFactor(0).setDepth(UI + 1));
@@ -197,10 +200,11 @@ export default class TitleScene extends Phaser.Scene {
     if (!it) return;
     if (it.key === 'controls') { this.openControls(); return; }
     if (it.key === 'continue') { this.startGame(this.save); return; }
+    if (it.key === 'demo') { this.startGame(null, true); return; }
     this.startGame(null);
   }
 
-  startGame(save) {
+  startGame(save, demo = false) {
     if (this.started) return;
     this.started = true;
     this.sfx('sfx_ui_confirm');
@@ -217,6 +221,7 @@ export default class TitleScene extends Phaser.Scene {
       } else {
         data = { zone: 'thornmoor', stats: new Stats() };
       }
+      if (demo) data.demo = true;
       this.scene.start('Game', data);
       this.scene.launch('HUD');
     });
@@ -232,8 +237,11 @@ export default class TitleScene extends Phaser.Scene {
       this.parallax.update(time, delta);
     }
     this.prompt.setText(dev === 'gamepad' ? 'Press START to begin   -   A select' : 'Press ENTER to begin   -   Arrows / W S navigate');
-    this.padText.setText(inp.padConnected ? `Controller: ${inp.padId}`.slice(0, 90) : 'No controller detected - keyboard: A/D move, Space jump, J/K attack, L dodge, Q potion');
+    this.padText.setText(inp.padConnected ? `Controller: ${inp.padId}`.slice(0, 90) : 'No controller detected - keyboard: A/D move, Space jump, J/K attack, Shift defend, L backstep, Q potion');
     if (this.started) return;
+    // attract mode: after a while with no input the beast plays by itself
+    if (inp.realActivity) this.idleMs = 0; else this.idleMs += delta;
+    if (this.idleMs > 45000 && !this.controlsOpen) { this.startGame(null, true); return; }
 
     if (this.controlsOpen) {
       if (inp.pressed.back || inp.pressed.confirm || inp.pressed.pause) {

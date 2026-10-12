@@ -149,14 +149,14 @@ export function beastClips() {
     K(0.65, { torso: 36, head: -14, arm_u_near: -100, arm_l_near: -10, arm_u_far: -100, arm_l_far: -10, leg_u_near: -50, leg_l_near: 50, leg_u_far: 30, leg_l_far: 60, rootX: 24, rootY: 8, ...T(10, -10) }),
     K(1, { torso: 6, head: -6, arm_u_near: 24, arm_l_near: -12, arm_u_far: 28, arm_l_far: -14, leg_u_near: -14, leg_l_near: 24, leg_u_far: 10, leg_l_far: 12, rootX: 0, rootY: 0, ...T(40, 20) }),
   ], { events: [{ t: 0.3, name: 'swing' }, { t: 0.4, name: 'hit_on' }, { t: 0.62, name: 'hit_off' }, { t: 0.72, name: 'recover' }] });
-  // Heavy: charged overhead rend. Long windup, huge hit.
-  c.heavy = clip(900, [
-    K(0, { torso: -14, head: 10, arm_u_near: 150, arm_l_near: -60, arm_u_far: 150, arm_l_far: -60, leg_u_near: -16, leg_l_near: 16, leg_u_far: 14, leg_l_far: 14, rootY: 0, ...T(70, 50) }),
-    K(0.45, { torso: -26, head: 14, arm_u_near: 175, arm_l_near: -80, arm_u_far: 175, arm_l_far: -80, leg_u_near: -24, leg_l_near: 30, leg_u_far: 20, leg_l_far: 30, rootY: -8, ...T(90, 70) }),
-    K(0.56, { torso: 40, head: -16, arm_u_near: -60, arm_l_near: -50, arm_u_far: -60, arm_l_far: -50, leg_u_near: -54, leg_l_near: 56, leg_u_far: 30, leg_l_far: 70, rootX: 26, rootY: 14, ...T(10, -10) }),
-    K(0.75, { torso: 42, head: -16, arm_u_near: -70, arm_l_near: -40, arm_u_far: -70, arm_l_far: -40, leg_u_near: -54, leg_l_near: 56, leg_u_far: 30, leg_l_far: 70, rootX: 26, rootY: 14, ...T(0, -20) }),
+  // Heavy: ground slam. Both arms rise, the beast leaps up a touch, then slams claws into the earth.
+  c.heavy = clip(820, [
+    K(0, { torso: -12, head: 8, arm_u_near: 150, arm_l_near: -60, arm_u_far: 150, arm_l_far: -60, leg_u_near: -16, leg_l_near: 16, leg_u_far: 14, leg_l_far: 14, rootY: 0, ...T(70, 50) }),
+    K(0.3, { torso: -28, head: 14, arm_u_near: 180, arm_l_near: -70, arm_u_far: 180, arm_l_far: -70, leg_u_near: -30, leg_l_near: 44, leg_u_far: 24, leg_l_far: 40, rootY: -14, ...T(90, 70) }),
+    K(0.46, { torso: 48, head: -18, arm_u_near: -40, arm_l_near: -60, arm_u_far: -40, arm_l_far: -60, leg_u_near: -70, leg_l_near: 90, leg_u_far: 10, leg_l_far: 80, rootX: 18, rootY: 26, ...T(0, -20) }),
+    K(0.7, { torso: 52, head: -18, arm_u_near: -36, arm_l_near: -70, arm_u_far: -36, arm_l_far: -70, leg_u_near: -72, leg_l_near: 92, leg_u_far: 10, leg_l_far: 82, rootX: 18, rootY: 28, ...T(-10, -24) }),
     K(1, { torso: 6, head: -6, arm_u_near: 24, arm_l_near: -12, arm_u_far: 28, arm_l_far: -14, leg_u_near: -14, leg_l_near: 24, leg_u_far: 10, leg_l_far: 12, rootX: 0, rootY: 0, ...T(40, 20) }),
-  ], { events: [{ t: 0.45, name: 'swing' }, { t: 0.52, name: 'hit_on' }, { t: 0.74, name: 'hit_off' }, { t: 0.82, name: 'recover' }] });
+  ], { events: [{ t: 0.3, name: 'swing' }, { t: 0.44, name: 'slam' }, { t: 0.44, name: 'hit_on' }, { t: 0.66, name: 'hit_off' }, { t: 0.78, name: 'recover' }] });
   c.charge = clip(600, [
     K(0, { torso: -16, head: 10, arm_u_near: 160, arm_l_near: -70, arm_u_far: 160, arm_l_far: -70, leg_u_near: -20, leg_l_near: 24, leg_u_far: 16, leg_l_far: 20, rootY: -2, ...T(80, 60) }),
     K(1, { torso: -20, head: 12, arm_u_near: 168, arm_l_near: -74, arm_u_far: 168, arm_l_far: -74, leg_u_near: -22, leg_l_near: 26, leg_u_far: 18, leg_l_far: 22, rootY: -4, ...T(90, 70) }),
@@ -166,6 +166,34 @@ export function beastClips() {
     K(0.4, { torso: 40, head: -14, arm_u_near: -80, arm_l_near: -20, arm_u_far: -80, arm_l_far: -20, leg_u_near: -50, leg_l_near: 60, leg_u_far: 20, leg_l_far: 50, ...T(30, 10) }),
     K(1, { torso: 30, head: -10, arm_u_near: -90, arm_l_near: -10, arm_u_far: -90, arm_l_far: -10, leg_u_near: -40, leg_l_near: 50, leg_u_far: 20, leg_l_far: 50, ...T(40, 20) }),
   ], { events: [{ t: 0.2, name: 'swing' }, { t: 0.3, name: 'hit_on' }, { t: 0.7, name: 'hit_off' }, { t: 0.7, name: 'recover' }] });
+  // Defend: arms crossed in front, low crouch; loops with a tense breath.
+  c.guard = clip(900, [
+    K(0, { torso: 10, head: -6, arm_u_near: -70, arm_l_near: -110, arm_u_far: -60, arm_l_far: -120, leg_u_near: -30, leg_l_near: 36, leg_u_far: 22, leg_l_far: 30, rootY: 8, ...T(40, 20) }),
+    K(0.5, { torso: 12, head: -7, arm_u_near: -72, arm_l_near: -112, arm_u_far: -62, arm_l_far: -122, leg_u_near: -30, leg_l_near: 38, leg_u_far: 22, leg_l_far: 32, rootY: 10, ...T(48, 28) }),
+  ], { loop: true });
+  // Blocked a hit: recoil backward then return to the guard pose.
+  c.guard_hit = clip(260, [
+    K(0, { torso: -6, head: 4, arm_u_near: -50, arm_l_near: -100, arm_u_far: -40, arm_l_far: -110, leg_u_near: -24, leg_l_near: 30, leg_u_far: 26, leg_l_far: 30, rootX: -10, rootY: 10, ...T(20, 10) }),
+    K(1, { torso: 10, head: -6, arm_u_near: -70, arm_l_near: -110, arm_u_far: -60, arm_l_far: -120, leg_u_near: -30, leg_l_near: 36, leg_u_far: 22, leg_l_far: 30, rootX: 0, rootY: 8, ...T(40, 20) }),
+  ]);
+  // Parry: a sharp outward sweep of the near arm that knocks the attack aside.
+  c.parry = clip(320, [
+    K(0, { torso: 6, head: -4, arm_u_near: -60, arm_l_near: -110, arm_u_far: -60, arm_l_far: -120, leg_u_near: -30, leg_l_near: 36, leg_u_far: 22, leg_l_far: 30, rootY: 8, ...T(40, 20) }),
+    K(0.35, { torso: 18, head: -8, arm_u_near: -130, arm_l_near: -10, arm_u_far: -40, arm_l_far: -100, leg_u_near: -40, leg_l_near: 40, leg_u_far: 26, leg_l_far: 40, rootX: 8, rootY: 6, ...T(20, 0) }),
+    K(1, { torso: 10, head: -6, arm_u_near: -70, arm_l_near: -110, arm_u_far: -60, arm_l_far: -120, leg_u_near: -30, leg_l_near: 36, leg_u_far: 22, leg_l_far: 30, rootX: 0, rootY: 8, ...T(40, 20) }),
+  ]);
+  // Backstep: a quick hop backward, legs tucked, arms trailing forward.
+  c.backstep = clip(340, [
+    K(0, { torso: -14, head: 4, arm_u_near: -60, arm_l_near: -40, arm_u_far: -50, arm_l_far: -40, leg_u_near: -30, leg_l_near: 40, leg_u_far: 20, leg_l_far: 40, rootY: 2, ...T(60, 40) }),
+    K(0.4, { torso: -26, head: 8, arm_u_near: -90, arm_l_near: -30, arm_u_far: -80, arm_l_far: -30, leg_u_near: 20, leg_l_near: 90, leg_u_far: 40, leg_l_far: 90, rootY: -14, ...T(80, 60) }),
+    K(1, { torso: 2, head: -4, arm_u_near: 24, arm_l_near: -12, arm_u_far: 28, arm_l_far: -14, leg_u_near: -14, leg_l_near: 24, leg_u_far: 10, leg_l_far: 12, rootY: 0, ...T(40, 20) }),
+  ]);
+  // Double jump: a forward somersault (whole body rotates once) with legs tucked.
+  c.double_jump = clip(520, [
+    K(0, { torso: 10, head: -6, arm_u_near: 60, arm_l_near: -80, arm_u_far: 60, arm_l_far: -80, leg_u_near: -70, leg_l_near: 110, leg_u_far: -60, leg_l_far: 110, rot: 0, ...T(60, 40) }),
+    K(0.7, { torso: 10, head: -6, arm_u_near: 60, arm_l_near: -80, arm_u_far: 60, arm_l_far: -80, leg_u_near: -70, leg_l_near: 110, leg_u_far: -60, leg_l_far: 110, rot: 360, ...T(60, 40) }),
+    K(1, { torso: -4, head: 6, arm_u_near: 110, arm_l_near: -10, arm_u_far: 100, arm_l_far: -10, leg_u_near: -26, leg_l_near: 34, leg_u_far: 18, leg_l_far: 56, rot: 360, ...T(90, 70) }),
+  ], { linear: true });
   return c;
 }
 

@@ -3,6 +3,7 @@
 export const ZONES = {
   thornmoor: {
     name: 'Thornmoor', subtitle: 'Where the thorns remember', music: 'music_moor', width: 7400, level: 1, next: 'graveyard',
+    ambient: 0xa0a8c4, moonLight: 0xb0c4f0, weather: 'leaves', lightning: false, shafts: true,
     start: 220,
     platforms: [
       { x: 1500, y: 470, w: 260 }, { x: 2650, y: 480, w: 200 }, { x: 2900, y: 380, w: 200 },
@@ -29,6 +30,7 @@ export const ZONES = {
   },
   graveyard: {
     name: 'The Hollow Graves', subtitle: 'The dead keep poor company', music: 'music_graveyard', width: 7800, level: 2, next: 'castle',
+    ambient: 0x90a8b0, moonLight: 0xa0e0d0, weather: 'rain', lightning: true, shafts: false,
     start: 220,
     platforms: [
       { x: 1200, y: 470, w: 220 }, { x: 2300, y: 460, w: 260 }, { x: 2580, y: 360, w: 160 }, { x: 3900, y: 470, w: 240 },
@@ -56,6 +58,7 @@ export const ZONES = {
   },
   castle: {
     name: 'The Warden\'s Gate', subtitle: 'None pass unbidden', music: 'music_castle', width: 6400, level: 3, next: null,
+    ambient: 0xa89aa0, moonLight: 0xd0b0a8, weather: 'ash', lightning: true, shafts: false,
     start: 220,
     platforms: [
       { x: 1100, y: 470, w: 240 }, { x: 2200, y: 460, w: 260 }, { x: 2480, y: 360, w: 160 }, { x: 3500, y: 470, w: 260 },
@@ -65,8 +68,9 @@ export const ZONES = {
       { type: 'torch', x: 300 }, { type: 'pillar', x: 500 }, { type: 'torch', x: 800 }, { type: 'cage', x: 1000, y: 220 }, { type: 'pillar', x: 1400 },
       { type: 'torch', x: 1600 }, { type: 'skull', x: 1750 }, { type: 'pillar', x: 2000 }, { type: 'torch', x: 2700 }, { type: 'cage', x: 2900, y: 230 },
       { type: 'pillar', x: 3100 }, { type: 'torch', x: 3300 }, { type: 'skull', x: 3450 }, { type: 'pillar', x: 3800 }, { type: 'torch', x: 4000 },
-      { type: 'torch', x: 4600 }, { type: 'pillar', x: 4800 }, { type: 'torch', x: 5100 }, { type: 'torch', x: 5400 }, { type: 'torch', x: 5800 },
-      { type: 'pillar', x: 6200 },
+      { type: 'torch', x: 4600 }, { type: 'pillar', x: 4800 }, { type: 'torch', x: 5100 }, { type: 'brazier', x: 5500 }, { type: 'brazier', x: 6250 },
+      { type: 'banner', x: 5600, y: 200 }, { type: 'banner', x: 6150, y: 200 }, { type: 'banner', x: 2350, y: 210 }, { type: 'banner', x: 700, y: 210 },
+      { type: 'brazier', x: 1200 }, { type: 'brazier', x: 3550 }, { type: 'pillar', x: 6350 },
     ],
     enemies: [
       { type: 'knight', x: 700 }, { type: 'spearman', x: 900 }, { type: 'bat', x: 1200 }, { type: 'knight', x: 1500 }, { type: 'knight', x: 1650 },
