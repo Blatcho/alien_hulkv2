@@ -1,4 +1,4 @@
-import { WIDTH, HEIGHT, PLAYER, DEPTH } from '../config.js';
+import { WIDTH, HEIGHT, PLAYER, DEPTH, VIEW_TOP, BG_SCALE } from '../config.js';
 import { getInput, promptFor } from '../input/Input.js';
 import Parallax from '../systems/Parallax.js';
 import Combat from '../systems/Combat.js';
@@ -49,7 +49,8 @@ export default class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, -2000, zone.width, HEIGHT + 2000);
     const bgMeta = this.cache.json.get('bg_layers')[this.zoneKey];
     this.groundY = bgMeta.ground_y;
-    this.lighting = new Lighting(this, { ...bgMeta, ambient: zone.ambient, moonLight: zone.moonLight });
+    const moonScreen = { x: bgMeta.moon.x * BG_SCALE, y: bgMeta.moon.y * BG_SCALE };
+    this.lighting = new Lighting(this, { ...bgMeta, moon: moonScreen, ambient: zone.ambient, moonLight: zone.moonLight });
     this.parallax = new Parallax(this, this.zoneKey, { ...bgMeta, weather: zone.weather, lightning: zone.lightning, shafts: zone.shafts });
 
     this.ground = this.physics.add.staticGroup();
@@ -76,7 +77,7 @@ export default class GameScene extends Phaser.Scene {
     this.boss = null;
 
     const cam = this.cameras.main;
-    cam.setBounds(0, 0, zone.width, HEIGHT);
+    cam.setBounds(0, VIEW_TOP, zone.width, HEIGHT);
     cam.startFollow(this.player.body_, true, 0.1, 0.1, 0, 120);
     cam.setDeadzone(120, 60);
     cam.fadeIn(600, 0, 0, 0);
@@ -231,7 +232,7 @@ export default class GameScene extends Phaser.Scene {
     const [a, b] = this.bossDef.arena;
     this.platforms.add(this.add.rectangle(a - 10, this.groundY - 400, 20, 400, 0, 0).setOrigin(0.5, 0));
     this.platforms.add(this.add.rectangle(b + 10, this.groundY - 400, 20, 400, 0, 0).setOrigin(0.5, 0));
-    this.cameras.main.setBounds(a - 140, 0, (b - a) + 280, HEIGHT);
+    this.cameras.main.setBounds(a - 140, VIEW_TOP, (b - a) + 280, HEIGHT);
   }
 
   onEnemyKilled(enemy, info) {

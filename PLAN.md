@@ -24,7 +24,7 @@ local files; no network requests at runtime.
 - 7–8 parallax layers per zone: sky + moon + clouds, far mountains, far castle/ruins
   silhouettes, dead trees, thorn hedges, ground/path, foreground thorn overlay (in front of
   the player), plus drifting fog and ember particles.
-- Internal resolution 1280×720, scaled to fit the window, smooth (painterly, not pixel art).
+- Internal resolution 1600×900 scaled to fit the window; the world keeps its 1280×720 design scale so the camera shows more of it and characters stay small on screen (painterly, not pixel art).
 - HUD: red health bar and green stamina bar top-left under a beast emblem; gold top-right;
   souls (score/XP) bottom-right; item slot bottom-left.
 

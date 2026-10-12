@@ -1,6 +1,11 @@
 // Global tuning constants. Everything that defines "feel" lives here so it can be tuned in one place.
-export const WIDTH = 1280;
-export const HEIGHT = 720;
+export const WIDTH = 1600;
+export const HEIGHT = 900;
+// The world keeps the original 1280x720 design scale (ground at y=600); the larger canvas shows
+// more of it, so characters appear 20% smaller. VIEW_TOP is the world y at the top of the screen.
+export const DESIGN_HEIGHT = 720;
+export const VIEW_TOP = DESIGN_HEIGHT - HEIGHT;
+export const BG_SCALE = HEIGHT / DESIGN_HEIGHT;   // screen-fixed parallax layers are scaled to fill the taller view
 
 export const GRAVITY = 2400;
 
