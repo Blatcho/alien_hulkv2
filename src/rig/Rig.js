@@ -9,6 +9,12 @@ const DEG = Math.PI / 180;
 
 function smooth(t) { return t * t * (3 - 2 * t); }
 
+function mulColor(a, b) {
+  const ch = (x, s) => (x >> s) & 0xff;
+  const m = (s) => Math.round(ch(a, s) * ch(b, s) / 255);
+  return (m(16) << 16) | (m(8) << 8) | m(0);
+}
+
 export default class Rig extends Phaser.GameObjects.Container {
   constructor(scene, x, y, def, clips, opts = {}) {
     super(scene, x, y);
@@ -39,7 +45,6 @@ export default class Rig extends Phaser.GameObjects.Container {
       const img = scene.add.image(0, 0, `rig_${p.tex}`);
       const tex = img.texture.getSourceImage();
       img.setOrigin(p.pivot[0] / tex.width, p.pivot[1] / tex.height);
-      if (p.name.endsWith('_far') || p.name === 'shield') img.setTint(this.farTint);
       this.bones[p.name] = { def: p, img, angle: 0, wx: 0, wy: 0, wr: 0, sx: 1, sy: 1, visible: true };
       if (p.rest) this.base[p.name] = (this.base[p.name] || 0) + p.rest;
       this.order.push(p.name);
@@ -47,6 +52,7 @@ export default class Rig extends Phaser.GameObjects.Container {
     // add images in z order
     const zsorted = [...def.parts].sort((a, b) => a.z - b.z);
     for (const p of zsorted) this.add(this.bones[p.name].img);
+    this.applyTint();
     scene.add.existing(this);
     if (scene.lighting) scene.lighting.lit(this);
 
@@ -125,7 +131,10 @@ export default class Rig extends Phaser.GameObjects.Container {
         const et = ev.t * dur;
         if (clip.loop) {
           const p = ((prev % dur) + dur) % dur, c = ((this.clipTime % dur) + dur) % dur;
-          const crossed = (p <= et && c > et) || (c < p && (et > p || et <= c));
+          // forward: et in (p, c]; backward (negative speed): et in (c, p]; both with wrap-around
+          const crossed = this.speed >= 0
+            ? (p <= et && c > et) || (c < p && (et > p || et <= c))
+            : (c <= et && p > et) || (p < c && (et > c || et <= p));
           if (crossed) this.onEvent(ev.name, ev);
         } else if (prev < et && this.clipTime >= et && !this.firedEvents.has(ev.name + ev.t)) {
           this.firedEvents.add(ev.name + ev.t);
@@ -176,17 +185,21 @@ export default class Rig extends Phaser.GameObjects.Container {
 
   flash(ms = 90) { this.hitFlash = ms; for (const n of this.order) this.bones[n].img.setTintFill(0xffffff); }
 
+  // Resting tint of every part: the rig's own colour (a variant tint) darkened on the far limbs.
+  applyTint() {
+    for (const n of this.order) {
+      const b = this.bones[n];
+      b.img.clearTint();
+      const far = n.endsWith('_far') || n === 'shield';
+      const t = far && this.tintColor ? mulColor(this.tintColor, this.farTint) : far ? this.farTint : this.tintColor;
+      if (t !== null && t !== undefined) b.img.setTint(t);
+    }
+  }
+
   tick(dt) {
     if (this.hitFlash > 0) {
       this.hitFlash -= dt;
-      if (this.hitFlash <= 0) {
-        for (const n of this.order) {
-          const b = this.bones[n];
-          b.img.clearTint();
-          if (n.endsWith('_far') || n === 'shield') b.img.setTint(this.farTint);
-          if (this.tintColor) b.img.setTint(this.tintColor);
-        }
-      }
+      if (this.hitFlash <= 0) this.applyTint();
     }
   }
 

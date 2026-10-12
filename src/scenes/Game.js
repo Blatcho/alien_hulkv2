@@ -15,6 +15,8 @@ import Autopilot from '../systems/Autopilot.js';
 import Lighting from '../systems/Lighting.js';
 import { generateLevel, randomSeed, ROOM_H } from '../systems/LevelGen.js';
 
+const STAIR_LEAD = 22;   // half a body width: how far ahead of the centre a stair slope is sampled
+
 export default class GameScene extends Phaser.Scene {
   constructor() { super('Game'); }
 
@@ -187,6 +189,7 @@ export default class GameScene extends Phaser.Scene {
       if (s.top && ts.fill !== ts.top && s.h > TILE) img.setTexture(ts.fill);
       if (s.capL && ts.edgeL) this.lighting.lit(this.add.image(s.x, s.y, ts.edgeL).setOrigin(0, 0).setDepth(DEPTH.props - 2.9));
       if (s.capR && ts.edgeR) this.lighting.lit(this.add.image(s.x + s.w - TILE, s.y, ts.edgeR).setOrigin(0, 0).setDepth(DEPTH.props - 2.9));
+      if (s.noBody) continue;   // masonry under a stair slope: the slope line carries the walker
       const body = this.add.rectangle(s.x, s.y, s.w, s.h, 0, 0).setOrigin(0, 0);
       this.ground.add(body);
     }
@@ -215,20 +218,33 @@ export default class GameScene extends Phaser.Scene {
 
   // Height of a stair surface under x, if (x, feetY) is close to one; else null.
   stairSurface(x, feetY, tol = 48) {
+    const s = this.stairAt(x, feetY, tol);
+    return s ? s.y : null;
+  }
+
+  // The stair under (x, feetY) with the surface height there, or null. The slope is sampled half a body
+  // width ahead (toward the rise) so a walker's leading edge clears the landing instead of hitting its
+  // face, and the run is extended by the same amount at the bottom so the lift starts from floor level.
+  stairAt(x, feetY, tol = 48) {
     for (const st of this.stairs) {
-      if (x < st.x0 || x > st.x1) continue;
-      const t = (x - st.x0) / (st.x1 - st.x0);
+      const lo = st.dir > 0 ? st.x0 - STAIR_LEAD : st.x0, hi = st.dir > 0 ? st.x1 : st.x1 + STAIR_LEAD;
+      if (x < lo || x > hi) continue;
+      const xs = Math.min(st.x1, Math.max(st.x0, x + st.dir * STAIR_LEAD));
+      const t = (xs - st.x0) / (st.x1 - st.x0);
       const y = st.yAtLeft + (st.yAtRight - st.yAtLeft) * t;
-      if (feetY > y - tol && feetY < y + tol) return y;
+      if (feetY > y - tol && feetY < y + tol) return { y, dir: st.dir, st };
     }
     return null;
   }
 
+  // Ladders overlapping the vertical span top..bottom at x. The feet may rest exactly on the landing at
+  // a ladder's top (climbing down starts from there), so a ladder whose top is at the feet counts too.
+  laddersAt(x, top, bottom) {
+    return this.ladders.filter((l) => Math.abs(l.x - x) <= 26 && bottom > l.top - 6 && top < l.bottom);
+  }
+
   ladderAt(x, top, bottom) {
-    for (const l of this.ladders) {
-      if (Math.abs(l.x - x) <= 26 && bottom > l.top && top < l.bottom) return l;
-    }
-    return null;
+    return this.laddersAt(x, top, bottom)[0] || null;
   }
 
   // Is there standing room (floor) at a point? Used by enemies to avoid walking off ledges.

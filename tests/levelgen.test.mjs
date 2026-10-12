@@ -42,3 +42,24 @@ test('geometry sits inside the world and the start is on the moor', () => {
   assert.equal(L.start.y, GROUND_Y);
   assert.ok(['ground', 'cloud', 'sky'].includes(L.bandOf(4)));
 });
+
+test('stair slopes end on a landing with headroom and never cross a ladder top', () => {
+  for (const seed of [1, 2, 3, 7, 42, 99, 2024]) {
+    for (const zone of [{ cols: 5, rows: 4, zoneIndex: 0 }, { cols: 6, rows: 6, cloudRow: 3, highRow: 5, zoneIndex: 2 }]) {
+      const L = generateLevel({ seed, ...zone });
+      const solidAt = (x, y) => L.solids.some((s) => !s.noBody && x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h);
+      for (const st of L.stairs) {
+        const topX = st.dir > 0 ? st.x1 : st.x0, topY = st.dir > 0 ? st.yAtRight : st.yAtLeft;
+        const inward = st.dir > 0 ? 1 : -1;
+        // the tile beside the top corner is the landing (solid), the tile above it is open
+        assert.ok(solidAt(topX + inward * 32, topY + 32), `seed ${seed}: stair landing at ${topX},${topY} is solid\n${levelToAscii(L)}`);
+        assert.ok(!solidAt(topX + inward * 32, topY - 32), `seed ${seed}: headroom above the landing at ${topX},${topY}`);
+        assert.ok(!solidAt(topX - inward * 32, topY - 32), `seed ${seed}: headroom above the top step at ${topX},${topY}`);
+      }
+      for (const l of L.ladders) {
+        const crossing = L.stairs.find((st) => l.x > st.x0 - 24 && l.x < st.x1 + 24 && Math.abs((st.dir > 0 ? st.yAtLeft : st.yAtRight) - l.top) < 70);
+        assert.ok(!crossing, `seed ${seed}: a stair slope crosses the ladder landing at ${l.x},${l.top}`);
+      }
+    }
+  }
+});

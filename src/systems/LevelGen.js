@@ -81,7 +81,8 @@ function carve(cols, rows, rng) {
 }
 
 function pickTemplate(cell, rng, prev, wantShrine) {
-  const needLadder = cell.exits.has('U');
+  // a vertical exit either way needs columns 9-10 clear: the U ladder runs up them and the D hole opens the floor there
+  const needLadder = cell.exits.has('U') || cell.exits.has('D');
   let pool = TEMPLATES.filter((t) => (!needLadder || t.ladder) && t.name !== 'shrine');
   if (cell.branch) pool = pool.filter((t) => t.rows.some((row) => row.includes('C'))).concat(pool.filter((t) => t.name === 'crypt' || t.name === 'vault'));
   if (wantShrine) { const s = TEMPLATES.find((t) => t.name === 'shrine'); if (s && (!needLadder || s.ladder)) return s; }

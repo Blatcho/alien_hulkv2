@@ -1,6 +1,6 @@
 import { DEPTH, COMBAT } from '../config.js';
 import Rig from '../rig/Rig.js';
-import { humanoidClips, batClips } from '../rig/clips/humanoid.js';
+import { humanoidClips, undeadClips, batClips } from '../rig/clips/humanoid.js';
 import { ENEMY_TYPES } from '../data/enemies.js';
 
 let nextId = 1;
@@ -43,8 +43,9 @@ export default class Enemy {
     this.body.setCollideWorldBounds(true);
     if (t.flying) { this.body.setAllowGravity(false); }
     const def = scene.cache.json.get(`rig_${t.rig}`);
-    const clips = t.flying ? batClips() : humanoidClips(t.clipOpts || {});
-    this.rig = new Rig(scene, x, y, def, clips, { scale: t.scale });
+    const clips = t.flying ? batClips() : t.rig === 'undead' ? undeadClips(t.clipOpts || {}) : humanoidClips(t.clipOpts || {});
+    this.rig = new Rig(scene, x, y, def, clips, { scale: t.scale, tint: t.tint });
+    if (this.rig.bones.shield) this.rig.setBoneVisible('shield', !!t.shield);
     this.rig.setDepth(DEPTH.enemies + (t.boss ? 2 : 0));
     this.hipHeight = t.flying ? 0 : def.leg_len * 0.88 * t.scale * (def.scale || 1);
     this.shadow = scene.add.image(x, y, 'fx_shadow').setDepth(DEPTH.enemies - 1).setAlpha(0.5).setScale(t.scale * (t.flying ? 0.6 : 1));
@@ -120,7 +121,7 @@ export default class Enemy {
             if (Math.abs(dx) > stop && Math.abs(dy) < 220 && !ledge) {
               b.setVelocityX(dirX * t.speed);
               this.setState('chase');
-              this.rig.play(t.speed > 130 ? 'run' : 'walk', { fade: 120 });
+              this.rig.play(this.gaitClip(dirX, t.speed > 130 ? 'run' : 'walk'), { fade: 120 });
               this.rig.speed = t.speed / 130;
             } else {
               this.friction(dts, 2000);
@@ -136,7 +137,7 @@ export default class Enemy {
           this.facing = this.patrolDir;
           b.setVelocityX(this.patrolDir * t.speed * 0.4);
           this.setState('patrol');
-          this.rig.play('walk', { fade: 160 });
+          this.rig.play(this.gaitClip(this.patrolDir, 'walk'), { fade: 160 });
           this.rig.speed = 0.7;
         } else {
           this.friction(dts, 2000);
@@ -149,10 +150,18 @@ export default class Enemy {
     this.syncRig(dt);
   }
 
+  // Walking clip for a direction of travel: the stair climb or descent on a slope, else the gait.
+  gaitClip(dirX, gait) {
+    if (!this.onStairs || !this.rig.clips.stairs_up) return gait;
+    return dirX * this.stairDir > 0 ? 'stairs_up' : 'stairs_down';
+  }
+
   snapStairs() {
-    if (this.t.flying || !this.scene.stairSurface) return;
+    if (this.t.flying || !this.scene.stairAt) return;
     const feetY = this.y + this.t.bodyH / 2;
-    const sy = this.scene.stairSurface(this.x, feetY);
+    const st = this.scene.stairAt(this.x, feetY);
+    const sy = st ? st.y : null;
+    if (st) this.stairDir = st.dir;
     if (sy !== null && this.body.velocity.y >= -40) {
       this.body.y = sy - this.t.bodyH;
       this.body.prev.y = this.body.y; if (this.body.prevFrame) this.body.prevFrame.y = this.body.y;
@@ -233,8 +242,7 @@ export default class Enemy {
       s.audio.play('sfx_swing', { variants: 3, volume: 0.5, detune: -300 });
       this.lunge = this.t.boss ? 160 : 120;
       if (this.t.flying) return;
-      const kind = this.t.rig === 'spearman' ? 'sword' : 'sword';
-      s.fx.slash(this.x + this.facing * a.reach * 0.5, this.y - 30, this.facing, kind, (a.reach / 100) * this.t.scale, 0xc0d0ff);
+      s.fx.slash(this.x + this.facing * a.reach * 0.5, this.y - 30, this.facing, 'sword', (a.reach / 100) * this.t.scale, 0xc0d0ff);
     } else if (name === 'hit_on') {
       this.clearHitbox();
       this.hitbox = s.combat.add({
@@ -344,7 +352,11 @@ export default class Enemy {
     this.setState('dead');
     this.rig.play('death', { fade: 40, restart: true });
     this.scene.audio.play(this.t.deathSfx, { volume: 0.8 });
-    this.body.setVelocity(info.dir * (this.t.flying ? 200 : 180), this.t.flying ? 200 : -200);
+    if (this.t.bone && !this.t.flying) {
+      // the collapse clip folds it onto its knees where it stands; a few bones fly off
+      this.body.setVelocity(info.dir * 60, 0);
+      this.scene.fx.bones.explode(info.heavy ? 14 : 8, this.x, this.y - 30);
+    } else this.body.setVelocity(info.dir * (this.t.flying ? 200 : 180), this.t.flying ? 200 : -200);
     if (this.t.flying) this.body.setAllowGravity(true);
     this.body.checkCollision.none = false;
     this.removeAt = this.scene.time.now + (this.t.boss ? 4000 : 2200);

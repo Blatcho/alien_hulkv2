@@ -1928,23 +1928,32 @@ def main():
     if '--preview' in sys.argv:
         preview = sys.argv[sys.argv.index('--preview') + 1]
         mkdir(preview)
-    # The beast is built from the painted concept sheet by tools/beast_from_concept.py; when that rig
-    # is in place (source == "concept") keep its textures and JSON instead of the procedural ones.
-    beast_json = os.path.join(RIGS, 'beast.json')
-    concept = {}
-    if os.path.exists(beast_json):
-        try:
-            concept = json.load(open(beast_json))
-        except ValueError:
-            concept = {}
-    rigs = [
-        concept if concept.get('source') == 'concept' else beast_parts(SPR),
-        armored_parts('knight', KNIGHT, SPR, helmet='great', weapon='sword', shield=True),
-        armored_parts('spearman', SPEARMAN, SPR, helmet='kettle', weapon='spear', shield=False),
-        armored_parts('skeleton', SKELETON, SPR, helmet='none', weapon='rusty', shield=False, bony=True),
-        armored_parts('warden', WARDEN, SPR, helmet='great', weapon='axe', shield=False, heavy=True),
-        bat_parts(SPR),
-    ]
+    # The beast and the undead knight are cut from painted concept sheets (tools/beast_from_concept.py,
+    # tools/undead_from_concept.py); when such a rig is in place (source == "concept") its textures and
+    # JSON are kept. Without the undead rig the four procedural humanoid enemies are generated instead.
+    def concept_rig(name):
+        path = os.path.join(RIGS, name + '.json')
+        if os.path.exists(path):
+            try:
+                rig = json.load(open(path))
+                if rig.get('source') == 'concept':
+                    return rig
+            except ValueError:
+                pass
+        return None
+    beast = concept_rig('beast')
+    undead = concept_rig('undead')
+    rigs = [beast or beast_parts(SPR)]
+    if undead:
+        rigs.append(undead)
+    else:
+        rigs += [
+            armored_parts('knight', KNIGHT, SPR, helmet='great', weapon='sword', shield=True),
+            armored_parts('spearman', SPEARMAN, SPR, helmet='kettle', weapon='spear', shield=False),
+            armored_parts('skeleton', SKELETON, SPR, helmet='none', weapon='rusty', shield=False, bony=True),
+            armored_parts('warden', WARDEN, SPR, helmet='great', weapon='axe', shield=False, heavy=True),
+        ]
+    rigs.append(bat_parts(SPR))
     manifest = {}
     for rig in rigs:
         if rig.get('source') != 'concept':
