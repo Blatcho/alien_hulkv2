@@ -36,6 +36,7 @@ blocked on the `file:` origin. Any static server works (`python3 -m http.server`
 | Drink potion | RB | Q |
 | Interact (shrines, chests, gates) | LB | E |
 | Pause / character sheet | Start | Esc / Enter |
+| Zoom out / in (seven steps, 60% to 130%, remembered) | | `-` / `+` (also numpad, `[` / `]`) |
 
 Stamina (green) is spent by attacks, blocks and backsteps and regenerates after a short delay. Enemies
 telegraph their swings: raise the guard to take a fifth of the damage, time it within a few frames of
