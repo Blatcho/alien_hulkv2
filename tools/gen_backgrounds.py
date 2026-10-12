@@ -1449,12 +1449,27 @@ def build_zone(name, preview_dir=None):
     if preview_dir:
         mkdir(preview_dir)
         compose_preview(name, layers, os.path.join(preview_dir, f'preview_{name}.png'))
+    # The wide layers compress ~8x better as WebP (lossy q86 for colour, lossless for normal maps);
+    # the moon stays PNG. layers.json records the file name so the loader does not guess.
     meta_layers = []
     for L in layers:
         e = dict(key=L['key'], scroll=L['scroll'], y=L.get('y', 0), fixed=bool(L.get('fixed')), x=L.get('x', 0),
                  w=L['img'].size[0], h=L['img'].size[1])
+        png = os.path.join(outdir, L['key'] + '.png')
+        if L['key'] == 'moon' or not os.path.exists(png):
+            e['file'] = L['key'] + '.png'
+        else:
+            L['img'].save(os.path.join(outdir, L['key'] + '.webp'), 'WEBP', quality=86, method=6)
+            os.remove(png)
+            e['file'] = L['key'] + '.webp'
         if L.get('normal'):
-            e['normal'] = L['normal']
+            npng = os.path.join(outdir, L['normal'])
+            if os.path.exists(npng) and npng.endswith('.png'):
+                Image.open(npng).convert('RGB').save(npng[:-4] + '.webp', 'WEBP', lossless=True, method=6)
+                os.remove(npng)
+                e['normal'] = L['normal'][:-4] + '.webp'
+            else:
+                e['normal'] = L['normal']
         meta_layers.append(e)
     meta = dict(
         ground_y=GROUND_Y, layers=meta_layers,

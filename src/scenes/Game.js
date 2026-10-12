@@ -80,7 +80,15 @@ export default class GameScene extends Phaser.Scene {
     cam.startFollow(this.player.body_, true, 0.1, 0.1, 0, 120);
     cam.setDeadzone(120, 60);
     cam.fadeIn(600, 0, 0, 0);
-    this.audio.playMusic(zone.music);
+    // Zone music (and the boss/victory tracks) are fetched on demand to keep the first load small.
+    const zoneKey = this.zoneKey;
+    if (this.cache.audio.exists(zone.music)) this.audio.playMusic(zone.music);
+    else this.load.audio(zone.music, `assets/audio/${zone.music}.ogg`);
+    for (const k of ['music_boss', 'music_victory']) if (!this.cache.audio.exists(k)) this.load.audio(k, `assets/audio/${k}.ogg`);
+    if (this.load.list.size > 0) {
+      this.load.once('complete', () => { if (this.scene.isActive() && this.zoneKey === zoneKey && !this.audio.musicKey) this.audio.playMusic(zone.music); });
+      this.load.start();
+    }
     this.time.delayedCall(500, () => this.events.emit('zone-title', zone.name, zone.subtitle));
     if (new URLSearchParams(location.search).get('debug')) this.combat.debug = true;
 

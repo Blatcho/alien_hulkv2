@@ -1,5 +1,5 @@
 import { WIDTH, HEIGHT } from '../config.js';
-import { SFX_KEYS, MUSIC_KEYS } from '../systems/Audio.js';
+import { SFX_KEYS } from '../systems/Audio.js';
 
 export const ZONE_KEYS = ['thornmoor', 'graveyard', 'castle'];
 
@@ -10,8 +10,22 @@ export default class BootScene extends Phaser.Scene {
     const bar = this.add.graphics();
     const box = this.add.graphics();
     box.fillStyle(0x111318, 1).fillRect(WIDTH / 2 - 200, HEIGHT / 2 - 12, 400, 24);
+    box.lineStyle(1, 0x4a3a30, 1).strokeRect(WIDTH / 2 - 200, HEIGHT / 2 - 12, 400, 24);
+    const font = { fontFamily: 'Georgia, serif', fontSize: '18px', color: '#b8a888' };
+    this.add.text(WIDTH / 2, HEIGHT / 2 - 48, 'BEAST OF THORNMOOR', { ...font, fontSize: '26px', color: '#d8c7a0' }).setOrigin(0.5);
+    this.pctText = this.add.text(WIDTH / 2, HEIGHT / 2 + 30, 'Loading 0%', font).setOrigin(0.5);
+    this.fileText = this.add.text(WIDTH / 2, HEIGHT / 2 + 56, '', { ...font, fontSize: '13px', color: '#6f6a60' }).setOrigin(0.5);
+    this.errText = this.add.text(24, HEIGHT / 2 + 90, '', { fontFamily: 'monospace', fontSize: '13px', color: '#ff7060', wordWrap: { width: WIDTH - 48 } });
+    this.failed = [];
     this.load.on('progress', (v) => {
       bar.clear().fillStyle(0x8b1a1a, 1).fillRect(WIDTH / 2 - 196, HEIGHT / 2 - 8, 392 * v, 16);
+      this.pctText.setText(`Loading ${Math.round(v * 100)}%`);
+    });
+    this.load.on('fileprogress', (file) => { this.fileText.setText(file.url || file.key); });
+    this.load.on('loaderror', (file) => {
+      this.failed.push(`${file.key}  (${file.url || '?'})`);
+      this.errText.setText('Failed to load:\n' + this.failed.slice(0, 12).join('\n') + (this.failed.length > 12 ? `\n... and ${this.failed.length - 12} more` : ''));
+      console.error('Asset failed to load:', file.key, file.url);
     });
 
     this.load.json('bg_layers', 'assets/bg/layers.json');
@@ -22,7 +36,8 @@ export default class BootScene extends Phaser.Scene {
     this.load.json('world_manifest', 'assets/sprites/world/manifest.json');
     this.load.spritesheet('fx_flame', 'assets/sprites/fx/flame_sheet.png', { frameWidth: 32, frameHeight: 48 });
     for (const k of SFX_KEYS) this.load.audio(k, `assets/audio/${k}.ogg`);
-    for (const k of MUSIC_KEYS) this.load.audio(k, `assets/audio/${k}.ogg`);
+    // Only the title music up front; each zone loads its own track when it starts (see Game.create).
+    this.load.audio('music_title', 'assets/audio/music_title.ogg');
     this.load.image('fog', 'assets/bg/common/fog.png');
     this.load.image('particle_soft', 'assets/sprites/fx/particle_soft.png');
     this.load.image('particle_hard', 'assets/sprites/fx/particle_hard.png');
@@ -44,7 +59,7 @@ export default class BootScene extends Phaser.Scene {
     for (const zone of ZONE_KEYS) {
       if (!meta[zone]) continue;
       for (const L of meta[zone].layers) {
-        const url = `assets/bg/${zone}/${L.key}.png`;
+        const url = `assets/bg/${zone}/${L.file || (L.key + '.png')}`;
         this.load.image(`bg_${zone}_${L.key}`, L.normal ? [url, `assets/bg/${zone}/${L.normal}`] : url);
       }
     }
@@ -76,11 +91,23 @@ export default class BootScene extends Phaser.Scene {
       }
     }
     this.load.once('complete', () => {
-      this.anims.create({ key: 'coin_spin', frames: this.anims.generateFrameNumbers('prop_coin', { start: 0, end: 11 }), frameRate: 14, repeat: -1 });
-      this.anims.create({ key: 'gem_spin', frames: this.anims.generateFrameNumbers('prop_gem', { start: 0, end: 11 }), frameRate: 10, repeat: -1 });
-      this.anims.create({ key: 'flame', frames: this.anims.generateFrameNumbers('fx_flame', { start: 0, end: 5 }), frameRate: 12, repeat: -1 });
+      if (this.failed.length) {
+        // Leave the list on screen for a moment so a hosting problem is visible, then continue anyway.
+        this.pctText.setText(`${this.failed.length} file(s) failed to load - continuing`);
+        this.time.delayedCall(4000, () => { this.createAnims(); this.scene.start('Title'); });
+        return;
+      }
+      this.createAnims();
       this.scene.start('Title');
     });
     this.load.start();
+  }
+
+  createAnims() {
+    try {
+      this.anims.create({ key: 'coin_spin', frames: this.anims.generateFrameNumbers('prop_coin', { start: 0, end: 11 }), frameRate: 14, repeat: -1 });
+      this.anims.create({ key: 'gem_spin', frames: this.anims.generateFrameNumbers('prop_gem', { start: 0, end: 11 }), frameRate: 10, repeat: -1 });
+      this.anims.create({ key: 'flame', frames: this.anims.generateFrameNumbers('fx_flame', { start: 0, end: 5 }), frameRate: 12, repeat: -1 });
+    } catch (e) { console.warn('animation setup', e); }
   }
 }
