@@ -10,9 +10,9 @@
 #   FTP_PASSWORD  FTP password
 # Optional repository variables (Settings → Secrets and variables → Actions → Variables):
 #   FTP_SERVER_DIR  remote path of the games/sotb folder as seen by the FTP account, with a trailing
-#                   slash. Defaults to /public_html/games/sotb/ — change it if your host maps the
-#                   web root elsewhere (e.g. /htdocs/games/sotb/ or /games/sotb/ when the account
-#                   already lands in the web root).
+#                   slash. Defaults to ./ because the FTP account's home directory IS
+#                   public_html/blatcho.com/games/sotb. Only set this if you switch to an account
+#                   that lands higher up (e.g. /public_html/blatcho.com/games/sotb/).
 #   FTP_PROTOCOL    ftps (default, explicit TLS on port 21), ftp (plain, only if the host has no
 #                   TLS) or ftps-legacy (implicit TLS on port 990).
 #   FTP_PORT        defaults to 21 (use 990 for ftps-legacy).
@@ -57,7 +57,7 @@ jobs:
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
           port: ${{ vars.FTP_PORT || 21 }}
           local-dir: ./dist/
-          server-dir: ${{ vars.FTP_SERVER_DIR || '/public_html/games/sotb/' }}
+          server-dir: ${{ vars.FTP_SERVER_DIR || './' }}
           state-name: .ftp-deploy-sync-state.json
           exclude: |
             **/.git*

@@ -64,8 +64,8 @@ and passes gates. Press any key or pad button to take over mid-run.
 Pushes to `main` deploy the runtime files (`index.html`, `src/`, `vendor/`, `assets/`) to
 https://blatcho.com/games/sotb/ over FTP via `.github/workflows/deploy.yml`. The workflow needs the
 `FTP_SERVER`, `FTP_USERNAME` and `FTP_PASSWORD` repository secrets, and optionally the
-`FTP_SERVER_DIR`, `FTP_PROTOCOL` and `FTP_PORT` repository variables (see the comments at the top of
-the workflow). `.htaccess.example` lists the MIME types the host must serve if they are not already
+`FTP_SERVER_DIR` (default `./`, the FTP account's home), `FTP_PROTOCOL` and `FTP_PORT` repository
+variables (see the comments at the top of the workflow). `.htaccess.example` lists the MIME types the host must serve if they are not already
 configured.
 
 ## Development
