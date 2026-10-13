@@ -179,9 +179,11 @@ export default class Player {
       // lunge decays; air attack keeps air control
       if (this.state === 'air_attack') this.airControl(moveX, dts);
       else { b.setVelocityX(this.lunge * this.facing); this.lunge *= Math.pow(0.02, dts); if (Math.abs(this.lunge) < 5) this.lunge = 0; }
-      if (this.state === 'attack' && this.comboWindow && inp.pressed.light && this.stamina >= PLAYER.lightStamina) {
+      if (this.state === 'attack' && inp.pressed.light && this.stamina >= PLAYER.lightStamina && this.combo < 3) {
         inp.consume('light');
-        this.queuedAttack = 'light';
+        // inside the window the next swipe starts at once; earlier presses wait for the recovery beat
+        if (this.comboWindow) this.startAttack(this.combo + 1);
+        else this.queuedAttack = 'light';
       }
       if (this.state === 'attack' && this.comboWindow && inp.pressed.dodge && this.stamina >= PLAYER.dodgeStamina) {
         inp.consume('dodge'); this.startDodge(moveX);
@@ -510,7 +512,7 @@ export default class Player {
     const top = this.feetY <= L.top + 2;
     const bottom = this.feetY >= L.bottom - 2;
     if (inp.pressed.jump) {
-      inp.consume('jump');
+      inp.consume('jump'); this.jumpBuffer = 0;
       this.leaveLadder();
       this.jumpsLeft = 1; this.jumpedAt = this.scene.time.now;
       b.setVelocityY(PLAYER.jumpVelocity * 0.6);
@@ -594,10 +596,11 @@ export default class Player {
       const reach = (heavy ? 110 : 92) * this.stats.reachMult;
       this.clearHitbox();
       // the slam is a low, wide ground shock; swipes are a forward box
-      const hbW = heavy ? reach * 2.2 : reach, hbH = heavy ? 90 : 110;
-      const hbY = heavy ? this.y + PLAYER.bodyHeight / 2 - 40 : this.y - 10;
+      // the slam is a wide ground shock reaching well behind as well; swipes are a forward box
+      const hbW = heavy ? reach * 2.6 : reach, hbH = heavy ? 90 : air ? 180 : 110;
+      const hbY = heavy ? this.y + PLAYER.bodyHeight / 2 - 40 : air ? this.y + 40 : this.y - 10;
       this.hitbox = s.combat.add({
-        owner: this, faction: 'player', x: this.x + this.facing * (heavy ? reach * 0.5 : reach * 0.55), y: hbY, w: hbW, h: hbH,
+        owner: this, faction: 'player', x: this.x + this.facing * (heavy ? reach * 0.2 : reach * 0.55), y: hbY, w: hbW, h: hbH,
         damage: base * mult, knockback: heavy ? COMBAT.heavyKnockback : (this.combo === 3 ? COMBAT.knockback * 1.6 : COMBAT.knockback),
         heavy: heavy || this.combo === 3, kind: 'claw', critChance: this.stats.critChance, reach,
       });

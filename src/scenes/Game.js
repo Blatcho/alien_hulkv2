@@ -15,7 +15,7 @@ import Autopilot from '../systems/Autopilot.js';
 import Lighting from '../systems/Lighting.js';
 import { generateLevel, randomSeed, ROOM_H } from '../systems/LevelGen.js';
 
-const STAIR_LEAD = 22;   // half a body width: how far ahead of the centre a stair slope is sampled
+const STAIR_LEAD = 26;   // a little over half a body width: how far ahead of the centre a stair slope is sampled
 
 export default class GameScene extends Phaser.Scene {
   constructor() { super('Game'); }
@@ -260,7 +260,7 @@ export default class GameScene extends Phaser.Scene {
     if (y >= this.groundY - 2) return true;
     for (const s of this.level.solids) if (x >= s.x && x <= s.x + s.w && y >= s.y - 6 && y <= s.y + 24) return true;
     for (const p of this.level.platforms) if (x >= p.x && x <= p.x + p.w && y >= p.y - 6 && y <= p.y + 24) return true;
-    return this.stairSurface(x, y, 40) !== null;
+    return this.stairSurface(x, y, 84) !== null;     // a slope rises a tile over a tile: probe generously
   }
 
   buildTorch(x, floorY) {
