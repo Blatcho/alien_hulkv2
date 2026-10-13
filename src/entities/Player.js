@@ -430,19 +430,19 @@ export default class Player {
     if (!(b.blocked.down || b.touching.down) || this.onStairs || this.state === 'climb' || this.state === 'climb_top') return;
     const L = this.scene.level;
     if (!L) return;
+    const side = b.blocked.right ? 1 : b.blocked.left ? -1 : 0;
+    if (!side) return;                                   // walking off a ledge is not a corner
     const feetY = this.feetY;
+    if (feetY >= this.scene.groundY - 2) return;
     let footing = 0;
     for (const s of L.solids) {
       if (s.noBody || Math.abs(s.y - feetY) > 2 || s.x > b.right || s.x + s.w < b.x) continue;
       footing = Math.max(footing, Math.min(b.right, s.x + s.w) - Math.max(b.x, s.x));
     }
-    if (feetY >= this.scene.groundY - 2) return;
     for (const pl of L.platforms) if (Math.abs(pl.y - feetY) <= 2 && pl.x <= b.right && pl.x + pl.w >= b.x) footing = Math.max(footing, Math.min(b.right, pl.x + pl.w) - Math.max(b.x, pl.x));
     if (footing > 6) return;
-    // the corner is on the side we are blocked against; step away from it
-    const side = b.blocked.right ? 1 : b.blocked.left ? -1 : 0;
-    const solidRight = L.solids.some((s) => !s.noBody && Math.abs(s.y - feetY) <= 2 && s.x >= b.x + b.width / 2);
-    const dir = side || (solidRight ? 1 : -1);
+    // only the wall we are pushing into is under us: step back off its corner
+    const dir = side;
     this.body_.x -= dir * 8;
     b.reset(this.body_.x, this.body_.y);
     b.setVelocity(0, 40);
