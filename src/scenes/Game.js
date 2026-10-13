@@ -15,7 +15,7 @@ import Autopilot from '../systems/Autopilot.js';
 import Lighting from '../systems/Lighting.js';
 import { generateLevel, randomSeed, ROOM_H } from '../systems/LevelGen.js';
 
-const STAIR_LEAD = 22;   // half a body width: how far ahead of the centre a stair slope is sampled
+const STAIR_LEAD = 26;   // a little over half a body width: how far ahead of the centre a stair slope is sampled
 
 export default class GameScene extends Phaser.Scene {
   constructor() { super('Game'); }
@@ -230,14 +230,16 @@ export default class GameScene extends Phaser.Scene {
     return s ? s.y : null;
   }
 
-  // The stair under (x, feetY) with the surface height there, or null. The slope is sampled half a body
-  // width ahead (toward the rise) so a walker's leading edge clears the landing instead of hitting its
-  // face, and the run is extended by the same amount at the bottom so the lift starts from floor level.
+  // The stair under (x, feetY) with the surface height there, or null. Near the top the slope is
+  // sampled half a body width ahead (toward the rise) so a walker's leading edge clears the landing
+  // instead of hitting its face; near the foot it is sampled under the centre so nobody hovers there.
   stairAt(x, feetY, tol = 48) {
     for (const st of this.stairs) {
-      const lo = st.dir > 0 ? st.x0 - STAIR_LEAD : st.x0, hi = st.dir > 0 ? st.x1 : st.x1 + STAIR_LEAD;
-      if (x < lo || x > hi) continue;
-      const xs = Math.min(st.x1, Math.max(st.x0, x + st.dir * STAIR_LEAD));
+      if (x < st.x0 - 2 || x > st.x1 + 2) continue;
+      const w = st.x1 - st.x0;
+      const climbed = st.dir > 0 ? (x - st.x0) / w : (st.x1 - x) / w;          // 0 at the foot, 1 at the top
+      const lead = STAIR_LEAD * Math.min(1, Math.max(0, (climbed - 0.3) / 0.4));
+      const xs = Math.min(st.x1, Math.max(st.x0, x + st.dir * lead));
       const t = (xs - st.x0) / (st.x1 - st.x0);
       const y = st.yAtLeft + (st.yAtRight - st.yAtLeft) * t;
       if (feetY > y - tol && feetY < y + tol) return { y, dir: st.dir, st };
@@ -257,10 +259,11 @@ export default class GameScene extends Phaser.Scene {
 
   // Is there standing room (floor) at a point? Used by enemies to avoid walking off ledges.
   hasFloor(x, y) {
-    if (y >= this.groundY - 2) return true;
-    for (const s of this.level.solids) if (x >= s.x && x <= s.x + s.w && y >= s.y - 6 && y <= s.y + 24) return true;
-    for (const p of this.level.platforms) if (x >= p.x && x <= p.x + p.w && y >= p.y - 6 && y <= p.y + 24) return true;
-    return this.stairSurface(x, y, 40) !== null;
+    if (y >= this.groundY - 70) return true;         // the moor (also from a step or slope above it)
+    // a drop of up to a tile still counts as footing (enemies step down off low blocks)
+    for (const s of this.level.solids) if (x >= s.x && x <= s.x + s.w && y >= s.y - 70 && y <= s.y + 24) return true;
+    for (const p of this.level.platforms) if (x >= p.x && x <= p.x + p.w && y >= p.y - 70 && y <= p.y + 24) return true;
+    return this.stairSurface(x, y, 84) !== null;     // a slope rises a tile over a tile: probe generously
   }
 
   buildTorch(x, floorY) {
@@ -369,8 +372,9 @@ export default class GameScene extends Phaser.Scene {
       if (d.locked) target = 0;
       else if (dx < 150 && dy < 240 && p.alive) target = 1;
       else if (dx > 320 || dy > 400) target = 0;
-      // never drop the gate on whoever stands in the doorway
-      if (target === 0 && d.open > 0 && dx < 50 && dy < 240) target = d.open;
+      // never drop the gate on whoever stands in the doorway (the player or an enemy)
+      const inDoorway = (dx < 50 && dy < 240) || this.enemies.some((e) => e.alive && !e.t.flying && Math.abs(e.x - d.x) < 50 && Math.abs(e.y + e.t.bodyH / 2 - d.y) < 240);
+      if (target === 0 && d.open > 0 && inDoorway) target = d.open;
       if (target !== d.target) {
         d.target = target;
         if (target === 1 && d.open < 1) this.audio.play('sfx_door', { volume: 0.55 });
@@ -440,7 +444,9 @@ export default class GameScene extends Phaser.Scene {
     this.playerRoom = room;
     if (room && room.arena && !room.cleared && !room.active && p.alive && !this.arena && p.x > room.x + 170 && p.x < room.x + room.w - 170 && p.grounded) this.startArena(room);
     if (this.arena) {
-      const left = this.arena.enemies.filter((e) => e.alive && !e.t.flying);
+      // foes that fell out of the room (through the trapdoor) no longer hold the doors
+      const r = this.arena;
+      const left = r.enemies.filter((e) => e.alive && !e.t.flying && e.x >= r.x - 40 && e.x < r.x + r.w + 40 && e.y > r.y - 80 && e.y < r.y + r.h + 80);
       if (!left.length) this.clearArena();
     }
   }

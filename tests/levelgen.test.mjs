@@ -89,3 +89,75 @@ test('every horizontal connection has a door or a breakable wall, arenas sit on 
     assert.equal(L.platforms.filter((p) => !p.ladderTop).length, 0, `seed ${seed}: no floating platforms`);
   }
 });
+
+// Whole-level walkability: rebuild the tile grid from the generated geometry and walk it with the
+// same movement model as the room tests (walk, stairs, 2-tile hops, drops) plus ladders and the
+// trapdoor covers. The gate and every fighter, chest and shrine must be reachable from the start.
+function levelGrid(L) {
+  const W = L.cols * 20, H = L.rows * 11;
+  const g = Array.from({ length: H }, () => Array(W).fill('.'));
+  const tc = (x) => Math.floor(x / TILE), tr = (y) => Math.floor((y - L.topY) / TILE);
+  for (const s of L.solids) for (let c = tc(s.x); c < tc(s.x + s.w); c++) for (let r = tr(s.y); r < tr(s.y + s.h); r++) g[r][c] = '#';
+  for (const st of L.stairs) for (const t of st.tiles) g[tr(t.y)][tc(t.x)] = st.dir > 0 ? '/' : '\\';
+  for (const l of L.ladders) for (let r = tr(l.top); r < tr(l.bottom); r++) if (g[r][tc(l.x)] === '.') g[r][tc(l.x)] = 'H';
+  // trapdoor covers over the ladder shafts (they overlap the ladder's top tile)
+  for (const p of L.platforms) for (let c = tc(p.x + 1); c <= tc(p.x + p.w - 1); c++) if (g[tr(p.y)][c] !== '#') g[tr(p.y)][c] = '=';
+  return { g, W, H, tc, tr };
+}
+
+function walkLevel(L) {
+  const { g, W, H, tc, tr } = levelGrid(L);
+  const at = (c, r) => (c < 0 || c >= W || r < 0 || r >= H ? '#' : r === H ? '#' : g[r][c]);
+  const open = (ch) => ch === '.' || ch === 'H';
+  const support = (ch) => ch === '#' || ch === '/' || ch === '\\' || ch === '=';
+  const floorRow = tr(L.groundY);                         // row index of the moor surface (one below the last room row)
+  const standing = (c, r) => open(at(c, r)) && open(at(c, r - 1)) && (r + 1 === floorRow || support(at(c, r + 1)));
+  const onStair = (c, r) => (at(c, r) === '/' || at(c, r) === '\\') && open(at(c, r - 1)) && open(at(c, r - 2));
+  const onLadder = (c, r) => at(c, r) === 'H';
+  const valid = (c, r) => standing(c, r) || onStair(c, r) || onLadder(c, r);
+  const key = (c, r) => `${c},${r}`;
+  const startC = tc(L.start.x), startR = tr(L.start.y) - 1;
+  const seen = new Set([key(startC, startR)]);
+  const stack = [[startC, startR]];
+  const push = (c, r) => { if (valid(c, r) && !seen.has(key(c, r))) { seen.add(key(c, r)); stack.push([c, r]); } };
+  while (stack.length) {
+    const [c, r] = stack.pop();
+    const ch = at(c, r);
+    if (ch === '/' || ch === '\\') {
+      const up = ch === '/' ? 1 : -1;
+      push(c + up, r - 1); push(c - up, r + 1); push(c + up, r); push(c - up, r);
+      continue;
+    }
+    if (ch === 'H') {
+      push(c, r + 1); push(c, r - 1);
+      if (at(c, r - 1) === '=') push(c, r - 2);                                // top out onto the trapdoor cover
+      if (at(c, r - 1) === '.' && standing(c, r - 1)) push(c, r - 1);
+      push(c - 1, r); push(c + 1, r);                                          // step off sideways
+      continue;
+    }
+    if (at(c, r + 1) === '=' && at(c, r + 2) === 'H') push(c, r + 2);          // climb down through the cover
+    for (const d of [-1, 1]) {
+      push(c + d, r); push(c + d, r - 1); push(c + d, r - 2);
+      for (let k = 1; k < 12; k++) {
+        if (!open(at(c + d, r + k - 1))) break;
+        if (valid(c + d, r + k)) { push(c + d, r + k); break; }
+      }
+    }
+    if (at(c, r + 1) === 'H') push(c, r + 1);
+  }
+  return { seen, tc, tr, key };
+}
+
+test('every generated level can be walked from the start to the gate and to every foe, chest and shrine', () => {
+  for (const seed of [1, 2, 3, 4, 5, 7, 9, 42, 99, 2024]) {
+    for (const zone of [{ cols: 5, rows: 4, zoneIndex: 0 }, { cols: 6, rows: 5, cloudRow: 2, highRow: 4, zoneIndex: 1 }, { cols: 6, rows: 6, cloudRow: 3, highRow: 5, zoneIndex: 2 }]) {
+      const L = generateLevel({ seed, ...zone });
+      const { seen, tc, tr, key } = walkLevel(L);
+      const reach = (x, y, what) => assert.ok(seen.has(key(tc(x), tr(y) - 1)), `seed ${seed} zone ${zone.zoneIndex}: ${what} at ${x},${y} unreachable\n${levelToAscii(L)}`);
+      reach(L.gate.x, L.gate.y, 'gate');
+      for (const e of L.enemies) if (e.type !== 'bat') reach(e.x, e.y, `enemy ${e.type}`);
+      for (const c of L.chests) reach(c.x, c.y, 'chest');
+      for (const s of L.shrines) reach(s.x, s.y, 'shrine');
+    }
+  }
+});
