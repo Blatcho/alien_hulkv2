@@ -528,7 +528,8 @@ export default class Player {
       this.setState('climb_top'); this.rig.play('climb_top', { fade: 60, restart: true });
       return;
     }
-    if (bottom && dir >= 0) {
+    if (bottom && dir > 0) {
+      // only pressing down steps off at the foot; letting go just hangs there
       this.leaveLadder();
       this.setState('fall'); this.rig.play('fall', { fade: 120 });
     }

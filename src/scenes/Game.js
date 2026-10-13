@@ -230,14 +230,16 @@ export default class GameScene extends Phaser.Scene {
     return s ? s.y : null;
   }
 
-  // The stair under (x, feetY) with the surface height there, or null. The slope is sampled half a body
-  // width ahead (toward the rise) so a walker's leading edge clears the landing instead of hitting its
-  // face, and the run is extended by the same amount at the bottom so the lift starts from floor level.
+  // The stair under (x, feetY) with the surface height there, or null. Near the top the slope is
+  // sampled half a body width ahead (toward the rise) so a walker's leading edge clears the landing
+  // instead of hitting its face; near the foot it is sampled under the centre so nobody hovers there.
   stairAt(x, feetY, tol = 48) {
     for (const st of this.stairs) {
-      const lo = st.dir > 0 ? st.x0 - STAIR_LEAD : st.x0, hi = st.dir > 0 ? st.x1 : st.x1 + STAIR_LEAD;
-      if (x < lo || x > hi) continue;
-      const xs = Math.min(st.x1, Math.max(st.x0, x + st.dir * STAIR_LEAD));
+      if (x < st.x0 - 2 || x > st.x1 + 2) continue;
+      const w = st.x1 - st.x0;
+      const climbed = st.dir > 0 ? (x - st.x0) / w : (st.x1 - x) / w;          // 0 at the foot, 1 at the top
+      const lead = STAIR_LEAD * Math.min(1, Math.max(0, (climbed - 0.3) / 0.4));
+      const xs = Math.min(st.x1, Math.max(st.x0, x + st.dir * lead));
       const t = (xs - st.x0) / (st.x1 - st.x0);
       const y = st.yAtLeft + (st.yAtRight - st.yAtLeft) * t;
       if (feetY > y - tol && feetY < y + tol) return { y, dir: st.dir, st };
@@ -258,8 +260,9 @@ export default class GameScene extends Phaser.Scene {
   // Is there standing room (floor) at a point? Used by enemies to avoid walking off ledges.
   hasFloor(x, y) {
     if (y >= this.groundY - 2) return true;
-    for (const s of this.level.solids) if (x >= s.x && x <= s.x + s.w && y >= s.y - 6 && y <= s.y + 24) return true;
-    for (const p of this.level.platforms) if (x >= p.x && x <= p.x + p.w && y >= p.y - 6 && y <= p.y + 24) return true;
+    // a drop of up to a tile still counts as footing (enemies step down off low blocks)
+    for (const s of this.level.solids) if (x >= s.x && x <= s.x + s.w && y >= s.y - 70 && y <= s.y + 24) return true;
+    for (const p of this.level.platforms) if (x >= p.x && x <= p.x + p.w && y >= p.y - 70 && y <= p.y + 24) return true;
     return this.stairSurface(x, y, 84) !== null;     // a slope rises a tile over a tile: probe generously
   }
 

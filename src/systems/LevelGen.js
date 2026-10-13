@@ -193,7 +193,9 @@ function extractGeometry(out, chars, c, r, rng, enemyTypes, level) {
       let n = 0;
       while (tr - n >= 0 && tc + dir * n >= 0 && tc + dir * n < ROOM_COLS && chars[tr - n][tc + dir * n] === ch) {
         seen.add(`${tc + dir * n},${tr - n}`);
-        for (let rr = tr - n + 1; rr < ROOM_ROWS; rr++) if (chars[rr][tc + dir * n] === '#') underStair.add(`${tc + dir * n},${rr}`);
+        // the masonry filling the triangle under the run (down to the bottom step's row) must not
+        // block a walker whose feet are low on the previous step; the base below that stays solid
+        for (let rr = tr - n + 1; rr <= tr; rr++) if (chars[rr][tc + dir * n] === '#') underStair.add(`${tc + dir * n},${rr}`);
         n++;
       }
       // walkable line from the bottom corner to the top corner
