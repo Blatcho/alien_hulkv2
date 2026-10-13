@@ -37,6 +37,9 @@ export const PLAYER = {
   wallJumpVX: 440, wallJumpVY: -980,
   wallJumpLock: 150,           // ms after a wall jump during which the stick cannot steer back into the wall
   wallCoyote: 110,             // ms after leaving a wall during which a wall jump still counts
+  wallGrabDelay: 90,           // the stick must be held into the wall this long before it clings
+  stepHeight: 70,              // blocks up to this tall are vaulted automatically when walked into
+  stepUpVelocity: -720,           // clears a 64 px step (apex ~84 px)
   stairsUpSpeed: 0.86,         // run speed multiplier climbing a stair slope
   climbSpeed: 230,
   climbOffset: 18,             // how far the body hangs to the side of a ladder's centre line

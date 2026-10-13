@@ -163,7 +163,7 @@ export default class Enemy {
     if (!step || !this.scene.hasFloor) return;
     if (this.scene.hasFloor(ahead, step.y) && this.scene.time.now - (this.hoppedAt || 0) > 500) {
       this.hoppedAt = this.scene.time.now;
-      b.setVelocityY(-560);
+      b.setVelocityY(-720);
       this.onStairs = false; b.setAllowGravity(true);
     }
   }

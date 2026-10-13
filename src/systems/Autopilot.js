@@ -21,9 +21,20 @@ export default class Autopilot {
     this.guardHold = 0;
     this.routeIndex = 0;
     this.wpTime = 0;
+    this.goal = null; this.goalTime = 0; this.abandoned = null;
   }
 
   tap(action, ms = 70) { this.taps[action] = Math.max(this.taps[action] || 0, ms); }
+
+  // A standing cracked wall or a shut gate between here and there: no point charging at it.
+  barrierBetween(p, e) {
+    const s = this.scene;
+    const lo = Math.min(p.x, e.x), hi = Math.max(p.x, e.x);
+    const levelY = (y) => Math.abs(y - p.feetY) < 260;
+    if ((s.breakables || []).some((w) => w.alive && w.x > lo && w.x < hi && levelY(w.y))) return true;
+    if ((s.doors || []).some((d) => d.open < 0.5 && d.locked && d.x > lo && d.x < hi && levelY(d.y))) return true;
+    return false;
+  }
 
   update(dt) {
     const s = this.scene;
@@ -49,7 +60,7 @@ export default class Autopilot {
     let target = null, best = 1e9;
     for (const e of enemies) {
       const d = Math.abs(e.x - p.x) + Math.abs(e.y - p.y) * 0.5;
-      if (d < best && Math.abs(e.x - p.x) < 720 && Math.abs(e.y - p.y) < 220) { best = d; target = e; }
+      if (d < best && Math.abs(e.x - p.x) < 720 && Math.abs(e.y - p.y) < 220 && !this.barrierBetween(p, e)) { best = d; target = e; }
     }
 
     if (p.state === 'climb') { this.actions.add('up'); this.publish(); return; }
@@ -131,20 +142,6 @@ export default class Autopilot {
 
   explore(p, dt) {
     const s = this.scene;
-    // opportunistic objectives in reach: unlit shrine, unopened chest
-    let goal = null;
-    for (const it of s.interactables) {
-      const dy = Math.abs(it.y - p.feetY);
-      if (dy > 80) continue;
-      if (it.kind === 'shrine' && !it.lit && Math.abs(it.x - p.x) < 500) goal = goal || it;
-      if (it.kind === 'chest' && !it.opened && Math.abs(it.x - p.x) < 500) goal = goal || it;
-    }
-    if (goal) {
-      const dx = goal.x - p.x;
-      if (Math.abs(dx) < 40) { if (this.interactCooldown <= 0) { this.tap('interact'); this.interactCooldown = 900; } }
-      else this.moveX = Math.sign(dx);
-      return;
-    }
     // a cracked wall across the way: square up and smash it (a charged slam when there is stamina)
     const wall = (s.breakables || []).find((w) => w.alive && Math.abs(w.y - p.feetY) < 140 && Math.abs(w.x - p.x) < 170);
     if (wall) {
@@ -159,6 +156,26 @@ export default class Autopilot {
       }
       return;
     }
+    // opportunistic objectives in reach: unlit shrine, unopened chest (not behind a wall, and given
+    // up after a while if they cannot be reached)
+    let goal = null;
+    for (const it of s.interactables) {
+      const dy = Math.abs(it.y - p.feetY);
+      if (dy > 80 || it === this.abandoned || this.barrierBetween(p, it)) continue;
+      if (it.kind === 'shrine' && !it.lit && Math.abs(it.x - p.x) < 500) goal = goal || it;
+      if (it.kind === 'chest' && !it.opened && Math.abs(it.x - p.x) < 500) goal = goal || it;
+    }
+    if (goal) {
+      if (goal !== this.goal) { this.goal = goal; this.goalTime = 0; }
+      this.goalTime += dt;
+      if (this.goalTime > 7000) { this.abandoned = goal; this.goal = null; this.goalTime = 0; }
+      else {
+        const dx = goal.x - p.x;
+        if (Math.abs(dx) < 40) { if (this.interactCooldown <= 0) { this.tap('interact'); this.interactCooldown = 900; } }
+        else this.moveX = Math.sign(dx);
+        return;
+      }
+    } else this.goal = null;
     // follow the generated critical path
     const route = s.level ? s.level.route : [];
     const wp = route[this.routeIndex];
@@ -166,7 +183,8 @@ export default class Autopilot {
     this.wpTime += dt;
     const dx = wp.x - p.x;
     if (wp.type === 'walk') {
-      if (Math.abs(dx) < 40 && Math.abs(wp.y - p.feetY) < 80) { this.next(); return; }
+      // the room's floor level is a hint only: a tomb or terrace may stand on the waypoint itself
+      if (Math.abs(dx) < 40 && Math.abs(wp.y - p.feetY) < 220) { this.next(); return; }
       this.moveX = Math.sign(dx);
       if (p.state === 'climb') this.actions.add('up');
     } else if (wp.type === 'ladder') {

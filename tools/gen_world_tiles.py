@@ -548,87 +548,54 @@ def stair(name, pal, seed, meta):
 # ------------------------------------------------------- doors and walls ----
 
 DOOR_W, DOOR_H = 128, 192          # the opening between two rooms: 2 tiles wide, 3 tall
-JAMB, LINTEL = 24, 32
 
 
-def door_frame(name, pal, seed, meta):
-    """Stone arch around a room door: two jambs and a lintel with a keystone; the opening is clear."""
-    W, H = DOOR_W + 2 * JAMB, DOOR_H + LINTEL
+def gate_edge(name, seed, meta):
+    """The portcullis seen edge-on, as a side-scroller shows a gate across the corridor: a narrow iron
+    slab with the ends of its cross-bars as studs, a lit face on the left, spikes at the foot."""
+    W, H = 28, DOOR_H
     t = Tile(name, W, H, False, False)
     rs = np.random.RandomState(seed)
-    wp = dict(pal, widths=dict(min_w=10, max_parts=2))
-    t.rect(-4, -4, W + 4, H + 4, pal['mortar'], ks=0)
-    # jambs: tall dressed blocks
-    for jx in (0, W - JAMB):
-        y = LINTEL
-        while y < H:
-            ch = int(rs.choice([24, 32, 40]))
-            x0, x1 = jx + 1.5, jx + JAMB - 1.5
-            y0, y1 = y + 1.5, min(H + 4, y + ch - 1.5)
-            col = jit(rs, mix(pal['stone'], pal['stone_var'][rs.randint(len(pal['stone_var']))], 0.6), 6)
-            t.poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], col, dome=rs.uniform(1.4, 2.2), ks=pal['ks'])
-            t.line([(x0, y0 + 0.3), (x1, y0 + 0.3)], mix(col, pal['hi'], 0.3), width=0.8, alpha=150)
-            t.line([(x0, y1 - 0.3), (x1, y1 - 0.3)], mix(col, pal['lo'], 0.5), width=0.9, alpha=170)
-            if rs.rand() < 0.5:
-                cx = x0 + rs.uniform(3, JAMB - 6)
-                t.line([(cx, y0 + 2), (cx + rs.uniform(-3, 3), y1 - 2)], pal['crack'], width=0.5, hf=-0.4, alpha=170)
-            y += ch
-    # lintel: voussoir-like blocks across the top with a keystone
-    n = 7
-    bw = W / n
-    for k in range(n):
-        x0, x1 = k * bw + 1.5, (k + 1) * bw - 1.5
-        key = k == n // 2
-        y0 = 1.5 if not key else -2
-        y1 = LINTEL - 1.5 if not key else LINTEL + 4
-        col = jit(rs, mix(pal['stone'], pal['stone_var'][rs.randint(len(pal['stone_var']))], 0.6), 6)
-        if key:
-            col = mix(col, pal['hi'], 0.1)
-        t.poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], col, dome=2.0 if key else 1.6, ks=pal['ks'])
-        t.line([(x0, y0 + 0.4), (x1, y0 + 0.4)], mix(col, pal['hi'], 0.3), width=0.8, alpha=150)
-        t.line([(x0, y1 - 0.4), (x1, y1 - 0.4)], mix(col, pal['lo'], 0.5), width=0.9, alpha=170)
-    # the opening itself is clear
-    t.erase([(JAMB, LINTEL), (W - JAMB, LINTEL), (W - JAMB, H + 4), (JAMB, H + 4)])
-    if pal is MOOR:
-        for _ in range(6):
-            x = rs.choice([rs.uniform(2, JAMB - 2), rs.uniform(W - JAMB + 2, W - 2)])
-            y = rs.uniform(LINTEL + 40, H - 4)
-            t.ellipse(x, y, rs.uniform(2, 4), rs.uniform(1.2, 2.2), jit(rs, pal['moss'], 8), alpha=200, hf=0.3)
-    img, nmap = t.finish(round_r=3, shape_k=0.5, tex_seed=seed, **finish_kwargs(pal))
-    img = sky_glow(img, pal, seed=seed)
-    return save_tile(t, img, nmap, meta, role='door_frame', jamb=JAMB, lintel=LINTEL, opening=[DOOR_W, DOOR_H])
-
-
-def portcullis(name, seed, meta):
-    """Iron lattice gate that slides up into the lintel. Transparent between the bars."""
-    t = Tile(name, DOOR_W, DOOR_H, False, False)
-    rs = np.random.RandomState(seed)
-    iron, iron_lt, iron_dk, rust = (38, 38, 44), (84, 84, 96), (14, 14, 18), (108, 60, 32)
-    vx = [8 + k * 16 for k in range(8)]
-    hy = [10 + k * 30 for k in range(6)]
-    for y in hy:
-        t.poly([(2, y - 3), (DOOR_W - 2, y - 3), (DOOR_W - 2, y + 3), (2, y + 3)], iron, dome=2.0, ks=0.8)
-        t.line([(3, y - 2.2), (DOOR_W - 3, y - 2.2)], iron_lt, width=0.8, alpha=170)
-        t.line([(3, y + 2.3), (DOOR_W - 3, y + 2.3)], iron_dk, width=0.9, alpha=190)
-    for x in vx:
-        t.poly([(x - 3.5, 0), (x + 3.5, 0), (x + 3.5, DOOR_H - 14), (x - 3.5, DOOR_H - 14)], iron, dome=2.4, ks=0.8)
-        t.line([(x - 2.6, 1), (x - 2.6, DOOR_H - 15)], iron_lt, width=0.8, alpha=170)
-        t.line([(x + 2.7, 1), (x + 2.7, DOOR_H - 15)], iron_dk, width=0.9, alpha=190)
-        # spike at the foot
-        t.poly([(x - 3.5, DOOR_H - 14), (x + 3.5, DOOR_H - 14), (x, DOOR_H - 1)], iron, dome=1.6, ks=0.9)
-        t.line([(x - 3.0, DOOR_H - 13), (x, DOOR_H - 2)], iron_lt, width=0.6, alpha=160)
-        for y in hy:
-            t.ellipse(x, y, 2.2, 2.2, iron_lt, dome=1.0, ks=0.9)
-            t.ellipse(x - 0.5, y - 0.5, 0.9, 0.9, (150, 150, 164), alpha=200)
-            if rs.rand() < 0.5:
-                t.stroke((x + rs.uniform(-2, 2), y + 3), (x + rs.uniform(-2, 2), y + 3 + rs.uniform(5, 14)), 1.4, 0.3, rust, alpha=130)
-    # a drawn chain hanging from the top bar in the middle
+    iron, iron_lt, iron_dk, rust = (40, 40, 46), (96, 96, 108), (12, 12, 16), (112, 62, 34)
+    t.poly([(4, 0), (24, 0), (24, H - 16), (4, H - 16)], iron, dome=3.0, ks=0.7)
+    t.rect(4, 0, 9, H - 16, mix(iron, iron_lt, 0.6), alpha=220, ks=0.8)
+    t.line([(24, 1), (24, H - 17)], iron_dk, width=1.2, alpha=220)
+    for k in range(6):
+        y = 10 + k * 30
+        t.poly([(1, y - 4), (27, y - 4), (27, y + 4), (1, y + 4)], mix(iron, iron_lt, 0.25), dome=2.2, ks=0.9)
+        t.line([(2, y - 3.2), (26, y - 3.2)], iron_lt, width=0.8, alpha=180)
+        t.line([(2, y + 3.3), (26, y + 3.3)], iron_dk, width=0.9, alpha=200)
+        t.ellipse(14, y, 2.4, 2.4, iron_lt, dome=1.2, ks=1.0)
+        t.ellipse(13.4, y - 0.5, 0.9, 0.9, (170, 170, 184), alpha=220)
+        if rs.rand() < 0.6:
+            t.stroke((8 + rs.uniform(0, 10), y + 4), (8 + rs.uniform(0, 10), y + 4 + rs.uniform(6, 16)), 1.6, 0.3, rust, alpha=140)
+    for x in (8, 14, 20):
+        t.poly([(x - 3.5, H - 16), (x + 3.5, H - 16), (x, H - 1)], iron, dome=1.6, ks=0.9)
+        t.line([(x - 3.0, H - 15), (x, H - 2)], iron_lt, width=0.6, alpha=170)
     for k in range(5):
         cy = -6 + k * 5
-        t.ellipse(DOOR_W / 2 + (1.5 if k % 2 else -1.5), cy, 1.6, 2.6, iron_lt, dome=1.0, ks=0.8)
-    img, nmap = t.finish(round_r=2, shape_k=0.6, ambient=0.3, diffuse=0.8, ao=0.5, noise=0.05, tex_seed=seed, rim=0.12,
+        t.ellipse(14 + (1.5 if k % 2 else -1.5), cy, 1.6, 2.6, iron_lt, dome=1.0, ks=0.8)
+    img, nmap = t.finish(round_r=3, shape_k=0.6, ambient=0.32, diffuse=0.85, ao=0.5, noise=0.05, tex_seed=seed, rim=0.15,
                          rim_color=(120, 150, 215))
-    return save_tile(t, img, nmap, meta, role='portcullis')
+    return save_tile(t, img, nmap, meta, role='gate_edge')
+
+
+def gate_slot(name, pal, seed, meta):
+    """The housing the gate rises into: a dressed lintel block with a dark slot, over the opening."""
+    W, H = 56, 36
+    t = Tile(name, W, H, False, False)
+    rs = np.random.RandomState(seed)
+    col = jit(rs, mix(pal['stone'], pal['stone_var'][0], 0.5), 5)
+    t.poly([(1.5, 1.5), (W - 1.5, 1.5), (W - 1.5, H - 1.5), (1.5, H - 1.5)], col, dome=2.4, ks=pal['ks'])
+    t.line([(2, 2), (W - 2, 2)], mix(col, pal['hi'], 0.3), width=0.9, alpha=160)
+    t.line([(2, H - 2), (W - 2, H - 2)], mix(col, pal['lo'], 0.5), width=1.0, alpha=180)
+    t.poly([(W / 2 - 5, 6), (W / 2 + 5, 6), (W / 2 + 5, H), (W / 2 - 5, H)], mix(pal['mortar'], (0, 0, 0), 0.6), hf=-3.0, ks=0)
+    for _ in range(2):
+        cx = rs.uniform(6, W - 6)
+        t.line([(cx, 4), (cx + rs.uniform(-4, 4), H - 4)], pal['crack'], width=0.5, hf=-0.4, alpha=150)
+    img, nmap = t.finish(round_r=2, shape_k=0.5, tex_seed=seed, **finish_kwargs(pal))
+    img = sky_glow(img, pal, seed=seed)
+    return save_tile(t, img, nmap, meta, role='gate_slot')
 
 
 def crack_wall(name, pal, seed, meta, stage=1):
@@ -1466,9 +1433,9 @@ def build_tiles():
     stair('stair', MOOR, 105, meta)
     stair('stair_sky', SKY, 205, meta)
     rail('rail', 501, meta)
-    door_frame('door_frame', MOOR, 601, meta)
-    door_frame('door_frame_sky', SKY, 602, meta)
-    portcullis('portcullis', 603, meta)
+    gate_edge('gate_edge', 603, meta)
+    gate_slot('gate_slot', MOOR, 601, meta)
+    gate_slot('gate_slot_sky', SKY, 602, meta)
     crack_wall('crack_wall', MOOR, 604, meta, stage=1)
     crack_wall('crack_wall2', MOOR, 605, meta, stage=2)
     crack_wall('crack_wall_sky', SKY, 606, meta, stage=1)
