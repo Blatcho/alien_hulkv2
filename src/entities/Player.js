@@ -346,7 +346,7 @@ export default class Player {
     // invulnerability blink
     if (this.scene.time.now < this.invulnUntil && this.state !== 'dodge') this.rig.setAlpha(Math.floor(this.scene.time.now / 60) % 2 ? 0.35 : 1);
     else this.rig.setAlpha(1);
-    if (this.hitbox && !this.hitbox.heavy) {
+    if (this.hitbox && !this.hitbox.heavy && !this.hitbox.air) {
       const tip = this.rig.boneTip(this.hitbox.bone || 'arm_l_near', 44);
       this.hitbox.x = this.x + this.facing * this.hitbox.reach * 0.55;
       this.hitbox.y = Math.min(this.y + 20, Math.max(this.y - 40, tip.y));
@@ -603,7 +603,7 @@ export default class Player {
       this.hitbox = s.combat.add({
         owner: this, faction: 'player', x: this.x + this.facing * (heavy ? reach * 0.2 : reach * 0.55), y: hbY, w: hbW, h: hbH,
         damage: base * mult, knockback: heavy ? COMBAT.heavyKnockback : (this.combo === 3 ? COMBAT.knockback * 1.6 : COMBAT.knockback),
-        heavy: heavy || this.combo === 3, kind: 'claw', critChance: this.stats.critChance, reach,
+        heavy: heavy || this.combo === 3, kind: 'claw', critChance: this.stats.critChance, reach, air,
       });
     } else if (name === 'hit_off') {
       this.clearHitbox();

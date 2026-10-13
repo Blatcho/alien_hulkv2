@@ -259,7 +259,7 @@ export default class GameScene extends Phaser.Scene {
 
   // Is there standing room (floor) at a point? Used by enemies to avoid walking off ledges.
   hasFloor(x, y) {
-    if (y >= this.groundY - 2) return true;
+    if (y >= this.groundY - 70) return true;         // the moor (also from a step or slope above it)
     // a drop of up to a tile still counts as footing (enemies step down off low blocks)
     for (const s of this.level.solids) if (x >= s.x && x <= s.x + s.w && y >= s.y - 70 && y <= s.y + 24) return true;
     for (const p of this.level.platforms) if (x >= p.x && x <= p.x + p.w && y >= p.y - 70 && y <= p.y + 24) return true;
