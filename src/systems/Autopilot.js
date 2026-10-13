@@ -21,6 +21,7 @@ export default class Autopilot {
     this.guardHold = 0;
     this.routeIndex = 0;
     this.wpTime = 0;
+    this.goal = null; this.goalTime = 0; this.abandoned = null;
   }
 
   tap(action, ms = 70) { this.taps[action] = Math.max(this.taps[action] || 0, ms); }
@@ -141,20 +142,6 @@ export default class Autopilot {
 
   explore(p, dt) {
     const s = this.scene;
-    // opportunistic objectives in reach: unlit shrine, unopened chest
-    let goal = null;
-    for (const it of s.interactables) {
-      const dy = Math.abs(it.y - p.feetY);
-      if (dy > 80) continue;
-      if (it.kind === 'shrine' && !it.lit && Math.abs(it.x - p.x) < 500) goal = goal || it;
-      if (it.kind === 'chest' && !it.opened && Math.abs(it.x - p.x) < 500) goal = goal || it;
-    }
-    if (goal) {
-      const dx = goal.x - p.x;
-      if (Math.abs(dx) < 40) { if (this.interactCooldown <= 0) { this.tap('interact'); this.interactCooldown = 900; } }
-      else this.moveX = Math.sign(dx);
-      return;
-    }
     // a cracked wall across the way: square up and smash it (a charged slam when there is stamina)
     const wall = (s.breakables || []).find((w) => w.alive && Math.abs(w.y - p.feetY) < 140 && Math.abs(w.x - p.x) < 170);
     if (wall) {
@@ -169,6 +156,26 @@ export default class Autopilot {
       }
       return;
     }
+    // opportunistic objectives in reach: unlit shrine, unopened chest (not behind a wall, and given
+    // up after a while if they cannot be reached)
+    let goal = null;
+    for (const it of s.interactables) {
+      const dy = Math.abs(it.y - p.feetY);
+      if (dy > 80 || it === this.abandoned || this.barrierBetween(p, it)) continue;
+      if (it.kind === 'shrine' && !it.lit && Math.abs(it.x - p.x) < 500) goal = goal || it;
+      if (it.kind === 'chest' && !it.opened && Math.abs(it.x - p.x) < 500) goal = goal || it;
+    }
+    if (goal) {
+      if (goal !== this.goal) { this.goal = goal; this.goalTime = 0; }
+      this.goalTime += dt;
+      if (this.goalTime > 7000) { this.abandoned = goal; this.goal = null; this.goalTime = 0; }
+      else {
+        const dx = goal.x - p.x;
+        if (Math.abs(dx) < 40) { if (this.interactCooldown <= 0) { this.tap('interact'); this.interactCooldown = 900; } }
+        else this.moveX = Math.sign(dx);
+        return;
+      }
+    } else this.goal = null;
     // follow the generated critical path
     const route = s.level ? s.level.route : [];
     const wp = route[this.routeIndex];
