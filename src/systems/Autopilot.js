@@ -25,6 +25,16 @@ export default class Autopilot {
 
   tap(action, ms = 70) { this.taps[action] = Math.max(this.taps[action] || 0, ms); }
 
+  // A standing cracked wall or a shut gate between here and there: no point charging at it.
+  barrierBetween(p, e) {
+    const s = this.scene;
+    const lo = Math.min(p.x, e.x), hi = Math.max(p.x, e.x);
+    const levelY = (y) => Math.abs(y - p.feetY) < 260;
+    if ((s.breakables || []).some((w) => w.alive && w.x > lo && w.x < hi && levelY(w.y))) return true;
+    if ((s.doors || []).some((d) => d.open < 0.5 && d.locked && d.x > lo && d.x < hi && levelY(d.y))) return true;
+    return false;
+  }
+
   update(dt) {
     const s = this.scene;
     const p = s.player;
@@ -49,7 +59,7 @@ export default class Autopilot {
     let target = null, best = 1e9;
     for (const e of enemies) {
       const d = Math.abs(e.x - p.x) + Math.abs(e.y - p.y) * 0.5;
-      if (d < best && Math.abs(e.x - p.x) < 720 && Math.abs(e.y - p.y) < 220) { best = d; target = e; }
+      if (d < best && Math.abs(e.x - p.x) < 720 && Math.abs(e.y - p.y) < 220 && !this.barrierBetween(p, e)) { best = d; target = e; }
     }
 
     if (p.state === 'climb') { this.actions.add('up'); this.publish(); return; }
@@ -166,7 +176,8 @@ export default class Autopilot {
     this.wpTime += dt;
     const dx = wp.x - p.x;
     if (wp.type === 'walk') {
-      if (Math.abs(dx) < 40 && Math.abs(wp.y - p.feetY) < 80) { this.next(); return; }
+      // the room's floor level is a hint only: a tomb or terrace may stand on the waypoint itself
+      if (Math.abs(dx) < 40 && Math.abs(wp.y - p.feetY) < 220) { this.next(); return; }
       this.moveX = Math.sign(dx);
       if (p.state === 'climb') this.actions.add('up');
     } else if (wp.type === 'ladder') {

@@ -52,7 +52,8 @@ export default class Player {
     this.jumpedAt = -1e9;
     this.stairDir = 0;         // rise direction of the stair under the feet (+1 rises to the right)
     this.wallDir = 0;          // side of the wall being clung to (+1 = wall on the right)
-    this.wallCoyoteUntil = 0; this.wallLockUntil = 0;
+    this.wallCoyoteUntil = 0; this.wallLockUntil = 0; this.wallPush = 0;
+    this.rigShift = 0;
     this.climbTop = null;      // pull-up onto a landing in progress {y0, y1}
     this.rig.onEvent = (name, ev) => this.onRigEvent(name, ev);
     this.rig.play('idle');
@@ -87,6 +88,7 @@ export default class Player {
     const b = this.body;
     this.stateTime += dt;
     const now = this.scene.time.now;
+    this.unstickCorner();
     const grounded = this.grounded;
 
     // timers
@@ -194,8 +196,9 @@ export default class Player {
       // free movement states: idle / run / jump / fall / land / skid
       const locked = this.state === 'land_hard' && this.stateTime < PLAYER.hardLandLock;
       const wall = grounded ? 0 : this.wallContact();
+      if (wall && Math.sign(moveX) === wall) this.wallPush += dt; else this.wallPush = 0;
       if (locked) { this.applyFriction(dts, PLAYER.friction * 1.5); }
-      else if (!grounded && wall && b.velocity.y > 0 && Math.sign(moveX) === wall && this.state !== 'wall_jump') {
+      else if (!grounded && wall && b.velocity.y > 0 && this.wallPush >= PLAYER.wallGrabDelay && this.state !== 'wall_jump' && !this.nearFloor(90)) {
         // pushing into a wall while falling: cling to it
         this.wallDir = wall; this.facing = wall;
         this.setState('wall_slide'); this.rig.play('wall_slide', { fade: 80 });
@@ -203,6 +206,8 @@ export default class Player {
         this.scene.audio.play('sfx_footstep', { variants: 2, volume: 0.4, detune: -600 });
       }
       else if (grounded) {
+        // a single step in the way: vault onto it without breaking stride
+        if (wantMove && this.state !== 'skid' && this.stepUp(moveX)) { /* airborne now */ }
         // reversing at speed plants the feet: a short skid before the new direction takes
         if (wantMove && this.state !== 'skid' && Math.sign(moveX) === -Math.sign(b.velocity.x) && Math.abs(b.velocity.x) > PLAYER.turnSkidSpeed) {
           this.setState('skid'); this.skidDir = Math.sign(b.velocity.x);
@@ -324,7 +329,9 @@ export default class Player {
     this.camLead += (lead - this.camLead) * Math.min(1, dt / 450);
     const cam = this.scene.cameras.main;
     if (cam.followOffset) cam.setFollowOffset(this.camLead, cam.followOffset.y);
-    this.rig.setPosition(this.body_.x, bottom - this.hipHeight);
+    const shift = (this.state === 'climb' || this.state === 'climb_top') ? -this.facing * PLAYER.climbOffset : 0;
+    this.rigShift += (shift - this.rigShift) * Math.min(1, dt / 120);
+    this.rig.setPosition(this.body_.x + this.rigShift, bottom - this.hipHeight);
     this.rig.setFacing(this.facing);
     this.rig.update(this.scene.fx.stopped ? 0 : dt);
     this.rig.tick(dt);
@@ -386,9 +393,9 @@ export default class Player {
     this.scene.combat.clearOwner(this);
   }
 
-  // Side of the ladder the body hangs on: it keeps facing the way it arrived and grips the rungs in
-  // front of it, so the rig sits a little off the ladder's centre line.
-  climbX(L) { return L.x - this.facing * PLAYER.climbOffset; }
+  // The physics body climbs on the ladder's centre line (so it fits through the shaft); the drawn
+  // rig hangs a little to the side it arrived from, facing the rungs it grips.
+  climbX(L) { return L.x; }
 
   startClimb(ladder) {
     this.ladder = ladder;
@@ -403,13 +410,75 @@ export default class Player {
   }
 
   // Side of a wall the body is pressed against while airborne (+1 right, -1 left), 0 if none. World
-  // edges do not count.
+  // edges and gates do not count: a gate is walked through, not climbed.
   wallContact() {
     const b = this.body;
     const w = this.scene.physics.world.bounds;
-    if (b.blocked.right && b.right < w.right - 2) return 1;
-    if (b.blocked.left && b.x > w.x + 2) return -1;
-    return 0;
+    const side = b.blocked.right && b.right < w.right - 2 ? 1 : b.blocked.left && b.x > w.x + 2 ? -1 : 0;
+    if (!side) return 0;
+    const doors = this.scene.doors || [];
+    const edge = side > 0 ? b.right : b.x;
+    if (doors.some((d) => d.open < 0.55 && Math.abs(d.x - edge) < 24 && this.feetY > d.y - d.h - 10 && this.feetY <= d.y + 10)) return 0;
+    return side;
+  }
+
+  // Arcade physics can leave a body "standing" on the very corner of a wall it is being pushed into
+  // (the vertical overlap is resolved because it is the smaller one). With almost no footing under
+  // it, ease the body off the corner so it falls instead of hanging there.
+  unstickCorner() {
+    const b = this.body;
+    if (!(b.blocked.down || b.touching.down) || this.onStairs || this.state === 'climb' || this.state === 'climb_top') return;
+    const L = this.scene.level;
+    if (!L) return;
+    const feetY = this.feetY;
+    let footing = 0;
+    for (const s of L.solids) {
+      if (s.noBody || Math.abs(s.y - feetY) > 2 || s.x > b.right || s.x + s.w < b.x) continue;
+      footing = Math.max(footing, Math.min(b.right, s.x + s.w) - Math.max(b.x, s.x));
+    }
+    if (feetY >= this.scene.groundY - 2) return;
+    for (const pl of L.platforms) if (Math.abs(pl.y - feetY) <= 2 && pl.x <= b.right && pl.x + pl.w >= b.x) footing = Math.max(footing, Math.min(b.right, pl.x + pl.w) - Math.max(b.x, pl.x));
+    if (footing > 6) return;
+    // the corner is on the side we are blocked against; step away from it
+    const side = b.blocked.right ? 1 : b.blocked.left ? -1 : 0;
+    const solidRight = L.solids.some((s) => !s.noBody && Math.abs(s.y - feetY) <= 2 && s.x >= b.x + b.width / 2);
+    const dir = side || (solidRight ? 1 : -1);
+    this.body_.x -= dir * 8;
+    b.reset(this.body_.x, this.body_.y);
+    b.setVelocity(0, 40);
+  }
+
+  // Is there standing ground within `h` px below the feet? (no wall cling right above a landing)
+  nearFloor(h) {
+    const gy = this.scene.groundYAt ? this.scene.groundYAt(this.x, this.feetY) : this.feetY;
+    return gy - this.feetY < h;
+  }
+
+  // Walking into a block no taller than a single step: hop onto it, keeping the run going.
+  stepUp(moveX) {
+    const b = this.body;
+    const dir = Math.sign(moveX);
+    if (!(dir > 0 ? b.blocked.right : b.blocked.left)) return false;
+    const ahead = this.x + dir * (PLAYER.bodyWidth / 2 + 8);
+    const feetY = this.feetY;
+    const L = this.scene.level;
+    if (!L) return false;
+    const step = L.solids.find((s) => !s.noBody && ahead >= s.x && ahead <= s.x + s.w && s.y < feetY - 4 && s.y >= feetY - PLAYER.stepHeight);
+    if (!step) return false;
+    // headroom on top of the step for the whole body
+    const blockedAbove = L.solids.some((s) => !s.noBody && ahead >= s.x && ahead <= s.x + s.w && s.y + s.h > step.y - PLAYER.bodyHeight - 4 && s.y < step.y);
+    if (blockedAbove) return false;
+    const now = this.scene.time.now;
+    if (now - this.jumpedAt < 250) return false;
+    this.jumpedAt = now; this.coyote = 0; this.jumpsLeft = 1;
+    this.onStairs = false; b.setAllowGravity(true);
+    b.setVelocityY(PLAYER.stepUpVelocity);
+    b.setVelocityX(dir * Math.max(Math.abs(b.velocity.x), PLAYER.runSpeed * 0.6));
+    this.setState('jump');
+    this.rig.play('stairs_up', { fade: 60, restart: true });
+    this.rig.speed = 1.4;
+    this.scene.fx.landDust(this.x, feetY, 2);
+    return true;
   }
 
   wallJump(wd) {
@@ -452,7 +521,7 @@ export default class Player {
     if (top && dir <= 0) {
       // pull up onto the landing above the ladder (the body rises over the clip's length)
       b.setVelocity(0, 0);
-      this.climbTop = { y0: this.body_.y, y1: L.top - PLAYER.bodyHeight / 2 - 2, x: L.x + this.facing * 26 };
+      this.climbTop = { y0: this.body_.y, y1: L.top - PLAYER.bodyHeight / 2 - 2, x: L.x };
       this.ladder = null;
       this.setState('climb_top'); this.rig.play('climb_top', { fade: 60, restart: true });
       return;

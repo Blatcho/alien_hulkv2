@@ -337,15 +337,16 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // ---------------------------------------------------------------- doors, walls, arenas
+  // A gate across the corridor is seen edge-on: a narrow iron slab hanging from a slot in the lintel.
   buildDoor(d) {
     const sky = d.band !== 'ground';
     const has = (k) => this.textures.exists(k);
-    const frameKey = sky && has('world_door_frame_sky') ? 'world_door_frame_sky' : 'world_door_frame';
+    const slotKey = sky && has('world_gate_slot_sky') ? 'world_gate_slot_sky' : 'world_gate_slot';
     const door = { ...d, open: 0, target: 0, locked: false, sfxAt: 0 };
-    if (has(frameKey)) door.frame = this.lighting.lit(this.add.image(d.x, d.y, frameKey).setOrigin(0.5, 1).setDepth(DEPTH.props - 2.6));
-    if (has('world_portcullis')) door.leaf = this.lighting.lit(this.add.image(d.x, d.y, 'world_portcullis').setOrigin(0.5, 1).setDepth(DEPTH.props - 2.7));
-    else door.leaf = this.add.rectangle(d.x, d.y, d.w, d.h, 0x303038, 0.9).setOrigin(0.5, 1).setDepth(DEPTH.props - 2.7);
-    door.body = this.add.rectangle(d.x - 20, d.y - d.h, 40, d.h, 0, 0).setOrigin(0, 0);
+    if (has('world_gate_edge')) door.leaf = this.lighting.lit(this.add.image(d.x, d.y, 'world_gate_edge').setOrigin(0.5, 1).setDepth(DEPTH.props - 2.7));
+    else door.leaf = this.add.rectangle(d.x, d.y, 28, d.h, 0x303038, 0.95).setOrigin(0.5, 1).setDepth(DEPTH.props - 2.7);
+    if (has(slotKey)) door.slot = this.lighting.lit(this.add.image(d.x, d.y - d.h + 2, slotKey).setOrigin(0.5, 1).setDepth(DEPTH.props - 2.6));
+    door.body = this.add.rectangle(d.x - 14, d.y - d.h, 28, d.h, 0, 0).setOrigin(0, 0);
     this.doorBodies.add(door.body);
     this.doors.push(door);
     return door;
@@ -353,9 +354,9 @@ export default class GameScene extends Phaser.Scene {
 
   setDoorOpen(door, k) {
     door.open = k;
-    const lift = Math.round(k * (door.h - 12));
+    const lift = Math.round(k * (door.h - 10));
     door.leaf.y = door.y - lift;
-    if (door.leaf.setCrop) door.leaf.setCrop(0, lift, door.w, door.h - lift);
+    if (door.leaf.setCrop) door.leaf.setCrop(0, lift, door.leaf.width, door.h - lift);
     door.body.body.enable = k < 0.55;
   }
 
