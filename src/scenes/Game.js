@@ -369,8 +369,9 @@ export default class GameScene extends Phaser.Scene {
       if (d.locked) target = 0;
       else if (dx < 150 && dy < 240 && p.alive) target = 1;
       else if (dx > 320 || dy > 400) target = 0;
-      // never drop the gate on whoever stands in the doorway
-      if (target === 0 && d.open > 0 && dx < 50 && dy < 240) target = d.open;
+      // never drop the gate on whoever stands in the doorway (the player or an enemy)
+      const inDoorway = (dx < 50 && dy < 240) || this.enemies.some((e) => e.alive && !e.t.flying && Math.abs(e.x - d.x) < 50 && Math.abs(e.y + e.t.bodyH / 2 - d.y) < 240);
+      if (target === 0 && d.open > 0 && inDoorway) target = d.open;
       if (target !== d.target) {
         d.target = target;
         if (target === 1 && d.open < 1) this.audio.play('sfx_door', { volume: 0.55 });
@@ -440,7 +441,9 @@ export default class GameScene extends Phaser.Scene {
     this.playerRoom = room;
     if (room && room.arena && !room.cleared && !room.active && p.alive && !this.arena && p.x > room.x + 170 && p.x < room.x + room.w - 170 && p.grounded) this.startArena(room);
     if (this.arena) {
-      const left = this.arena.enemies.filter((e) => e.alive && !e.t.flying);
+      // foes that fell out of the room (through the trapdoor) no longer hold the doors
+      const r = this.arena;
+      const left = r.enemies.filter((e) => e.alive && !e.t.flying && e.x >= r.x - 40 && e.x < r.x + r.w + 40 && e.y > r.y - 80 && e.y < r.y + r.h + 80);
       if (!left.length) this.clearArena();
     }
   }
