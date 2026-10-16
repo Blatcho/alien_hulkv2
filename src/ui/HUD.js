@@ -116,7 +116,7 @@ export class HUD {
     const kinds = ['rifle', 'shotgun', 'smg'];
     const sw = 30, gap = 6;
     const total = kinds.length * (sw + gap) + 40;
-    let x = Math.round(this.w / 2 - total / 2), y = this.h - 38;
+    let x = Math.round(this.w / 2 - total / 2), y = this.h - 44;
     kinds.forEach((k) => {
       const owned = !!p.weapons[k];
       const sel = p.weapon === k;
@@ -129,7 +129,7 @@ export class HUD {
     this.panel(x + 4, y, sw, sw, 0.6);
     this.text('small', 'MED', x + 4 + sw / 2, y + 6, { color: p.medkits > 0 ? COL.green : '#333a40', align: 'center' });
     this.text('small', `${p.medkits}`, x + 4 + sw / 2, y + 17, { color: p.medkits > 0 ? COL.text : '#333a40', align: 'center' });
-    this.text('small', 'Y  X  RB  LB', this.w / 2, this.h - 9, { color: '#3e464e', align: 'center' });
+    this.text('small', 'Y  X  RB  LB', this.w / 2, this.h - 13, { color: '#3e464e', align: 'center' });
   }
 
   drawMinimap(game) {
@@ -204,7 +204,7 @@ export class HUD {
     const it = game.interactable;
     if (!it || !it.label) return;
     const p = game.player;
-    const s = game.renderer.worldToScreen(p.cx, p.body.top + 26);
+    const s = game.renderer.worldToScreen(p.cx, p.body.y - 14);
     const wdt = this.fonts.small.width(it.label) + 26;
     this.panel(Math.round(s.x - wdt / 2), Math.round(s.y) - 8, wdt, 16, 0.8);
     const b = this.images.button_x;
@@ -278,7 +278,7 @@ export class HUD {
     this.dim(0.35);
     const t = game.time;
     this.text('title', 'DERELICT', w / 2, h * 0.2, { color: '#e8ecef', align: 'center' });
-    this.text('small', 'DROPSHIP KESTREL 21  —  DOCKING AT THE REAR AIRLOCK', w / 2, h * 0.2 + 56, { color: COL.dim, align: 'center' });
+    this.text('small', 'DROPSHIP KESTREL 21  -  DOCKING AT THE REAR AIRLOCK', w / 2, h * 0.2 + 56, { color: COL.dim, align: 'center' });
     const blink = Math.floor(t * 2) % 2 === 0;
     this.text('body', 'A / ENTER   START MISSION', w / 2, h * 0.52, { color: blink ? COL.warn : COL.text, align: 'center' });
     this.text('body', 'Y / D   DEMO (NO CONTROLLER)', w / 2, h * 0.52 + 26, { color: COL.text, align: 'center' });

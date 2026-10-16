@@ -124,13 +124,20 @@ export class NavAgent {
       }
     } else if (edge.via === 'stairs') {
       const st = this.ship.stairs[edge.stairs];
-      const up = toRoom.deck > this.ship.rooms[here].deck;
-      // walk to the foot (edge.x), then keep walking in the run direction until exitX
+      // walk to the entry (edge.x: the foot of the run from below, the landing from above), then keep
+      // walking in the run direction until exitX; on the slope itself always keep going
       const dir = Math.sign(edge.exitX - edge.x);
-      const before = (body.x - edge.x) * dir < -4;
-      if (before) { const dx = edge.x - body.x; it.moveX = Math.sign(dx) * Math.min(1, Math.abs(dx) / 30 + 0.5); }
-      else it.moveX = dir * 0.9;
-      if (up && body.onSlope === false && body.onGround && !before && Math.abs(body.vx) < 5 && this.stuckT > 0.4) it.jump = true;
+      const onRun = body.onSlope || (body.x > st.x0 - 4 && body.x < st.x1 + 4 && body.y > st.yBottom + 6 && body.y < st.yTop - 2);
+      const key = `st${edge.stairs}:${here}`;
+      if (!this.stairLeg || this.stairLeg.key !== key) this.stairLeg = { key, phase: 'approach' };
+      const leg = this.stairLeg;
+      if (leg.phase === 'approach' && (onRun || Math.abs(body.x - edge.x) <= 6)) leg.phase = 'run';
+      if (leg.phase === 'run') {
+        it.moveX = dir * 0.9;
+        // back on the start floor well short of the entry (fell off, got shoved): approach again
+        if (!onRun && body.onGround && (body.x - edge.x) * dir < -40) leg.phase = 'approach';
+      } else { const dx = edge.x - body.x; it.moveX = Math.sign(dx) * Math.min(1, Math.abs(dx) / 30 + 0.5); }
+      if (body.hitWall && body.onGround && this.stuckT > 0.4) it.jump = true;
     }
   }
 

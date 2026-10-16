@@ -19,6 +19,7 @@ export class Input {
   constructor(canvas) {
     this.canvas = canvas;
     this.keys = new Set();
+    this.tapped = new Set();                 // keys pressed since the last poll (a tap shorter than a frame still counts)
     this.mouse = { x: 0, y: 0, down: false, right: false, moved: 0 };
     this.state = this.blank();
     this.prev = this.blank();
@@ -29,7 +30,7 @@ export class Input {
     this.scale = 1;
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
-      this.keys.add(e.code);
+      this.keys.add(e.code); this.tapped.add(e.code);
       this.lastHuman = performance.now(); this.source = 'keys';
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
     });
@@ -41,7 +42,7 @@ export class Input {
       this.mouse.moved = performance.now();
     });
     window.addEventListener('mousedown', (e) => {
-      if (e.button === 0) this.mouse.down = true;
+      if (e.button === 0) { this.mouse.down = true; this.mouse.clicked = true; }
       if (e.button === 2) this.mouse.right = true;
       this.lastHuman = performance.now(); this.source = 'keys';
     });
@@ -83,13 +84,13 @@ export class Input {
         BUTTONS.some((k) => s[k]);
       if (active) { this.lastHuman = performance.now(); this.source = 'pad'; }
     }
-    const k = (c) => this.keys.has(c);
+    const k = (c) => this.keys.has(c) || this.tapped.has(c);
     if (k('KeyA') || k('ArrowLeft')) s.moveX = -1;
     if (k('KeyD') || k('ArrowRight')) s.moveX = 1;
     if (k('KeyW') || k('ArrowUp')) s.moveY = 1;
     if (k('KeyS') || k('ArrowDown')) s.moveY = -1;
     if (k('ShiftLeft') || k('ShiftRight')) s.shield = 1;
-    if (this.mouse.down || k('KeyJ')) s.fire = 1;
+    if (this.mouse.down || this.mouse.clicked || k('KeyJ')) s.fire = 1;
     if (this.mouse.right) s.shield = 1;
     if (k('Space')) s.jump = true;
     if (k('KeyK')) s.dodge = true;
@@ -100,7 +101,7 @@ export class Input {
     if (k('Escape')) s.pause = true;
     if (k('F1')) s.demo = true;
     if (k('Enter') || k('Space')) s.confirm = true;
-    if (k('Escape') || k('Backspace')) s.back = true;
+    if (k('Backspace')) s.back = true;
     if (performance.now() - this.mouse.moved < 4000 && !(p && s.aiming)) s.mouseAim = true;
     if (this.virtual) {
       const v = this.virtual;
@@ -108,6 +109,7 @@ export class Input {
       if (v.aiming) s.mouseAim = false;
     }
     s.mouse = this.mouse;
+    this.tapped.clear(); this.mouse.clicked = false;
     // edges
     for (const bname of BUTTONS) s[bname + 'Pressed'] = s[bname] && !prev[bname];
     this.state = s;

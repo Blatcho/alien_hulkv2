@@ -33,9 +33,9 @@ BONES = [
 UPPER = ['spine', 'chest', 'neck', 'head', 'jaw', 'upper_arm_l', 'forearm_l', 'claw_l', 'upper_arm_r', 'forearm_r', 'claw_r']
 rig = make_rig('alien', BONES)
 
-HIDE = hexc(0x15181d)
-HIDE_LT = hexc(0x2a3038)
-RIB = hexc(0x0d0f12)
+HIDE = hexc(0x232a33)
+HIDE_LT = hexc(0x3d4754)
+RIB = hexc(0x141a20)
 TEETH = hexc(0xd8d2c4)
 GUM = hexc(0x3a1f22)
 DOME = hexc(0x1b2026)

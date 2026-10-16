@@ -116,8 +116,11 @@ export function generateShip({ seed, cols = 24, decks = 3 } = {}) {
   for (const e of rest) if (rng() < 0.3) edges.push(e);
 
   // ---- realise edges as doors, ladders and stairs -------------------------------------------------
+  // Doors first (so stairs can tell which bulkheads carry a door), then the vertical links.
   const doors = [], ladders = [], stairs = [];
-  for (const e of edges) {
+  const blocked = new Set();           // "col,deck" floor spots cut off by a stair hole: nothing goes there
+  const ordered = [...edges.filter((e) => e.kind === 'door'), ...edges.filter((e) => e.kind !== 'door')];
+  for (const e of ordered) {
     if (e.kind === 'door') {
       const col = (e.a.c1 + 1) * CELL_W;
       const rows = [e.a.y0, e.a.y0 + 1, e.a.y0 + 2];           // 3 tiles tall from the floor
@@ -131,27 +134,53 @@ export function generateShip({ seed, cols = 24, decks = 3 } = {}) {
       const lo = Math.max(e.a.x0, e.b.x0), hi = Math.min(e.a.x1, e.b.x1);
       const span = hi - lo + 1;
       const floorRow = (e.a.deck + 1) * DECK_H;
-      // a stair run and its floor opening must not cross anything already placed (a ladder from the
-      // room above, another run, a hatch)
+      // A stair run climbs through a hole in the upper floor. Two dead spaces come with it: the strip
+      // of upper floor over the low steps (the ledge, behind the hole) and the floor under the high
+      // steps (the pocket). The run therefore sits against the lower room's far wall, with the landing
+      // in the upper room beyond it, and nothing may be placed in or lead into the ledge or the
+      // pocket: no door, no ladder, no props. The run and its hole must not cross anything placed.
+      const ledgeCols = (dir, c0) => {
+        const cols_ = [];
+        if (dir > 0) for (let c = e.b.x0; c <= c0 + 1; c++) cols_.push(c);
+        else for (let c = c0 - 1; c <= e.b.x1; c++) cols_.push(c);
+        return cols_;
+      };
+      const pocketCols = (dir, c0) => [2, 3, 4, 5].map((k) => c0 + dir * k);
       const stairFits = (dir, c0) => {
+        if (e.a.type === 'airlock' || e.b.type === 'airlock') return false;
+        if (dir > 0 ? e.b.x0 < lo : e.b.x1 > hi) return false;                 // ledge stays inside the overlap
+        if (dir > 0 ? e.b.x1 <= hi : e.b.x0 >= lo) return false;               // the landing lies in the upper room
+        if (dir > 0 ? at(e.b.x0 - 1, e.b.y0) === T.DOOR : at(e.b.x1 + 1, e.b.y0) === T.DOOR) return false;
+        if (dir > 0 ? at(e.a.x1 + 1, e.a.y0) === T.DOOR : at(e.a.x0 - 1, e.a.y0) === T.DOOR) return false;
         for (let k = 0; k < DECK_H; k++) {
           const c = c0 + dir * k, r = e.a.y0 + k;
-          if (c < lo || c > hi || at(c, r) !== T.EMPTY) return false;
-          if (k >= 3 && (at(c, floorRow) !== T.SOLID || at(c, floorRow + 1) !== T.EMPTY)) return false;
+          // the last step sits in the upper floor row (solid plating it replaces); the rest need air
+          if (c < lo || c > hi || at(c, r) !== (k === DECK_H - 1 ? T.SOLID : T.EMPTY)) return false;
+          if (k >= 2 && (at(c, floorRow) !== T.SOLID || at(c, floorRow + 1) !== T.EMPTY)) return false;
         }
         if (at(c0 + dir * DECK_H, floorRow) !== T.SOLID || at(c0 + dir * DECK_H, floorRow + 1) !== T.EMPTY) return false;
         if (at(c0 - dir, e.a.y0) !== T.EMPTY || at(c0 - dir, e.a.y0 - 1) !== T.SOLID) return false;
+        for (const c of ledgeCols(dir, c0)) {
+          if (at(c, floorRow) !== T.SOLID) return false;
+          for (let r = e.b.y0; r <= e.b.y1; r++) if (at(c, r) !== T.EMPTY) return false;
+        }
+        for (const c of pocketCols(dir, c0)) {
+          if (at(c, e.a.y0 - 1) !== T.SOLID) return false;
+          for (let r = e.a.y0; r <= e.a.y1; r++) if (at(c, r) !== T.EMPTY) return false;
+        }
         return true;
       };
       let stairPlan = null;
-      if (span >= 9 && rng() < 0.5) {
-        const dir = rng() < 0.5 ? 1 : -1;
-        for (const c0 of [dir > 0 ? lo + 1 : hi - 1, dir > 0 ? lo + 2 : hi - 2]) if (stairFits(dir, c0)) { stairPlan = { dir, c0 }; break; }
+      if (span >= 8 && rng() < 0.6) {
+        for (const dir of (rng() < 0.5 ? [1, -1] : [-1, 1])) {
+          const c0 = dir > 0 ? e.a.x1 - (DECK_H - 1) : e.a.x0 + (DECK_H - 1);          // the run ends at the far wall
+          if (stairFits(dir, c0)) { stairPlan = { dir, c0 }; break; }
+        }
       }
       if (stairPlan) {
         const { dir, c0 } = stairPlan;
-        // a 6-tile run rising from the lower floor to the upper floor; the upper floor opens over the
-        // last three tiles so there is headroom on the way up; the landing beyond stays solid
+        // a 6-tile run rising from the lower floor to the upper floor; the upper floor opens over
+        // steps 2-4 so there is headroom both ways; the landing beyond stays solid
         const r0 = e.a.y0;
         const tiles = [];
         for (let k = 0; k < DECK_H; k++) {
@@ -159,7 +188,9 @@ export function generateShip({ seed, cols = 24, decks = 3 } = {}) {
           set(c, r, dir > 0 ? T.STAIR_R : T.STAIR_L);
           tiles.push({ c, r });
         }
-        for (let k = 3; k < DECK_H - 1; k++) set(c0 + dir * k, floorRow, T.EMPTY);
+        for (let k = 2; k < DECK_H - 1; k++) set(c0 + dir * k, floorRow, T.EMPTY);
+        for (const c of ledgeCols(dir, c0)) blocked.add(`${c},${e.b.deck}`);
+        for (const c of pocketCols(dir, c0)) blocked.add(`${c},${e.a.deck}`);
         // remove any bulkhead the run crosses inside a wide room (already open) and clear props space
         const st = { id: stairs.length, dir, c0, r0, n: DECK_H, a: e.a.id, b: e.b.id, tiles,
           x0: Math.min(c0, c0 + dir * (DECK_H - 1)) * TILE + (dir > 0 ? 0 : 0), x1: 0, yBottom: r0 * TILE, yTop: (r0 + DECK_H) * TILE };
@@ -175,7 +206,7 @@ export function generateShip({ seed, cols = 24, decks = 3 } = {}) {
         order.sort(() => rng() - 0.5);
         let col = order[0];
         for (const c of order) {
-          let ok = at(c, e.a.y0 - 1) === T.SOLID && at(c, rTop) === T.SOLID && at(c, rTop + 1) === T.EMPTY;
+          let ok = at(c, e.a.y0 - 1) === T.SOLID && at(c, rTop) === T.SOLID && at(c, rTop + 1) === T.EMPTY && !blocked.has(`${c},${e.a.deck}`) && !blocked.has(`${c},${e.b.deck}`);
           for (let r = e.a.y0; r < rTop && ok; r++) if (at(c, r) !== T.EMPTY) ok = false;
           if (ok) { col = c; break; }
         }
@@ -225,7 +256,7 @@ export function generateShip({ seed, cols = 24, decks = 3 } = {}) {
 
   // ---- contents: props, loot, lights, survivors, events ------------------------------------------
   const props = [], loot = [], survivors = [], lights = [], events = [];
-  const occupied = new Set();
+  const occupied = new Set(blocked);
   const free = (room) => {
     // interior floor columns not taken by ladders, stair runs, doors' approaches or other props
     const list = [];

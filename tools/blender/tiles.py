@@ -141,7 +141,9 @@ def stair(m):
     for k in range(4):
         x0 = k * 8
         m.box((x0 + 4, 0, 4 + k * 8 - 0.5), (8, 30, 8 + k * 8 + 1), STEEL_DK, wear=0.5, grime=0.6, rust=0.12)
-        m.box((x0 + 4, 0, 8 + k * 8 + 0.3), (8, 30, 1.2), STEEL_LT, wear=0.8, grime=0.4, rust=0.08)
+        m.box((x0 + 4, 0, 8 + k * 8 + 0.3), (8, 30, 1.2), STEEL_LT, wear=0.8, grime=0.4, rust=0.08)      # tread
+        m.box((x0 + 4, -15.4, 4 + k * 8 + 0.5), (7, 0.8, 6), STEEL, wear=0.6, grime=0.5, rust=0.12)      # riser plate (front)
+        m.box((x0 + 4, -15.8, 8 + k * 8 - 0.4), (8, 0.6, 1.4), RUNG, wear=0.8, grime=0.3, rust=0.05)     # nosing
 piece('stair', stair, dict(rise='right'), seed=15)
 
 

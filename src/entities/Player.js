@@ -259,11 +259,22 @@ export class Player {
     const w = this.weaponDef;
     const canFire = this.state !== 'dodge' && !this.reload && this.fireT <= 0 && this.healing <= 0;
     const wantsFire = input.fire > 0.5 || (this.aimMode === 'auto' && this.target && this.targetInRange()) || (this.aimMode !== 'auto' && this.target && this.targetInRange() && this.aimedAtTarget());
-    if (canFire && wantsFire) {
+    const brawler = this.target && this.target.alive && Math.abs(this.target.cx - this.cx) < 36 && Math.abs(this.target.cy - this.cy) < 44 && this.state !== 'ladder';
+    if (brawler && this.state !== 'dodge' && this.strikeT <= 0 && this.healing <= 0) this.strike();
+    else if (canFire && wantsFire) {
       if (this.ammo.mag <= 0) { if (this.ammo.reserve > 0) this.startReload(); else { g.audio.play('empty', { volume: 0.6, minGap: 250 }); this.fireT = 0.3; } }
       else if (w.auto || !this.firedHeld || this.aimMode === 'auto') this.fire();
     }
     this.firedHeld = input.fire > 0.5;
+    this.strikeT = Math.max(0, (this.strikeT || 0) - dt);
+    if (this.striking) {
+      for (const e of ch.events) if (e.clip === 'strike' && e.name === 'hit') {
+        const t = this.target;
+        if (t && t.alive && Math.abs(t.cx - this.cx) < 46 && Math.abs(t.cy - this.cy) < 50) { t.damage(28, { dx: this.facing, dy: 0.2, from: this }); t.body.vx += this.facing * 160; g.fx.hitStop(0.04); g.fx.shake(3, 0.12); }
+        g.audio.play('hit_metal', { variants: 2, volume: 0.6 });
+      }
+      if (!ch.upperOverride || ch.upperOverride.name !== 'strike') this.striking = false;
+    }
 
     // ---- physics ----
     ph.step(b, dt);
@@ -315,6 +326,17 @@ export class Player {
     const t = this.target;
     const dx = t.cx - this.cx, dy = t.cy - this.cy, l = Math.hypot(dx, dy) || 1;
     return (dx / l) * this.aim.x + (dy / l) * this.aim.y > 0.985;
+  }
+
+  // Rifle butt: a strike on the upper body when a hostile is at arm's length.
+  strike() {
+    const g = this.game;
+    this.strikeT = 0.55;
+    this.reload = null;
+    this.char.playUpper('strike', { timeScale: 1.6 });
+    this.upper = 'strike'; this.striking = true;
+    g.audio.play('dodge', { volume: 0.5, rate: 0.8 });
+    g.fx.kick(this, 2);
   }
 
   fire() {
@@ -369,6 +391,7 @@ export class Player {
       // upper: aim hold when targeting, otherwise whatever the base provides
       if (this.upper === 'fire' && !ch.upperOverride) this.upper = 'none';
       if (this.upper === 'hurt' && !ch.upperOverride) this.upper = 'none';
+      if (this.upper === 'strike' && !ch.upperOverride) this.upper = 'none';
       if (this.upper === 'reload' && !this.reload) { this.upper = 'none'; }
       const wantAim = (this.aimMode !== 'none' && this.state !== 'ladder' && this.state !== 'dodge');
       if (wantAim && this.upper === 'none') { ch.playUpper('aim', { loop: true, fade: 0.15 }); this.upper = 'aim'; }

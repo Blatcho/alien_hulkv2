@@ -200,6 +200,7 @@ export class Game {
   // Before the input poll: in demo mode the autopilot writes the virtual pad unless a human has
   // touched the controls in the last few seconds.
   preInput(realDt) {
+    if (this.testDrive) { this.input.virtual = this.testDrive; return; }          // scripted input for tests
     if (this.screen !== 'play' || !this.demo || !this.player) { this.input.virtual = null; return; }
     this.humanOverride = this.input.humanIdleFor() < 5000;
     if (!this.humanOverride) this.autopilot.update(realDt, this.input);
@@ -212,7 +213,7 @@ export class Game {
     this.realTime += realDt;
     if (this.screen === 'title') { this.time += realDt; return; }
     if (this.screen === 'pause') {
-      if (input.pausePressed || input.confirmPressed) { this.screen = 'play'; this.audio.resume(); }
+      if (input.pausePressed || input.confirmPressed) { this.screen = 'play'; this.audio.resume(); return; }
       if (input.backPressed) { this.screen = 'title'; this.teardown(); }
       return;
     }
@@ -221,6 +222,9 @@ export class Game {
       if (this.player && (this.screen === 'extracted' || this.player.deadT > 1.5)) {
         if (input.confirmPressed) { this.start({ seed: this.screen === 'extracted' ? randomSeed() : this.seed, demo: this.demo }); return; }
         if (input.backPressed) { this.screen = 'title'; this.teardown(); return; }
+        // the demo loops on its own: a fresh ship after the end screen has been up for a while
+        this.endT = (this.endT || 0) + realDt;
+        if (this.demo && this.endT > 9 && !this.starting) { this.starting = true; this.start({ seed: randomSeed(), demo: true }).then(() => { this.starting = false; this.endT = 0; }); return; }
       }
       // keep the world ticking slowly behind the screen
       this.tick(Math.min(realDt, 0.05) * 0.5, realDt);

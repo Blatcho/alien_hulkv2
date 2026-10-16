@@ -60,7 +60,7 @@ test('doors sit in bulkheads at floor level, ladders and stairs fit between deck
       assert.equal(s.tiles.length, DECK_H);
       const top = s.tiles[s.tiles.length - 1];
       assert.equal(top.r % DECK_H, 0, 'the top step sits in the upper floor row');
-      assert.equal(at(top.c + s.dir, top.r), T.SOLID, 'landing beyond the top step');
+      assert.ok([T.SOLID, T.VENT].includes(at(top.c + s.dir, top.r)), 'landing beyond the top step');
       assert.equal(at(top.c + s.dir, top.r + 1), T.EMPTY, 'headroom over the landing');
       for (const t of s.tiles.slice(0, -1)) assert.equal(at(t.c, t.r + 1), T.EMPTY, `seed ${seed}: headroom over step ${t.c},${t.r}`);
       assert.equal(at(s.tiles[0].c - s.dir, s.tiles[0].r), T.EMPTY, 'approach to the bottom step is open');

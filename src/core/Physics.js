@@ -81,7 +81,11 @@ export class Physics {
       let blocked = false;
       for (let r = r0; r <= r1; r++) {
         const t = this.tile(c, r);
-        if (this.isSlope(t)) continue;                // slopes never block sideways
+        if (this.isSlope(t)) {
+          // the solid part of a step blocks unless the feet are about to ride up its surface
+          if (body.y < this.slopeY(t, c, r, edge) - 16) { blocked = true; break; }
+          continue;
+        }
         if (this.solidTile(c, r, body, 'side')) {
           // a low step (one tile) is climbed; otherwise block
           blocked = true;
@@ -120,7 +124,7 @@ export class Physics {
     if (body.vy <= 0) {
       // slopes: by the feet centre
       const sc = Math.floor(body.x / TILE);
-      for (const sr of [Math.floor(body.y / TILE), Math.floor(body.y / TILE) - 1, Math.floor(ny / TILE)]) {
+      for (const sr of [Math.floor((body.y + 14) / TILE), Math.floor(body.y / TILE), Math.floor(body.y / TILE) - 1, Math.floor(ny / TILE)]) {
         const t = this.tile(sc, sr);
         if (!this.isSlope(t)) continue;
         const sy = this.slopeY(t, sc, sr, body.x);
