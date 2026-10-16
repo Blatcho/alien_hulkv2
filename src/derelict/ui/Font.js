@@ -4,8 +4,8 @@ export class BitmapFont {
 
   async load() {
     const [xml, img] = await Promise.all([
-      fetch(`assets/fonts/${this.name}.xml`).then((r) => r.text()),
-      new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = `assets/fonts/${this.name}.png`; }),
+      fetch(`assets/fonts/derelict/${this.name}.xml`).then((r) => r.text()),
+      new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = `assets/fonts/derelict/${this.name}.png`; }),
     ]);
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
     const common = doc.querySelector('common');

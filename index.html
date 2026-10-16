@@ -10,8 +10,9 @@
   #frame { position: relative; }
   canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
   #hud { position: absolute; left: 0; top: 0; pointer-events: none; }
-  #boot { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #6f8b7a; letter-spacing: 2px; text-transform: uppercase; }
+  #boot { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #6f8b7a; letter-spacing: 2px; text-transform: uppercase; text-align: center; max-width: 80vw; }
   #boot.gone { display: none; }
+  #boot .err { color: #d86a5a; text-transform: none; letter-spacing: 0; white-space: pre-wrap; margin-top: 12px; font-size: 12px; }
 </style>
 <script type="importmap">
 { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
@@ -20,6 +21,23 @@
 <body>
 <div id="stage"><div id="frame"><canvas id="game"></canvas><canvas id="hud"></canvas></div></div>
 <div id="boot">docking…</div>
-<script type="module" src="./src/main.js"></script>
+<script>
+  // Boot diagnostics: anything that stops the game from starting is written under the docking text
+  // (a stale cache, a blocked file, no WebGL) instead of leaving the screen stuck.
+  (function () {
+    var boot = document.getElementById('boot');
+    function fail(msg) {
+      if (!boot || boot.classList.contains('gone')) return;
+      var e = boot.querySelector('.err') || boot.appendChild(document.createElement('div'));
+      e.className = 'err';
+      e.textContent = msg + '\nTry a hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to clear a stale cache.';
+    }
+    window.__bootFail = fail;
+    window.addEventListener('error', function (ev) { if (ev && ev.message) fail('Error: ' + ev.message); });
+    window.addEventListener('unhandledrejection', function (ev) { var r = ev && ev.reason; fail('Error: ' + (r && (r.message || r)) ); });
+    setTimeout(function () { if (boot && !boot.classList.contains('gone') && !boot.querySelector('.err')) fail('Still loading after 25 s.'); }, 25000);
+  })();
+</script>
+<script type="module" src="./src/derelict/main.js?v=2" onerror="window.__bootFail('The game code failed to load (src/derelict/main.js).')"></script>
 </body>
 </html>

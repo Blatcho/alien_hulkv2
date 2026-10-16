@@ -43,7 +43,7 @@ jobs:
       - name: Stage the runtime files
         run: |
           rm -rf dist && mkdir dist
-          cp index.html dist/
+          cp index.html .htaccess dist/
           cp -r src vendor assets dist/
           find dist -name '.DS_Store' -delete
           echo "Staged $(find dist -type f | wc -l) files, $(du -sh dist | cut -f1)"

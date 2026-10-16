@@ -162,18 +162,18 @@
   },
   "fonts": {
     "title": {
-      "png": "assets/fonts/title.png",
-      "xml": "assets/fonts/title.xml",
+      "png": "assets/fonts/derelict/title.png",
+      "xml": "assets/fonts/derelict/title.xml",
       "size": 64
     },
     "body": {
-      "png": "assets/fonts/body.png",
-      "xml": "assets/fonts/body.xml",
+      "png": "assets/fonts/derelict/body.png",
+      "xml": "assets/fonts/derelict/body.xml",
       "size": 24
     },
     "small": {
-      "png": "assets/fonts/small.png",
-      "xml": "assets/fonts/small.xml",
+      "png": "assets/fonts/derelict/small.png",
+      "xml": "assets/fonts/derelict/small.xml",
       "size": 16
     }
   }
