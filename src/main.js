@@ -19,6 +19,8 @@ const hud = new HUD(hudCanvas);
 renderer.onResize = (w, h, s) => { hud.resize(w, h, s); input.scale = s; };
 hud.resize(renderer.width, renderer.height, renderer.scale); input.scale = renderer.scale;
 
+// browsers keep the audio context suspended until a gesture: resume on the first ones
+for (const ev of ['keydown', 'mousedown', 'touchstart']) window.addEventListener(ev, () => audio.resume(), { passive: true });
 const seed = q.get('seed') ? Number(q.get('seed')) : randomSeed();
 if (q.get('det') === '1') { const rng = mulberry32(seed ^ 0x5bd1e995); Math.random = rng; }   // deterministic runs for tests
 const game = new Game({ renderer, input, audio, hud, seed });
