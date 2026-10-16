@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""gen_audio.py - procedural SFX and music for Beast of Thornmoor.
+"""gen_audio.py - procedural SFX and music for Derelict.
 
-Everything is synthesised with NumPy (no samples, no third-party DSP) and
-encoded to OGG Vorbis through the `ffmpeg` binary.  Output goes to
-assets/audio/.  The script is deterministic: every sound has its own seeded RNG.
+Weapons (pulse rifle, shotgun, SMG), xenomorph-style alien voices, acid,
+motion-tracker pings, ship systems (alarm, fire, power, doors, vents), the
+marine's own sounds, UI blips, stings and four dark ambient / industrial
+music loops.  Everything is synthesised with NumPy (no samples, no
+third-party DSP) and encoded to OGG Vorbis through the `ffmpeg` binary.
+Output goes to assets/audio/ as sfx_<name>.ogg and music_<name>.ogg, the
+exact names src/core/Audio.js loads.  The script is deterministic: every
+sound has its own seeded RNG and the encoder runs bitexact.
 
-    python3 tools/gen_audio.py            # build everything
-    python3 tools/gen_audio.py sfx_coin   # build only names containing "coin"
+    python3 tools/gen_audio.py             # build everything
+    python3 tools/gen_audio.py rifle smg   # build only names containing these
 """
 import math
 import os
@@ -299,24 +304,367 @@ def sfx(name, peak=-1.0, rev=None):
         return fn
     return deco
 
-def swing(name, f0, f1, f2, dur=0.25):
-    @sfx(name)
-    def _(rng):
-        n = secs(dur)
-        y = whoosh(n, f0, f1, f2, rng, q=1.4)
-        y += 0.5 * whoosh(n, f0 * 2.2, f1 * 2.0, f2 * 1.8, rng, q=2.5, attack=0.02, decay=0.06)
-        return y
+def crack(n, rng, fc=2800, q=0.8, tau=0.01, snap=0.5):
+    """Gunshot transient: band-passed burst plus a very short high snap."""
+    y = fft_filter(noise(n, rng), "bp", fc, q) * env_exp(n, tau)
+    return y + snap * fft_filter(noise(n, rng), "hp", 6000, 0.7) * env_exp(n, tau * 0.4)
 
-swing("sfx_swing1", 350, 2600, 900)
-swing("sfx_swing2", 500, 3400, 700)
-swing("sfx_swing3", 280, 1900, 1400)
+def zap(n, f0, f1, tau, rng=None, drive=2.0):
+    """Short descending energy 'pew' for the pulse weapons."""
+    y = square(glide(f0, f1, n), n) + 0.5 * saw(glide(f0 * 2, f1 * 2, n), n)
+    return np.tanh(drive * fft_filter(y, "lp", 5000, 0.8)) * env_exp(n, tau)
 
-@sfx("sfx_heavy_swing")
+def click(n, base, rng, decay=0.02, bright=1.0):
+    """Small mechanical click: a tight metal strike with its own noise."""
+    return metal(n, base, [1, 1.52, 2.3, 3.4], [decay, decay * 0.7, decay * 0.5, decay * 0.3], rng, click=bright)
+
+def screech(n, f, rng, formants, rough=55.0, drive=3.0, jitter=0.03, breath=0.25, fm=1.6):
+    """Alien voice: FM-rich sine with a fast roughness modulation and
+    jitter, through formant band-passes."""
+    t = tline(n)
+    f = np.broadcast_to(np.asarray(f, float), (n,)) * (1 + jitter * slow_noise(n, 40.0, rng))
+    ph = TAU * np.cumsum(f) / SR
+    src = np.sin(ph + fm * np.sin(ph * 1.5 + rng.uniform(0, TAU)) + 0.6 * np.sin(ph * 0.5))
+    src *= 1 - 0.5 * (0.5 + 0.5 * np.sin(TAU * rough * t)) if rough else 1.0
+    src += breath * fft_filter(noise(n, rng), "hp", 2500, 0.7)
+    y = sum(g * fft_filter(src, "bp", fc, 4.0) for fc, g in formants)
+    return np.tanh(drive * y)
+
+def beep(n, f, tau, harm=0.3):
+    return (sine(f, n) + harm * square(f, n)) * env_exp(n, tau) * np.minimum(tline(n) / 0.002, 1)
+
+# ---- weapons -------------------------------------------------------------
+
+@sfx("sfx_rifle")
 def _(rng):
+    # pulse rifle: a sharp crack with a short electric 'pew' under it
+    n = secs(0.18)
+    y = 1.3 * crack(n, rng, fc=3200, q=0.7, tau=0.009, snap=0.7)
+    y += 0.9 * thump(n, 220, 70, 0.025, click=0.3, rng=rng)
+    y += 0.5 * delay(zap(secs(0.05), 2200, 500, 0.014), 0, n)
+    y += 0.25 * fft_filter(noise(n, rng), "lp", 1500, 0.7) * env_exp(n, 0.04)
+    return softclip(y, 1.6)
+
+@sfx("sfx_shotgun", rev=dict(rt60=0.5, wet=0.18, damp=2500))
+def _(rng):
+    # a deep boom, a chest thump, then the pump: two clacks and a rattle
+    n = secs(0.5)
+    boom = 1.6 * thump(n, 110, 34, 0.11, click=0.6, rng=rng)
+    body = fft_filter(noise(n, rng), "lp", 1100, 0.8) * env_exp(n, 0.045)
+    y = softclip(boom + 1.1 * body + 0.8 * crack(n, rng, fc=2200, q=0.6, tau=0.012, snap=0.6), 2.0)
+    m = secs(0.12)
+    pump = 0.55 * click(m, 1500, rng, 0.025, 0.9) + 0.4 * thump(m, 300, 110, 0.015, click=0.3, rng=rng)
+    y += delay(pump, 0.29, n) + delay(pump * 0.85, 0.39, n)
+    slide = fft_filter(noise(secs(0.1), rng), "bp", 2400, 1.5) * env_ad(secs(0.1), 0.03, 0.04)
+    return y + 0.3 * delay(slide, 0.3, n)
+
+@sfx("sfx_smg")
+def _(rng):
+    # tight, dry snap: mostly transient
+    n = secs(0.12)
+    y = 1.2 * crack(n, rng, fc=3800, q=0.9, tau=0.006, snap=0.6)
+    y += 0.8 * thump(n, 260, 90, 0.014, click=0.0)
+    y += 0.4 * zap(n, 1800, 600, 0.008, rng)
+    return softclip(y, 1.5)
+
+@sfx("sfx_reload_out", peak=-3.0)
+def _(rng):
+    # release catch, then the magazine slides out and clacks free
+    n = secs(0.32)
+    y = 0.8 * click(secs(0.08), 2100, rng, 0.012, 1.0)
+    y = delay(y, 0, n)
+    slide = fft_filter(noise(secs(0.16), rng), "bp", 1300, 1.2) * env_ad(secs(0.16), 0.03, 0.06)
+    y += 0.45 * delay(slide, 0.05, n)
+    y += delay(0.9 * click(secs(0.12), 900, rng, 0.03, 0.6) + 0.7 * thump(secs(0.12), 180, 80, 0.02, click=0.3, rng=rng), 0.2, n)
+    return y
+
+@sfx("sfx_reload_in", peak=-3.0)
+def _(rng):
+    # magazine seats with a thunk, then the bolt is racked back and released
+    n = secs(0.5)
+    seat = 1.0 * thump(secs(0.12), 220, 90, 0.02, click=0.4, rng=rng) + 0.8 * click(secs(0.12), 700, rng, 0.03, 0.7)
+    y = delay(seat, 0, n)
+    rack = fft_filter(noise(secs(0.1), rng), "bp", 1800, 1.5) * env_ad(secs(0.1), 0.02, 0.04)
+    y += 0.4 * delay(rack, 0.22, n)
+    y += delay(0.9 * click(secs(0.1), 1700, rng, 0.02, 1.0), 0.3, n)
+    y += delay(1.0 * click(secs(0.15), 1100, rng, 0.035, 0.9) + 0.6 * thump(secs(0.15), 200, 80, 0.02, click=0.2, rng=rng), 0.4, n)
+    return y
+
+@sfx("sfx_empty", peak=-5.0)
+def _(rng):
+    # dry trigger: one thin click
+    n = secs(0.07)
+    return click(n, 2600, rng, 0.008, 1.2) + 0.3 * thump(n, 400, 200, 0.006, click=0.0)
+
+@sfx("sfx_weapon_switch", peak=-3.0)
+def _(rng):
+    # click-clack: catch release, slide, lock
+    n = secs(0.3)
+    y = delay(0.9 * click(secs(0.08), 1900, rng, 0.012, 1.0), 0, n)
+    slide = fft_filter(noise(secs(0.12), rng), "bp", 2000, 1.3) * env_ad(secs(0.12), 0.02, 0.05)
+    y += 0.35 * delay(slide, 0.04, n)
+    y += delay(1.0 * click(secs(0.14), 1200, rng, 0.03, 0.8) + 0.5 * thump(secs(0.14), 240, 100, 0.015, click=0.2, rng=rng), 0.14, n)
+    return y
+
+# ---- aliens ---------------------------------------------------------------
+
+ALIEN_F = [(700, 1.0), (1500, 0.9), (2600, 0.7), (4200, 0.4)]
+
+@sfx("sfx_alien_screech", rev=dict(rt60=0.9, wet=0.22, damp=5000))
+def _(rng):
+    # harsh rising screech with a broken top
+    n = secs(0.8)
+    t = tline(n)
+    f = glide(650, 2100, n) * (1 + 0.05 * np.sin(TAU * 11 * t))
+    y = screech(n, f, rng, ALIEN_F, rough=60, drive=4.0, jitter=0.04, breath=0.3)
+    y *= adsr(n, 0.04, 0.2, 0.75, 0.2, 0.6)
+    return y + 0.25 * fft_filter(noise(n, rng), "hp", 4000, 0.7) * env_ad(n, 0.1, 0.3)
+
+@sfx("sfx_alien_hiss", peak=-3.0)
+def _(rng):
+    # breathy hiss through teeth, a low throat tone underneath
+    n = secs(0.7)
+    fc = glide(2600, 5200, n) * (1 + 0.15 * slow_noise(n, 9, rng))
+    y = svf(noise(n, rng), fc, 1.4, "bp") * (0.7 + 0.3 * slow_noise(n, 30, rng))
+    y *= adsr(n, 0.06, 0.2, 0.8, 0.18, 0.5)
+    throat = screech(n, 95 * (1 + 0.1 * slow_noise(n, 6, rng)), rng, [(500, 1.0), (1200, 0.5)], rough=40, drive=1.5, breath=0.0)
+    return 2.0 * y + 0.18 * throat * adsr(n, 0.1, 0.2, 0.8, 0.2, 0.45)
+
+@sfx("sfx_alien_attack")
+def _(rng):
+    # snarl into a claw swipe
+    n = secs(0.5)
+    m = secs(0.3)
+    snarl = growl(m, 160, 95, [(600, 1.0), (1400, 0.8), (3000, 0.5)], rng, drive=4.0, jitter=0.05, rough=38, breath=0.3, sub=0.1)
+    y = delay(snarl * env_ad(m, 0.015, 0.1), 0, n)
+    y += 1.1 * delay(whoosh(secs(0.3), 500, 3200, 900, rng, q=1.4, attack=0.03, decay=0.08), 0.12, n)
+    return y + 0.4 * delay(whoosh(secs(0.25), 900, 4500, 1200, rng, q=2.5, attack=0.02, decay=0.05), 0.15, n)
+
+@sfx("sfx_alien_death", rev=dict(rt60=1.0, wet=0.25, damp=4000))
+def _(rng):
+    # a screech that breaks and falls, then gurgles out
+    n = secs(1.0)
+    t = tline(n)
+    f = glide(1900, 260, n) * (1 + 0.08 * np.sin(TAU * 7 * t) * np.clip(t * 3, 0, 1))
+    y = screech(n, f, rng, ALIEN_F, rough=45, drive=4.0, jitter=0.07, breath=0.3)
+    y *= adsr(n, 0.02, 0.3, 0.6, 0.25, 0.7) * (1 - 0.4 * np.clip(t - 0.4, 0, 1) * (0.5 + 0.5 * np.sin(TAU * 18 * t)))
+    bub = fft_filter(noise(n, rng), "bp", 650, 2.5) * np.clip(slow_noise(n, 45, rng) * 2.2 - 0.6, 0, 1)
+    bub = fft_filter(bub, "lp", 1800, 0.7) * np.clip((t - 0.3) / 0.25, 0, 1) * env_exp(n, 0.5)
+    return y + 2.0 * bub
+
+@sfx("sfx_alien_hurt")
+def _(rng):
+    # short yelp: a quick up-down bark
+    n = secs(0.25)
+    f = np.concatenate([glide(900, 1700, secs(0.08)), glide(1700, 700, n - secs(0.08))])
+    y = screech(n, f, rng, ALIEN_F, rough=70, drive=3.0, jitter=0.05, breath=0.2)
+    return y * env_ad(n, 0.01, 0.07)
+
+@sfx("sfx_acid", peak=-4.0)
+def _(rng):
+    # acid blood on deck plate: sizzle, sputtering pops, a thin steam hiss
+    n = secs(0.8)
+    t = tline(n)
+    siz = fft_filter(noise(n, rng), "hp", 4500, 0.7) * (0.5 + 0.5 * slow_noise(n, 70, rng) ** 2)
+    pops = noise(n, rng) * (rng.uniform(0, 1, n) > 0.998) * rng.uniform(0.3, 1, n)
+    pops = convolve(fft_filter(pops, "bp", 2200, 1.0) * 5, env_exp(secs(0.02), 0.004), False)
+    bub = fft_filter(noise(n, rng), "bp", 800, 3.0) * np.clip(slow_noise(n, 35, rng) * 2 - 0.5, 0, 1)
+    env = adsr(n, 0.015, 0.2, 0.7, 0.3, 0.5)
+    return (1.4 * siz + 0.8 * pops + 1.2 * bub) * env
+
+# ---- pickups, tracker, shield ----------------------------------------------
+
+@sfx("sfx_tracker_ping", peak=-7.0)
+def _(rng):
+    # a clean sonar ping with a tiny slapback
     n = secs(0.4)
-    y = whoosh(n, 140, 900, 300, rng, q=1.3, attack=0.06, decay=0.13)
-    g = growl(n, 75, 48, [(220, 1.0), (600, 0.6), (1300, 0.3)], rng, drive=2.5, sub=0.3)
-    return y + 0.5 * g * env_ad(n, 0.05, 0.12)
+    m = secs(0.2)
+    p = sine(glide(2400, 2150, m), m) * env_exp(m, 0.035) + 0.3 * sine(4800, m) * env_exp(m, 0.012)
+    p *= np.minimum(tline(m) / 0.002, 1)
+    y = delay(p, 0, n) + 0.3 * delay(fft_filter(p, "lp", 3000, 0.7), 0.1, n)
+    return y + 0.08 * delay(fft_filter(p, "lp", 2000, 0.7), 0.2, n)
+
+@sfx("sfx_pickup_ammo", peak=-3.0)
+def _(rng):
+    # two magazine clinks
+    n = secs(0.35)
+    a = metal(secs(0.2), 2300, [1, 1.41, 1.98, 2.72, 3.5], [0.06, 0.05, 0.04, 0.03, 0.02], rng, click=0.6)
+    b = metal(secs(0.25), 1750, [1, 1.47, 2.1, 2.9, 3.8], [0.09, 0.07, 0.05, 0.04, 0.03], rng, click=0.5)
+    return delay(a, 0, n) + 0.9 * delay(b, 0.075, n) + 0.4 * thump(n, 200, 90, 0.02, click=0.2, rng=rng)
+
+@sfx("sfx_pickup_med", peak=-4.0)
+def _(rng):
+    # soft two-note chime, low-passed so it stays gentle
+    n = secs(0.5)
+    a = chime(secs(0.4), 880, 0.14, rng, 0.5)
+    b = chime(secs(0.4), 1174.7, 0.18, rng, 0.5)
+    return fft_filter(delay(a, 0, n) + 0.9 * delay(b, 0.12, n), "lp", 4000, 0.7)
+
+@sfx("sfx_potion", peak=-4.0)
+def _(rng):
+    # medkit used: a soft three-note chime
+    n = secs(0.6)
+    y = np.zeros(n)
+    for i, (f, at) in enumerate([(659.3, 0.0), (880.0, 0.1), (1174.7, 0.2)]):
+        y += (0.8 + 0.1 * i) * delay(chime(secs(0.4), f, 0.16, rng, 0.45), at, n)
+    return fft_filter(y, "lp", 4500, 0.7)
+
+@sfx("sfx_shield_on", rev=dict(rt60=0.6, wet=0.18, damp=6000))
+def _(rng):
+    # energy field spinning up: a rising hum that locks in with a shimmer
+    n = secs(0.65)
+    t = tline(n)
+    f = glide(70, 240, n)
+    src = saw(f, n) + 0.6 * square(f * 0.5, n) + 0.4 * sine(f * 2, n)
+    y = svf(src, glide(300, 3200, n), 2.2, "lp") * adsr(n, 0.05, 0.15, 0.7, 0.15, 0.5)
+    shim = svf(noise(n, rng), glide(1500, 7000, n), 4.0, "bp") * env_ad(n, 0.25, 0.15)
+    return np.tanh(1.5 * y) + 0.5 * shim + 0.25 * sine(f * 4, n) * env_ad(n, 0.3, 0.15)
+
+@sfx("sfx_shield_hit")
+def _(rng):
+    # energy impact: a thud with an electric crackle
+    n = secs(0.35)
+    y = 1.1 * thump(n, 180, 60, 0.05, click=0.4, rng=rng)
+    gate = np.clip(slow_noise(n, 300, rng) * 2.5 - 0.8, 0, 1)
+    crk = fft_filter(noise(n, rng), "bp", 3600, 1.2) * gate * env_exp(n, 0.09)
+    buzz = fft_filter(square(95 * (1 + 0.2 * slow_noise(n, 50, rng)), n), "bp", 1400, 1.5) * env_exp(n, 0.06)
+    return y + 1.5 * crk + 0.5 * buzz
+
+# ---- ship systems -----------------------------------------------------------
+
+@sfx("sfx_alarm", peak=-6.0)
+def _(rng):
+    # 1.5 s loop: two-tone klaxon, each tone swooping up into place
+    n = secs(1.5)
+    half = n // 2
+    y = np.zeros(n)
+    for i, f in enumerate([520, 390]):
+        m = half
+        fr = glide(f * 0.85, f, m) * (1 + 0.004 * np.sin(TAU * 6 * tline(m)))
+        tone = saw(fr, m) + 0.6 * square(fr * 0.5, m) + 0.3 * sine(fr * 2, m)
+        tone = fft_filter(tone, "bp", 900, 0.8) + 0.5 * fft_filter(tone, "lp", 600, 1.0)
+        tone = np.tanh(2.0 * tone) * adsr(m, 0.02, 0.1, 0.9, 0.04, m / SR - 0.05)
+        y[i * half : i * half + m] += tone
+    return y
+
+@sfx("sfx_fire", peak=-12.0)
+def _(rng):
+    # 2 s loop: burning bed with crackle and a thin hiss (all filters wrap)
+    n = secs(2.0)
+    roar = fft_filter(noise(n, rng), "lp", 380, 0.7, order=2, circular=True)
+    roar *= 0.55 + 0.45 * slow_noise(n, 4, rng, circular=True)
+    pops = noise(n, rng) * (rng.uniform(0, 1, n) > 0.9991) * rng.uniform(0.2, 1, n)
+    pops = fft_filter(pops, "bp", 2600, 1.2, circular=True) * 4
+    pops = convolve(pops, env_exp(secs(0.02), 0.004), circular=True)
+    hiss = fft_filter(noise(n, rng), "hp", 3800, 0.7, circular=True) * (0.5 + 0.5 * slow_noise(n, 10, rng, circular=True))
+    return 6 * roar + 0.6 * pops + 0.12 * hiss
+
+@sfx("sfx_power_down", rev=dict(rt60=0.8, wet=0.2, damp=3000))
+def _(rng):
+    # systems dying: a long descending whine, the mains hum sagging out, a relay clunk
+    n = secs(1.2)
+    t = tline(n)
+    f = glide(1900, 55, n)
+    whine = (0.6 * saw(f, n) + 0.5 * sine(f, n)) * np.exp(-t / 0.7)
+    whine = svf(whine, glide(5000, 200, n), 1.2, "lp")
+    hum = (sine(120, n) + 0.4 * square(60, n)) * np.exp(-t / 0.35) * (1 + 0.1 * np.sin(TAU * 7 * t))
+    hum = fft_filter(hum, "lp", 400, 0.8)
+    clunk = thump(secs(0.2), 160, 50, 0.05, click=0.5, rng=rng) + 0.5 * click(secs(0.2), 500, rng, 0.05, 0.6)
+    return 1.3 * whine + 0.8 * hum + 1.2 * delay(clunk, 0.95, n)
+
+@sfx("sfx_power_up", rev=dict(rt60=0.6, wet=0.15, damp=3500))
+def _(rng):
+    # rising whine, a breaker thunk, the hum settles in
+    n = secs(1.1)
+    t = tline(n)
+    m = secs(0.85)
+    f = glide(50, 1600, m)
+    whine = (0.6 * saw(f, m) + 0.5 * sine(f, m)) * adsr(m, 0.05, 0.1, 0.9, 0.04, 0.8)
+    whine = svf(whine, glide(200, 4500, m), 1.4, "lp")
+    thunk = 1.4 * thump(secs(0.25), 140, 45, 0.06, click=0.6, rng=rng) + 0.7 * click(secs(0.25), 420, rng, 0.06, 0.7)
+    hum = fft_filter(sine(120, n) + 0.4 * square(60, n), "lp", 400, 0.8) * np.clip((t - 0.85) / 0.05, 0, 1)
+    return delay(whine, 0, n) + delay(thunk, 0.85, n) + 0.5 * hum
+
+@sfx("sfx_vent_clang", rev=dict(rt60=1.3, wet=0.3, damp=3500))
+def _(rng):
+    # a grille slamming down on deck plate, ringing afterward
+    n = secs(0.9)
+    y = 1.3 * thump(secs(0.3), 130, 45, 0.07, click=0.6, rng=rng)
+    y = delay(y, 0, n)
+    y += metal(n, 310, [1, 1.38, 1.92, 2.47, 3.3, 4.6, 5.9], [0.5, 0.42, 0.33, 0.25, 0.18, 0.11, 0.07], rng, detune=0.02, click=0.7)
+    y += 0.5 * delay(metal(secs(0.3), 620, [1, 1.5, 2.2, 3.1], [0.08, 0.06, 0.04, 0.03], rng, click=0.5), 0.06, n)
+    return y
+
+@sfx("sfx_door", rev=dict(rt60=1.0, wet=0.25, damp=3000))
+def _(rng):
+    # pneumatic bulkhead door: air release, servo slide, then it seats with a thunk
+    n = secs(0.6)
+    m = secs(0.42)
+    hiss = svf(noise(m, rng), glide(3500, 1500, m), 1.2, "bp") * env_ad(m, 0.015, 0.14)
+    servo = fft_filter(saw(glide(190, 230, m), m) + 0.5 * square(glide(95, 115, m), m), "lp", 700, 1.2) * adsr(m, 0.03, 0.1, 0.8, 0.05, 0.36)
+    k = secs(0.25)
+    thunk = 1.3 * thump(k, 150, 50, 0.05, click=0.5, rng=rng) + 0.7 * metal(k, 480, [1, 1.45, 2.1, 2.9], [0.12, 0.09, 0.06, 0.04], rng, click=0.5)
+    return delay(1.2 * hiss, 0, n) + 0.45 * delay(servo, 0.02, n) + delay(thunk, 0.42, n)
+
+# ---- marine ----------------------------------------------------------------
+
+def step(name, base, fc):
+    @sfx(name, peak=-12.0)
+    def _(rng):
+        # boot on deck plate: a dull thump with a short low metallic ring
+        n = secs(0.16)
+        y = fft_filter(noise(n, rng), "lp", fc, 0.8) * env_ad(n, 0.003, 0.025)
+        y += 0.25 * fft_filter(noise(n, rng), "bp", 2600, 2.0) * env_exp(n, 0.006)
+        y += 0.9 * thump(n, 85, 45, 0.03, click=0.0)
+        return y + 0.35 * metal(n, base, [1, 1.6, 2.3, 3.4], [0.09, 0.06, 0.04, 0.03], rng, click=0.0)
+
+step("sfx_step1", 165, 750)
+step("sfx_step2", 190, 950)
+
+@sfx("sfx_jump")
+def _(rng):
+    n = secs(0.2)
+    g = growl(secs(0.09), 170, 130, [(500, 1.0), (1200, 0.5)], rng, drive=1.5, breath=0.3) * env_ad(secs(0.09), 0.01, 0.03)
+    return mix(0.6 * g, whoosh(n, 400, 1800, 1200, rng, q=1.5, attack=0.04, decay=0.07))
+
+@sfx("sfx_land")
+def _(rng):
+    # landing on deck plate: thud plus a low metal ring
+    n = secs(0.22)
+    y = thump(n, 95, 40, 0.05, click=0.0)
+    y += 0.7 * fft_filter(noise(n, rng), "lp", 650, 0.7) * env_exp(n, 0.03)
+    return y + 0.4 * metal(n, 140, [1, 1.55, 2.2, 3.3], [0.12, 0.09, 0.06, 0.04], rng, click=0.2)
+
+@sfx("sfx_dodge")
+def _(rng):
+    n = secs(0.25)
+    return whoosh(n, 900, 350, 1500, rng, q=1.2, attack=0.02, decay=0.1) + 0.4 * whoosh(n, 200, 600, 250, rng, q=1.5, attack=0.05, decay=0.08)
+
+@sfx("sfx_player_hurt")
+def _(rng):
+    n = secs(0.35)
+    y = growl(n, 150, 95, [(480, 1.0), (1100, 0.7), (2400, 0.35)], rng, drive=3.0, sub=0.15)
+    return y * env_ad(n, 0.012, 0.09)
+
+@sfx("sfx_player_death", rev=dict(rt60=1.2, wet=0.3))
+def _(rng):
+    # a long failing grunt, then the body hits the deck
+    n = secs(1.3)
+    y = growl(n, 125, 58, [(400, 1.0), (900, 0.8), (2200, 0.4)], rng, drive=3.5, jitter=0.07, rough=22, sub=0.25)
+    y *= env_ad(n, 0.03, 0.4) * (1 - 0.3 * (0.5 + 0.5 * np.sin(TAU * 6 * tline(n))))
+    fall = 1.2 * thump(secs(0.3), 110, 40, 0.07, click=0.5, rng=rng) + 0.4 * metal(secs(0.3), 150, [1, 1.5, 2.3], [0.12, 0.08, 0.05], rng, click=0.0)
+    return y + delay(fall, 0.95, n)
+
+@sfx("sfx_bark", peak=-8.0)
+def _(rng):
+    # radio squelch blip for a speech bubble
+    n = secs(0.12)
+    m = secs(0.045)
+    b = fft_filter(square(1650, m), "bp", 1700, 3.0) * adsr(m, 0.003, 0.01, 0.8, 0.01, 0.035)
+    b += 0.5 * fft_filter(noise(m, rng), "bp", 2800, 2.0) * env_exp(m, 0.01)
+    return delay(b, 0, n) + 0.8 * delay(b, 0.06, n)
+
+# ---- impacts -----------------------------------------------------------------
 
 def hit_flesh(name, f0, f1):
     @sfx(name)
@@ -330,146 +678,77 @@ def hit_flesh(name, f0, f1):
 hit_flesh("sfx_hit_flesh1", 130, 42)
 hit_flesh("sfx_hit_flesh2", 160, 55)
 
-def hit_metal(name, base):
+def hit_metal(name, base, f0, f1):
     @sfx(name, rev=dict(rt60=0.5, wet=0.15))
     def _(rng):
+        # ricochet: a metal ping with a descending whine behind it
         n = secs(0.4)
-        y = metal(n, base, [1, 1.47, 2.09, 2.56, 3.18, 4.1], [0.18, 0.14, 0.12, 0.09, 0.07, 0.05], rng)
-        y += 0.5 * thump(n, 160, 60, 0.03, click=0.4, rng=rng)
-        return y
+        y = metal(n, base, [1, 1.47, 2.09, 2.56, 3.18, 4.1], [0.14, 0.11, 0.09, 0.07, 0.05, 0.04], rng)
+        y += 0.5 * thump(n, 180, 60, 0.025, click=0.5, rng=rng)
+        wh = sine(glide(f0, f1, n), n) * env_ad(n, 0.004, 0.08)
+        return y + 0.45 * wh + 0.2 * sine(glide(f0 * 2.01, f1 * 2.01, n), n) * env_ad(n, 0.004, 0.05)
 
-hit_metal("sfx_hit_metal1", 880)
-hit_metal("sfx_hit_metal2", 1060)
+hit_metal("sfx_hit_metal1", 880, 3300, 900)
+hit_metal("sfx_hit_metal2", 1060, 2800, 1100)
 
-@sfx("sfx_block", rev=dict(rt60=0.4, wet=0.12))
+@sfx("sfx_wall_hit")
 def _(rng):
-    n = secs(0.3)
-    y = metal(n, 520, [1, 1.35, 1.92, 2.7, 3.6], [0.12, 0.1, 0.08, 0.05, 0.04], rng)
-    return y + 0.8 * thump(n, 200, 70, 0.04, click=0.5, rng=rng)
+    # a round into bulkhead: dull plate thud, a spark, a short dead ring
+    n = secs(0.25)
+    y = 1.1 * thump(n, 170, 60, 0.04, click=0.6, rng=rng)
+    spark = fft_filter(noise(n, rng), "hp", 5000, 0.7) * env_exp(n, 0.008)
+    ring = metal(n, 720, [1, 1.5, 2.3, 3.2], [0.05, 0.04, 0.03, 0.02], rng, click=0.0)
+    return y + 0.6 * spark + 0.5 * ring + 0.5 * fft_filter(noise(n, rng), "bp", 1800, 0.8) * env_exp(n, 0.02)
 
-@sfx("sfx_player_hurt")
+@sfx("sfx_explosion", rev=dict(rt60=1.6, wet=0.3, damp=2200))
 def _(rng):
-    n = secs(0.35)
-    y = growl(n, 150, 95, [(480, 1.0), (1100, 0.7), (2400, 0.35)], rng, drive=3.0, sub=0.15)
-    return y * env_ad(n, 0.012, 0.09)
-
-@sfx("sfx_player_death", rev=dict(rt60=1.2, wet=0.3))
-def _(rng):
+    # barrel: a sharp crack, a deep boom, a sweeping blast and scattered debris
     n = secs(1.2)
-    y = growl(n, 125, 58, [(400, 1.0), (900, 0.8), (2200, 0.4)], rng, drive=3.5, jitter=0.07, rough=22, sub=0.25)
-    return y * env_ad(n, 0.03, 0.45) * (1 - 0.3 * (0.5 + 0.5 * np.sin(TAU * 6 * tline(n))))
-
-@sfx("sfx_enemy_hurt")
-def _(rng):
-    n = secs(0.3)
-    y = growl(n, 190, 125, [(450, 1.0), (1000, 0.7), (2500, 0.4)], rng, drive=1.6, jitter=0.03, rough=0, breath=0.35)
-    return y * env_ad(n, 0.015, 0.08)
-
-@sfx("sfx_enemy_death", rev=dict(rt60=0.6, wet=0.2))
-def _(rng):
-    n = secs(0.8)
-    body = delay(1.3 * thump(secs(0.3), 90, 38, 0.1, click=0.5, rng=rng), 0.02, n)
-    y = body
-    for i in range(7):
-        at = 0.08 + i * 0.08 + rng.uniform(0, 0.03)
-        m = secs(0.22)
-        clank = metal(m, rng.uniform(600, 1400), [1, 1.5, 2.3, 3.1], [0.07, 0.05, 0.04, 0.03], rng, click=0.3)
-        y = y + delay(clank * (0.9 - 0.1 * i), at, n)
-    return y
-
-@sfx("sfx_skeleton_rattle")
-def _(rng):
-    n = secs(0.5)
-    y = np.zeros(n)
-    t0 = 0.0
-    while t0 < 0.46:
-        m = secs(0.05)
-        f = rng.uniform(1200, 3200)
-        c = fft_filter(noise(m, rng), "bp", f, 3.0) * env_exp(m, 0.006)
-        c += 0.5 * sine(rng.uniform(500, 900), m) * env_exp(m, 0.008)
-        y += delay(c * rng.uniform(0.5, 1.0), t0, n)
-        t0 += rng.uniform(0.018, 0.055)
-    return y + 0.35 * fft_filter(y, "bp", 260, 4.0)
-
-@sfx("sfx_bat")
-def _(rng):
-    n = secs(0.4)
     t = tline(n)
-    f = glide(4200, 2600, n) * (1 + 0.12 * np.sin(TAU * 34 * t)) * (1 + 0.03 * slow_noise(n, 60, rng))
-    scr = np.sin(TAU * np.cumsum(f) / SR + 2.0 * np.sin(TAU * f * 1.5 * t))
-    scr *= (0.55 + 0.45 * np.sin(TAU * 13 * t)) * env_ad(n, 0.02, 0.12)
-    flap = fft_filter(noise(n, rng), "lp", 500, 0.8) * (0.5 + 0.5 * np.sin(TAU * 16 * t)) ** 3 * env_ad(n, 0.01, 0.2)
-    return scr + 1.5 * flap
+    boom = 1.6 * thump(n, 75, 24, 0.3, click=0.0)
+    blast = svf(noise(n, rng), glide(3500, 150, n), 0.9, "lp") * env_ad(n, 0.01, 0.3)
+    crk = crack(n, rng, fc=2500, q=0.6, tau=0.02, snap=0.8)
+    y = softclip(boom + 2.2 * blast + 0.9 * crk, 2.2)
+    for k in range(10):
+        at = 0.15 + k * 0.07 + rng.uniform(0, 0.04)
+        m = secs(0.2)
+        d = metal(m, rng.uniform(500, 1600), [1, 1.5, 2.3, 3.1], [0.06, 0.05, 0.04, 0.03], rng, click=0.3)
+        y += delay((0.5 - k * 0.035) * d, at, n)
+    rumble = fft_filter(noise(n, rng), "lp", 150, 0.7) * adsr(n, 0.03, 0.3, 0.4, 0.4, 0.6)
+    return y + 1.6 * rumble
 
-@sfx("sfx_jump")
+@sfx("sfx_crit", peak=-4.0)
+def _(rng):
+    # short bright tick
+    n = secs(0.09)
+    y = fft_filter(noise(n, rng), "hp", 6000, 0.7) * env_exp(n, 0.004)
+    return y + 0.8 * beep(n, 3500, 0.012, 0.2) + 0.4 * beep(n, 5250, 0.008, 0.0)
+
+@sfx("sfx_kill", peak=-2.0)
+def _(rng):
+    # confirmed kill: a low thud with a tiny chime riding on it
+    n = secs(0.4)
+    y = 1.2 * thump(n, 95, 36, 0.08, click=0.3, rng=rng)
+    return y + 0.35 * delay(chime(secs(0.3), 1567.98, 0.1, rng, 0.6), 0.04, n)
+
+# ---- UI ----------------------------------------------------------------------
+
+@sfx("sfx_ui_move", peak=-7.0)
+def _(rng):
+    n = secs(0.08)
+    return beep(n, 1800, 0.015, 0.25) + 0.3 * fft_filter(noise(n, rng), "bp", 3000, 4.0) * env_exp(n, 0.006)
+
+@sfx("sfx_ui_confirm", peak=-5.0)
+def _(rng):
+    n = secs(0.22)
+    return delay(beep(secs(0.1), 1200, 0.03, 0.25), 0, n) + delay(beep(secs(0.15), 1800, 0.045, 0.25), 0.07, n)
+
+@sfx("sfx_ui_back", peak=-6.0)
 def _(rng):
     n = secs(0.2)
-    g = growl(secs(0.09), 170, 130, [(500, 1.0), (1200, 0.5)], rng, drive=1.5, breath=0.3) * env_ad(secs(0.09), 0.01, 0.03)
-    return mix(0.6 * g, whoosh(n, 400, 1800, 1200, rng, q=1.5, attack=0.04, decay=0.07))
+    return delay(beep(secs(0.1), 1500, 0.03, 0.25), 0, n) + delay(beep(secs(0.14), 1000, 0.04, 0.25), 0.06, n)
 
-@sfx("sfx_land")
-def _(rng):
-    n = secs(0.15)
-    y = thump(n, 95, 40, 0.05, click=0.0)
-    return y + 0.7 * fft_filter(noise(n, rng), "lp", 650, 0.7) * env_exp(n, 0.03)
-
-@sfx("sfx_dodge")
-def _(rng):
-    n = secs(0.25)
-    return whoosh(n, 900, 350, 1500, rng, q=1.2, attack=0.02, decay=0.1) + 0.4 * whoosh(n, 200, 600, 250, rng, q=1.5, attack=0.05, decay=0.08)
-
-def footstep(name, fc):
-    @sfx(name, peak=-12.0)
-    def _(rng):
-        n = secs(0.12)
-        y = fft_filter(noise(n, rng), "lp", fc, 0.8) * env_ad(n, 0.004, 0.028)
-        y += 0.3 * fft_filter(noise(n, rng), "bp", 3000, 2.0) * env_exp(n, 0.008)
-        return y + 0.8 * thump(n, 75, 45, 0.03, click=0.0)
-
-footstep("sfx_footstep1", 800)
-footstep("sfx_footstep2", 1000)
-
-@sfx("sfx_coin")
-def _(rng):
-    n = secs(0.4)
-    a = chime(n, 2093, 0.12, rng, 0.6) + 0.5 * chime(n, 2093 * 1.005, 0.12, rng, 0.6)
-    b = chime(secs(0.33), 2637, 0.14, rng, 0.6)
-    return a + delay(b, 0.07, n) + 0.3 * fft_filter(noise(n, rng), "hp", 4000) * env_exp(n, 0.004)
-
-@sfx("sfx_gem", rev=dict(rt60=0.9, wet=0.3, damp=9000))
-def _(rng):
-    n = secs(0.6)
-    y = np.zeros(n)
-    for i, f in enumerate([1046.5, 1318.5, 1568.0, 2093.0, 2637.0]):
-        y += delay(chime(secs(0.4), f, 0.18, rng, 1.2) * (0.9 - 0.1 * i), i * 0.045, n)
-    shimmer = fft_filter(noise(n, rng), "bp", 7000, 3.0) * (0.5 + 0.5 * np.sin(TAU * 40 * tline(n))) * env_ad(n, 0.05, 0.15)
-    return y + 0.5 * shimmer
-
-@sfx("sfx_potion")
-def _(rng):
-    n = secs(0.6)
-    y = np.zeros(n)
-    for i, at in enumerate([0.0, 0.11, 0.21]):
-        m = secs(0.09)
-        g = sine(glide(520 - 60 * i, 180, m), m) * env_ad(m, 0.004, 0.03)
-        g = fft_filter(g, "lp", 1200, 1.5) + 0.3 * fft_filter(noise(m, rng), "lp", 700) * env_exp(m, 0.01)
-        y += delay(g, at, n)
-    for i, f in enumerate([1760, 2217, 2637, 3520]):
-        y += 0.5 * delay(chime(secs(0.25), f, 0.09, rng, 0.8), 0.32 + 0.05 * i, n)
-    return y
-
-@sfx("sfx_levelup", rev=dict(rt60=1.4, wet=0.35, damp=7000))
-def _(rng):
-    n = secs(1.5)
-    y = np.zeros(n)
-    notes = [261.6, 329.6, 392.0, 523.3, 659.3, 784.0, 1046.5]
-    for i, f in enumerate(notes):
-        y += delay(0.8 * chime(secs(0.9), f, 0.35, rng, 1.0), i * 0.07, n)
-        m = secs(1.2 - i * 0.07)
-        pad = (saw(f, m) + saw(f * 1.004, m) + saw(f * 0.996, m)) / 3
-        y += 0.12 * delay(fft_filter(pad, "lp", 1800, 0.8, order=2) * adsr(m, 0.1, 0.2, 0.8, 0.4, 0.7), i * 0.07, n)
-    sh = svf(noise(n, rng), glide(1500, 9000, n), 2.5, "bp") * env_ad(n, 0.3, 0.4)
-    return y + 0.35 * sh
+# ---- stings -------------------------------------------------------------------
 
 @sfx("sfx_loot", rev=dict(rt60=0.6, wet=0.2))
 def _(rng):
@@ -477,134 +756,54 @@ def _(rng):
     y = 1.1 * thump(n, 110, 48, 0.07, click=0.4, rng=rng)
     return y + 0.8 * delay(chime(secs(0.4), 1567.98, 0.16, rng, 1.0) + 0.5 * chime(secs(0.4), 2349.3, 0.12, rng, 0.8), 0.03, n)
 
-@sfx("sfx_chest")
+@sfx("sfx_medkit", peak=-3.0)
 def _(rng):
-    n = secs(0.7)
-    m = secs(0.5)
-    t = tline(m)
-    f = 110 * (1 + 0.25 * slow_noise(m, 6, rng)) * (1 + 0.02 * slow_noise(m, 90, rng))
-    stick = np.clip(slow_noise(m, 70, rng) * 2.5, 0, 1)  # stick-slip gating
-    creak = saw(f, m) * stick
-    creak = fft_filter(creak, "bp", 900, 2.0) + 0.5 * fft_filter(creak, "bp", 2200, 3.0)
-    creak = np.tanh(2 * creak) * env_ad(m, 0.05, 0.25)
-    k = secs(0.15)
-    click = metal(k, 1700, [1, 1.6, 2.4], [0.03, 0.02, 0.015], rng, click=0.8) + 0.6 * thump(k, 240, 90, 0.02)
-    return delay(normalize(creak, -2.0), 0, n) + delay(normalize(click, -1.0), 0.53, n)
+    # auto-injector: a sharp hiss, then the unit's double beep
+    n = secs(0.55)
+    m = secs(0.25)
+    hiss = svf(noise(m, rng), glide(5000, 2500, m), 1.5, "bp") * env_ad(m, 0.006, 0.08)
+    y = delay(1.3 * hiss, 0, n) + 0.5 * delay(click(secs(0.06), 2400, rng, 0.01, 1.0), 0, n)
+    return y + 0.5 * delay(beep(secs(0.08), 2200, 0.03, 0.2), 0.3, n) + 0.5 * delay(beep(secs(0.1), 2200, 0.035, 0.2), 0.4, n)
 
-@sfx("sfx_checkpoint", rev=dict(rt60=2.2, wet=0.45, damp=4000))
+@sfx("sfx_room_clear", rev=dict(rt60=1.8, wet=0.35, damp=4500))
 def _(rng):
-    n = secs(2.0)
-    y = bell(n, 146.8, [0.5, 1.0, 1.19, 1.5, 2.0, 2.51, 2.66, 3.01, 4.2], [1.4, 1.2, 0.9, 0.8, 0.7, 0.5, 0.45, 0.35, 0.2], rng, 0.85)
-    strike = fft_filter(noise(n, rng), "bp", 2500, 1.5) * env_exp(n, 0.01)
-    return y * np.minimum(tline(n) / 0.004, 1) + 0.4 * strike
-
-@sfx("sfx_gate", rev=dict(rt60=1.0, wet=0.25))
-def _(rng):
-    n = secs(1.5)
-    t = tline(n)
-    f = 48 * (1 + 0.15 * slow_noise(n, 3, rng)) * (1 + 0.01 * slow_noise(n, 80, rng))
-    groan = np.tanh(2.0 * fft_filter(saw(f, n) + 0.5 * square(f * 0.5, n), "lp", 400, 1.5))
-    grind = fft_filter(noise(n, rng), "bp", 350, 1.2) * np.clip(slow_noise(n, 40, rng) * 1.5 + 0.4, 0, 1)
-    sq = sine(1400 * (1 + 0.2 * slow_noise(n, 4, rng)), n) * np.clip(slow_noise(n, 9, rng) * 1.3, 0, 1) ** 2
-    y = (groan + 0.8 * grind + 0.25 * sq) * adsr(n, 0.15, 0.3, 0.8, 0.25, 1.15)
-    clank = metal(secs(0.35), 420, [1, 1.4, 2.1, 2.9], [0.2, 0.15, 0.1, 0.06], rng) + thump(secs(0.35), 120, 45, 0.08, click=0.5, rng=rng)
-    return y + 1.2 * delay(clank, 1.18, n)
-
-@sfx("sfx_door", rev=dict(rt60=1.2, wet=0.3, damp=3000))
-def _(rng):
-    # a portcullis hauled up: chain rattle over a stone grind, a clank at the end
-    n = secs(0.7)
-    t = tline(n)
-    grind = fft_filter(noise(n, rng), "bp", 420, 1.0) * (0.5 + 0.5 * slow_noise(n, 30, rng)) * adsr(n, 0.05, 0.2, 0.6, 0.15, 0.5)
-    rattle = np.zeros(n)
-    for k in range(14):
-        at = int((0.04 + k * 0.038 + rng.uniform(0, 0.01)) * SR)
-        m = secs(0.06)
-        if at + m < n:
-            rattle[at:at + m] += 0.5 * metal(m, 1800 + rng.uniform(-300, 300), [1.0, 1.9, 2.7], [0.03, 0.02, 0.015], rng)
-    clank = delay(0.8 * metal(secs(0.3), 380, [1.0, 1.6, 2.4, 3.3], [0.14, 0.1, 0.07, 0.05], rng), 0.55, n)
-    return grind * 0.9 + rattle + clank
-
-@sfx("sfx_wall_hit")
-def _(rng):
-    # a blow landing on masonry: dull stone thud with a short gravel scatter
-    n = secs(0.3)
-    y = 1.1 * thump(n, 150, 55, 0.06, click=0.5, rng=rng)
-    gravel = fft_filter(noise(n, rng), "bp", 2200, 0.8) * env_exp(n, 0.05) * (0.4 + 0.6 * slow_noise(n, 400, rng) ** 2)
-    return y + 0.7 * gravel
-
-@sfx("sfx_wall_break", rev=dict(rt60=1.4, wet=0.3, damp=2500))
-def _(rng):
-    # the wall gives way: a deep crack, then a cascade of falling stone
-    n = secs(1.1)
-    crack = 1.2 * thump(secs(0.25), 90, 35, 0.08, click=0.8, rng=rng)
-    y = np.zeros(n); y[:len(crack)] += crack
-    for k in range(18):
-        at = int((0.08 + k * 0.045 + rng.uniform(0, 0.03)) * SR)
-        m = secs(0.12)
-        if at + m < n:
-            y[at:at + m] += (0.9 - k * 0.035) * thump(m, 220 + rng.uniform(-80, 120), 70, 0.03, click=0.6, rng=rng)
-    rumble = fft_filter(noise(n, rng), "lp", 180, 0.7) * adsr(n, 0.02, 0.3, 0.4, 0.5, 0.5) * 1.6
-    dust = fft_filter(noise(n, rng), "bp", 1600, 0.6) * adsr(n, 0.1, 0.4, 0.3, 0.4, 0.6) * 0.5
-    return y + rumble + dust
-
-@sfx("sfx_room_clear", rev=dict(rt60=2.0, wet=0.4, damp=5000))
-def _(rng):
-    # a short rising brass-like sting: the doors unbar
-    n = secs(1.4)
-    t = tline(n)
+    # short rising synth sting: the section is secure
+    n = secs(1.3)
     y = np.zeros(n)
-    for i, (f, at, d) in enumerate([(196.0, 0.0, 0.5), (261.6, 0.18, 0.5), (392.0, 0.36, 0.9)]):
+    for i, (f, at, d) in enumerate([(146.8, 0.0, 0.5), (220.0, 0.16, 0.5), (293.7, 0.32, 0.8)]):
         a = int(at * SR); m = n - a
-        tone = (saw(f, m) * 0.5 + saw(f * 1.005, m) * 0.5) * adsr(m, 0.02, 0.1, 0.7, 0.35, d)
-        y[a:] += fft_filter(tone, "lp", 1800 + i * 600, 0.8) * (0.5 + 0.2 * i)
-    shimmer = chime(n, 1568, 0.5, rng, mod=0.8) * 0.25
-    return y * 0.6 + shimmer
+        tone = (saw(f, m) * 0.5 + saw(f * 1.004, m) * 0.5 + 0.4 * square(f * 0.5, m)) * adsr(m, 0.02, 0.1, 0.7, 0.3, d)
+        y[a:] += fft_filter(tone, "lp", 1400 + i * 500, 0.9) * (0.5 + 0.2 * i)
+    return y * 0.6 + 0.25 * chime(n, 1174.7, 0.45, rng, mod=0.7)
 
-@sfx("sfx_ui_move", peak=-6.0)
+@sfx("sfx_levelup", rev=dict(rt60=1.6, wet=0.35, damp=5000))
 def _(rng):
-    n = secs(0.1)
-    return fft_filter(noise(n, rng), "bp", 1800, 4.0) * env_exp(n, 0.012) + 0.6 * sine(1300, n) * env_exp(n, 0.02)
+    # objective complete: a four-note rise over a cold pad, with a shimmer sweep
+    n = secs(1.4)
+    y = np.zeros(n)
+    notes = [293.7, 349.2, 440.0, 587.3]
+    for i, f in enumerate(notes):
+        y += delay(0.7 * chime(secs(0.8), f * 2, 0.3, rng, 0.8), i * 0.1, n)
+        m = secs(1.2 - i * 0.1)
+        pad = (saw(f, m) + saw(f * 1.004, m) + 0.5 * square(f * 0.5, m)) / 3
+        y += 0.14 * delay(fft_filter(pad, "lp", 1500, 0.9, order=2) * adsr(m, 0.08, 0.2, 0.8, 0.35, 0.6), i * 0.1, n)
+    sh = svf(noise(n, rng), glide(1200, 8000, n), 2.5, "bp") * env_ad(n, 0.3, 0.35)
+    return y + 0.3 * sh
 
-@sfx("sfx_ui_confirm", peak=-5.0)
+@sfx("sfx_survivor_rescued", rev=dict(rt60=2.0, wet=0.35, damp=4000))
 def _(rng):
-    n = secs(0.2)
-    return chime(n, 880, 0.08, rng, 0.5) + delay(chime(secs(0.15), 1318.5, 0.09, rng, 0.5), 0.06, n)
-
-@sfx("sfx_ui_back", peak=-6.0)
-def _(rng):
-    n = secs(0.18)
-    return chime(n, 1046.5, 0.06, rng, 0.4) + delay(chime(secs(0.13), 698.5, 0.08, rng, 0.4), 0.05, n)
-
-@sfx("sfx_boss_roar", rev=dict(rt60=1.8, wet=0.35, damp=2500))
-def _(rng):
-    n = secs(1.5)
-    t = tline(n)
-    y = growl(n, 62, 36, [(260, 1.0), (640, 0.9), (1500, 0.5), (3000, 0.2)], rng, drive=5.0, jitter=0.06, rough=19, breath=0.3, sub=0.5)
-    y *= env_ad(n, 0.08, 0.6) * (1 - 0.25 * (0.5 + 0.5 * np.sin(TAU * 7 * t)))
-    return y + 0.4 * fft_filter(noise(n, rng), "lp", 300, 0.8) * env_ad(n, 0.1, 0.5)
-
-@sfx("sfx_thunder")
-def _(rng):
-    n = secs(2.5)
-    t = tline(n)
-    crack = fft_filter(noise(n, rng), "lp", 1800, 0.8) * env_exp(n, 0.06)
-    cut = 90 + 220 * np.clip(slow_noise(n, 1.5, rng) + 0.6, 0, 1.5)
-    rumble = svf(noise(n, rng), cut, 1.0, "lp") * np.clip(slow_noise(n, 2.5, rng) * 0.6 + 0.7, 0, 1.3)
-    rumble *= env_ad(n, 0.2, 1.1)
-    sub = sine(42 * (1 + 0.1 * slow_noise(n, 1, rng)), n) * env_ad(n, 0.3, 0.9)
-    return 0.6 * crack + 4.0 * rumble + 0.5 * sub
-
-@sfx("sfx_torch", peak=-12.0)
-def _(rng):
-    n = secs(2.0)
-    roar = fft_filter(noise(n, rng), "lp", 420, 0.7, order=2, circular=True)
-    roar *= 0.6 + 0.4 * slow_noise(n, 5, rng, circular=True)
-    pops = noise(n, rng) * (rng.uniform(0, 1, n) > 0.9993) * rng.uniform(0.2, 1, n)
-    pops = fft_filter(pops, "bp", 2800, 1.2, circular=True) * 4
-    pops = convolve(pops, env_exp(secs(0.02), 0.004), circular=True)
-    hiss = fft_filter(noise(n, rng), "hp", 3500, 0.7, circular=True) * (0.5 + 0.5 * slow_noise(n, 12, rng, circular=True))
-    return 6 * roar + 0.5 * pops + 0.15 * hiss
+    # warm two-chord sting: D minor opening into B-flat major, a soft bell on top
+    n = secs(1.8)
+    y = np.zeros(n)
+    for at, notes, d in [(0.0, ["D3", "F3", "A3", "D4"], 0.7), (0.55, ["Bb2", "D3", "F3", "A3", "D4"], 1.1)]:
+        a = int(at * SR); m = n - a
+        for k, nm in enumerate(notes):
+            f = freq(midi(nm))
+            tone = sum(saw(f * 2 ** (c / 1200), m, rng.uniform(0, 1)) for c in (-7, 0, 7)) / 3
+            tone = fft_filter(tone, "lp", 1100, 0.9, order=2) * adsr(m, 0.12, 0.3, 0.8, 0.5, d)
+            y[a:] += tone * (0.3 if k else 0.4)
+    y += 0.25 * delay(chime(secs(1.0), 1174.7, 0.4, rng, 0.6), 0.6, n)
+    return y
 
 # --------------------------------------------------------------------------
 # Music engine: notes, instruments, sequencer
@@ -721,6 +920,11 @@ class Song:
         self.tail = secs(tail)
         self.buf = np.zeros((self.length + self.tail, 2))
 
+    def loop_freq(self, f):
+        """Nearest frequency with a whole number of cycles in the loop, so a
+        full-length drone wraps without a phase step."""
+        return round(f * self.length / SR) * SR / self.length
+
     def add(self, x, beat, gain=1.0, pan=0.0):
         s = secs(beat * self.spb)
         x = stereo(x, pan) * gain
@@ -775,140 +979,124 @@ def music(name):
         return fn
     return deco
 
+def clank(rng, base, dur=1.4, damp=1500.0):
+    """Distant struck metal for the ambient tracks: long inharmonic ring,
+    low-passed so it sits far back in the ship."""
+    n = secs(dur)
+    y = metal(n, base, [1, 1.41, 1.93, 2.48, 3.3, 4.2], [0.55, 0.45, 0.35, 0.25, 0.16, 0.1], rng, detune=0.02, click=0.3)
+    return fft_filter(y, "lp", damp, 0.8) * np.minimum(tline(n) / 0.002, 1)
+
+def drum_industrial(rng):
+    """Snare substitute: a metallic slap with a short noise body."""
+    n = secs(0.25)
+    y = fft_filter(noise(n, rng), "bp", 1400, 0.7) * env_exp(n, 0.05)
+    y += 0.6 * metal(n, 760, [1, 1.5, 2.2, 3.1], [0.05, 0.04, 0.03, 0.02], rng, click=0.5)
+    return y + 0.5 * sine(170 * (1 + 0.4 * env_exp(n, 0.015)), n) * env_exp(n, 0.035)
+
+def wind(n, rng, fc=500.0, rate=0.15, floor=0.3):
+    w = fft_filter(noise(n, rng), "lp", fc, 0.9, order=2, circular=True)
+    return w * np.clip(slow_noise(n, rate, rng, circular=True) + floor, 0, 1) ** 2
+
 @music("music_title")
 def _():
-    s = Song("music_title", 72, 12)  # 40.0 s
-    prog = [("A2", "m", 8), ("F2", "M", 8), ("D2", "m", 8), ("E2", "M", 8),
-            ("A2", "m", 4), ("G2", "M", 4), ("F2", "M", 4), ("E2", "M", 4)]
+    # slow cold drone, a minor-key pad that slides to a borrowed F minor,
+    # sparse struck metal in a long hall
+    s = Song("music_title", 60, 15)  # 60.0 s
+    s.add(inst_drone(s.loop_freq(freq(midi("A1"))), s.length, s.rng, lo=100, hi=260, lfo=0.03), 0, 0.3)
+    s.add(inst_drone(s.loop_freq(freq(midi("E2"))), s.length, s.rng, lo=90, hi=200, lfo=0.05), 0, 0.08)
+    prog = [("A2", "madd9", 20), ("F2", "m", 20), ("A2", "madd9", 20)]
     b = 0
     for root, q, length in prog:
-        s.notes(inst_pad, [(b, n, length) for n in chord(root, q)], 0.16, cutoff=1100, attack=1.2)
-        s.notes(inst_bass, [(b + k, midi(root) - 12, 1.9) for k in range(0, length, 2)], 0.45)
-        arp_notes = chord(root, q, 2)[:6]
-        arp_notes = [n + 24 for n in arp_notes]
-        s.notes(inst_pluck, arp(arp_notes, [0, 2, 1, 3, 2, 4, 3, 5, 4, 3, 5, 2, 4, 1, 3, 0], b, length * 4), 0.17, pan=0.25, spread=0.1, bright=0.78, decay=2.5)
+        s.notes(inst_pad, [(b, n + 12, length) for n in chord(root, q)], 0.1, cutoff=700, attack=3.5, release=4.0, detune=14, q=0.9)
+        s.notes(inst_bass, [(b + k, midi(root) - 12, 6) for k in range(0, length, 8)], 0.22, cutoff=150, release=2.0)
         b += length
-    melody = [(0, 76, 3), (3.5, 74, 0.5), (4, 72, 2.5), (8, 77, 2), (10, 76, 2), (12, 72, 1.5), (13.5, 71, 2.5),
-              (16, 74, 3), (19.5, 72, 0.5), (20, 69, 3.5), (24, 71, 2), (26, 80, 2), (28, 76, 3.5),
-              (32, 81, 2), (34, 79, 1), (35, 77, 1), (36, 76, 3), (40, 74, 2), (42, 72, 2), (44, 71, 3)]
-    s.notes(inst_lead, melody, 0.17, pan=-0.15)
-    return s.render(dict(rt60=2.4, wet=0.32, damp=4500))
+    for beat in [3.0, 11.5, 22.0, 30.5, 41.0, 51.5, 57.0]:
+        s.add(clank(s.rng, s.rng.uniform(180, 420)), beat, 0.5, s.rng.uniform(-0.6, 0.6))
+    for beat in [7.0, 26.0, 46.0]:
+        s.add(clank(s.rng, s.rng.uniform(900, 1500), 0.9, 2500), beat, 0.14, s.rng.uniform(-0.8, 0.8))
+    s.add(widen(wind(s.length, s.rng, 420, 0.12, 0.25), 25, 0.8), 0, 0.08)
+    s.notes(inst_bell, [(14, "E5", 1), (38, "C5", 1), (54, "Bb4", 1)], 0.05, pan=-0.3)
+    return s.render(dict(rt60=5.0, wet=0.5, damp=2500))
 
-@music("music_moor")
+@music("music_derelict")
 def _():
-    s = Song("music_moor", 64, 16)  # 60.0 s
-    prog = [("D2", "m", 16), ("Bb1", "M", 16), ("G2", "m", 16), ("A2", "M", 16)]
-    s.add(inst_drone(freq(midi("D1")), s.length, s.rng), 0, 0.3)
-    s.add(inst_drone(freq(midi("D1")) * 1.5, s.length, s.rng, lo=120, hi=350, lfo=0.05), 0, 0.12)
+    # ambient exploration: low drone, slow dissonant pads, distant clanks,
+    # a slow double-pulse like a heartbeat, air moving through vents
+    s = Song("music_derelict", 60, 16)  # 64.0 s
+    s.add(inst_drone(s.loop_freq(freq(midi("E1"))), s.length, s.rng, lo=110, hi=300, lfo=0.04), 0, 0.3)
+    prog = [("E2", "sus2", 16), ("Bb1", "dim", 16), ("E2", "m", 16), ("D2", "sus2", 16)]
     b = 0
     for root, q, length in prog:
-        s.notes(inst_pad, [(b, n + 12, length) for n in chord(root, q)], 0.13, cutoff=900, attack=2.5, release=2.5, detune=10)
-        s.notes(inst_bass, [(b + k, midi(root) - 12, 3.5) for k in range(0, length, 4)], 0.3, cutoff=200)
-        pulse = [(b + k, midi(root) + (12 if (k * 2) % 4 == 2 else 0), 0.2) for k in every(0, length, 0.5)]
-        s.notes(inst_pluck, pulse, 0.07, pan=0.2, bright=0.5, decay=6)
+        s.notes(inst_pad, [(b, n + 12, length) for n in chord(root, q)], 0.1, cutoff=750, attack=3.0, release=3.0, detune=16)
+        s.notes(inst_bass, [(b, midi(root) - 12, length - 1)], 0.2, cutoff=150, release=1.5)
+        for k in range(0, length, 4):
+            s.notes(inst_bass, [(b + k, "E1", 0.3), (b + k + 0.55, "E1", 0.25)], 0.26, cutoff=170, release=0.15)
         b += length
-    choir = [(16, "D4", 12), (16, "F4", 12), (16, "Bb4", 12), (48, "C#4", 12), (48, "E4", 12), (48, "A4", 12)]
-    s.notes(inst_choir, choir, 0.16, spread=0.4)
-    s.hits(drum_tom(s.rng, 70), [k * 4 for k in range(16)], 0.5)
-    s.hits(drum_tom(s.rng, 95), [k * 8 + 6.5 for k in range(8)], 0.3, pan=0.3)
-    s.notes(inst_bell, [(14, "A5", 1), (30, "D5", 1), (46, "F5", 1), (62, "E5", 1)], 0.11, pan=-0.3)
-    return s.render(dict(rt60=3.5, wet=0.4, damp=3200))
+    t = 2.0
+    while t < 62:
+        s.add(clank(s.rng, s.rng.uniform(150, 500)), t, s.rng.uniform(0.25, 0.5), s.rng.uniform(-0.7, 0.7))
+        t += float(s.rng.choice([5.0, 6.5, 8.0, 9.5, 11.0]))
+    t = 5.0
+    while t < 60:
+        s.add(clank(s.rng, s.rng.uniform(800, 1600), 0.8, 2200), t, 0.1, s.rng.uniform(-0.9, 0.9))
+        t += float(s.rng.choice([7.0, 9.0, 12.0]))
+    s.add(widen(wind(s.length, s.rng, 600, 0.1, 0.3), 20, 0.8), 0, 0.09)
+    vent = fft_filter(noise(s.length, s.rng), "bp", 2400, 2.5, circular=True)
+    vent *= 0.5 + 0.5 * np.sin(TAU * 0.5 * tline(s.length))
+    s.add(widen(vent, 15, 0.6), 0, 0.02)
+    s.hits(drum_tom(s.rng, 55), [k * 16 + 14 for k in range(4)], 0.3)
+    return s.render(dict(rt60=4.0, wet=0.45, damp=2800))
 
-@music("music_graveyard")
+@music("music_tension")
 def _():
-    s = Song("music_graveyard", 64, 16)  # 60.0 s
-    prog = [("E2", "madd9", 16), ("C2", "M7", 16), ("A2", "madd9", 16), ("B2", "M", 16)]
-    s.add(inst_drone(freq(midi("E1")), s.length, s.rng, lo=110, hi=300, lfo=0.04), 0, 0.28)
+    # pursuit: a driving sixteenth-note bass, industrial percussion, tritone stabs
+    s = Song("music_tension", 138, 32)  # 55.7 s
+    prog = [("D1", 32), ("Eb1", 16), ("D1", 16), ("Ab1", 16), ("D1", 16), ("Bb1", 16), ("D1", 16)]
     b = 0
-    for root, q, length in prog:
-        s.notes(inst_pad, [(b, n + 12, length) for n in chord(root, q)], 0.12, cutoff=800, attack=3.0, release=3.0, detune=16)
-        s.notes(inst_bass, [(b, midi(root) - 12, length - 1)], 0.25, cutoff=160, release=1.5)
+    for root, length in prog:
+        r = midi(root)
+        bass = [(b + k, r + (12 if int(k * 4) % 8 == 6 else 0) + (1 if int(k * 4) % 16 == 15 else 0), 0.2) for k in every(0, length, 0.25)]
+        s.notes(inst_bass, bass, 0.42, cutoff=520, release=0.03)
+        s.notes(inst_pad, [(b, r + 24, length), (b + 0.01, r + 27, length), (b + 0.02, r + 30, length)], 0.08, cutoff=650, attack=0.8, release=1.0, detune=12)
+        if b >= 16:
+            stabs = [0, 1.5, 3, 5.5, 6.5] if b < 64 else [0, 0.75, 1.5, 3, 4.5, 5.5, 6.5, 7.5]
+            for blk in range(0, length, 8):
+                s.notes(inst_brass, [(b + blk + st, r + n, 0.3) for st in stabs for n in (36, 42, 49)], 0.11, spread=0.4)
+        if b >= 64:
+            s.notes(inst_lead, [(b, r + 42, 2.5), (b + 3, r + 43, 1), (b + 4, r + 42, 3.5), (b + 8, r + 48, 3.5), (b + 12, r + 46, 3.5)], 0.08, pan=0.2, cutoff=2200, vib=0.004)
         b += length
-    scale = [midi(n) for n in ("E5", "F5", "G5", "A5", "B5", "C6", "D6", "E6", "G6")]
-    bells = []
-    t = 1.0
-    while t < 63:
-        bells.append((t, scale[s.rng.integers(len(scale))], 1))
-        t += float(s.rng.choice([1.5, 2, 2.5, 3, 4]))
-    s.notes(inst_bell, bells, 0.09, spread=0.7)
-    wind = fft_filter(noise(s.length, s.rng), "lp", 600, 0.9, order=2, circular=True)
-    wind *= np.clip(slow_noise(s.length, 0.15, s.rng, circular=True) + 0.3, 0, 1) ** 2
-    s.add(widen(wind, 20, 0.8), 0, 0.09)
-    s.hits(drum_tom(s.rng, 60), [k * 16 + 12 for k in range(4)], 0.35)
-    return s.render(dict(rt60=5.0, wet=0.5, damp=2800))
-
-@music("music_castle")
-def _():
-    s = Song("music_castle", 100, 24)  # 57.6 s
-    prog = [("C2", "m", 8), ("Ab1", "M", 8), ("F2", "m", 8), ("G2", "M", 8)]
-    for phrase in range(3):
-        b = phrase * 32
-        for root, q, length in prog:
-            s.notes(inst_bass, [(b + k, midi(root) + (0 if (k * 2) % 2 == 0 else 12), 0.4) for k in every(0, length, 0.5)], 0.4, cutoff=380)
-            s.notes(inst_pad, [(b, n + 12, length) for n in chord(root, q)], 0.11, cutoff=1000, attack=0.6, release=1.0)
-            if phrase >= 1:
-                cn = [n + 36 + (12 if phrase == 2 else 0) for n in chord(root, q, 2)[:6]] + [midi(root) + 37 + (12 if phrase == 2 else 0)]
-                s.notes(inst_pluck, arp(cn, [0, 3, 1, 6, 2, 4, 0, 5, 1, 3, 6, 2, 4, 0, 3, 1], b, length * 4), 0.15, pan=0.3, spread=0.1, bright=0.8, decay=3)
-            if phrase == 2:
-                s.notes(inst_brass, [(b, n + 24, 0.5) for n in chord(root, q)] + [(b + 2.5, n + 24, 0.5) for n in chord(root, q)], 0.14, spread=0.3)
-            b += length
-    kick, snare, hat, tom_l, tom_h = drum_kick(s.rng), drum_snare(s.rng), drum_hat(s.rng), drum_tom(s.rng, 80), drum_tom(s.rng, 120)
-    for bar in range(24):
-        b = bar * 4
-        s.hits(kick, [b, b + 1.5, b + 2], 0.75)
-        s.hits(hat, every(b, b + 4, 0.5), 0.1, pan=0.35)
-        if bar >= 8:
-            s.hits(snare, [b + 1, b + 3], 0.5)
-        if bar % 4 == 3:
-            s.hits(tom_h, [b + 3, b + 3.25], 0.5, pan=-0.3)
-            s.hits(tom_l, [b + 3.5, b + 3.75], 0.6, pan=0.3)
-    return s.render(dict(rt60=1.8, wet=0.25, damp=4000))
-
-@music("music_boss")
-def _():
-    s = Song("music_boss", 130, 24)  # 44.3 s
-    prog = [("D2", "m", 8), ("Eb2", "M", 8), ("D2", "m", 8), ("A2", "M", 8)]
-    for phrase in range(3):
-        b = phrase * 32
-        for root, q, length in prog:
-            bass = [(b + k, midi(root) + (12 if int(k * 4) % 4 == 3 else 0), 0.22) for k in every(0, length, 0.25)]
-            s.notes(inst_bass, bass, 0.42, cutoff=450, release=0.03)
-            cn = [n + 36 for n in chord(root, q, 2)[:6]] + [midi(root) + 37]
-            s.notes(inst_pluck, arp(cn, [0, 2, 4, 6, 5, 3, 1, 2, 0, 3, 5, 4, 6, 2, 1, 3], b, length * 4), 0.15, pan=-0.3, spread=0.15, bright=0.85, decay=4)
-            stabs = [0, 1.5, 3, 4.5, 6, 7] if phrase < 2 else [0, 0.75, 1.5, 3, 4.5, 5.25, 6, 7.5]
-            s.notes(inst_brass, [(b + st, n + 24, 0.4) for st in stabs for n in chord(root, q)], 0.13, spread=0.4)
-            if phrase >= 1:
-                s.notes(inst_lead, [(b, midi(root) + 31, 2.5), (b + 3, midi(root) + 34, 1), (b + 4, midi(root) + 36, 3.5)], 0.1, pan=0.2, cutoff=2400)
-            b += length
-    kick, snare, hat, tom_l, tom_h = drum_kick(s.rng, 170, 0.3), drum_snare(s.rng), drum_hat(s.rng, 0.03), drum_tom(s.rng, 85), drum_tom(s.rng, 130)
-    for bar in range(24):
+    kick, snare, hat = drum_kick(s.rng, 160, 0.3), drum_industrial(s.rng), drum_hat(s.rng, 0.03)
+    rim = fft_filter(clank(s.rng, 1900, 0.25, 4000), "hp", 800, 0.7)
+    for bar in range(32):
         b = bar * 4
         s.hits(kick, [b, b + 1, b + 2, b + 2.75, b + 3], 0.8)
-        s.hits(snare, [b + 1, b + 3], 0.55)
-        s.hits(hat, every(b, b + 4, 0.25), 0.08, pan=0.4)
-        if bar % 2 == 1:
-            s.hits(tom_h, [b + 3.5], 0.5, pan=-0.3)
-            s.hits(tom_l, [b + 3.75], 0.6, pan=0.3)
+        s.hits(hat, every(b, b + 4, 0.5), 0.07, pan=0.4)
+        if bar >= 4:
+            s.hits(snare, [b + 1, b + 3], 0.55)
+            s.hits(rim, [b + 0.5, b + 2.5] if bar % 2 == 0 else [b + 1.5, b + 3.75], 0.35, pan=-0.35)
         if bar % 8 == 7:
             s.hits(snare, [b + 2.5, b + 3.25, b + 3.75], 0.4)
-    return s.render(dict(rt60=1.2, wet=0.2, damp=4500), drive=1.6)
+    return s.render(dict(rt60=1.0, wet=0.18, damp=4000), drive=1.6)
 
-@music("music_victory")
+@music("music_extract")
 def _():
-    s = Song("music_victory", 90, 4, loop=False, tail=2.0)  # 10.7 s + 2 s tail
-    prog = [("F2", "M", 2), ("G2", "M", 2), ("C3", "Madd9", 4), ("F2", "M", 2), ("G2", "M", 2), ("C3", "Madd9", 4)]
+    # extraction: slow pads that lean on major chords without resolving,
+    # a low pulse, and a rising motif that arrives in the second half
+    s = Song("music_extract", 66, 14)  # 50.9 s
+    s.add(inst_drone(s.loop_freq(freq(midi("D1"))), s.length, s.rng, lo=100, hi=240, lfo=0.04), 0, 0.14)
+    prog = [("D2", "m", 8), ("Bb1", "M", 8), ("F2", "M", 8), ("A2", "m", 8),
+            ("D2", "m", 8), ("Bb1", "M", 8), ("C2", "M", 8), ("D2", "madd9", 8)]
     b = 0
     for root, q, length in prog:
-        s.notes(inst_pad, [(b, n + 12, length) for n in chord(root, q)], 0.15, cutoff=1500, attack=0.3, release=2.0)
-        s.notes(inst_bass, [(b, midi(root) - 12, length - 0.2)], 0.4)
-        s.notes(inst_brass, [(b, n + 24, min(length, 2)) for n in chord(root, q)], 0.1, spread=0.3)
+        s.notes(inst_pad, [(b, n + 12, length) for n in chord(root, q)], 0.13, cutoff=900, attack=2.0, release=2.5, detune=10)
+        s.notes(inst_bass, [(b, midi(root) - 12, length - 0.5)], 0.3, cutoff=170, release=1.0)
         b += length
-    bells = [midi(n) for n in ("C5", "E5", "G5", "C6", "E6", "G6", "C7")]
-    s.notes(inst_bell, [(12 + i * 0.25, n, 1) for i, n in enumerate(bells)], 0.14, spread=0.6)
-    s.notes(inst_bell, [(4 + i * 0.5, n, 1) for i, n in enumerate(bells[:4])], 0.1, spread=0.6)
-    s.notes(inst_lead, [(0, "A4", 1.5), (2, "B4", 1.5), (4, "C5", 3.5), (8, "A4", 1), (9, "C5", 1), (10, "D5", 2), (12, "E5", 4)], 0.16)
-    s.hits(drum_kick(s.rng), [0, 2, 4, 8, 10, 12], 0.6)
-    return s.render(dict(rt60=3.0, wet=0.4, damp=5000))
+    s.hits(drum_kick(s.rng, 110, 0.5), every(0, 56, 2), 0.32)
+    motif = [(32, "D4", 2), (34, "F4", 2), (36, "A4", 2), (38, "C5", 3.5), (44, "D5", 2), (46, "F5", 2), (48, "A5", 4), (52, "G5", 3.5)]
+    s.notes(inst_lead, motif, 0.11, pan=-0.1, cutoff=1700, vib=0.005)
+    s.notes(inst_bell, [(6, "A4", 1), (22, "F4", 1), (30, "C5", 1), (54, "D5", 1)], 0.06, spread=0.5)
+    s.add(widen(wind(s.length, s.rng, 500, 0.12, 0.25), 20, 0.8), 0, 0.05)
+    return s.render(dict(rt60=3.5, wet=0.4, damp=3500))
 
 # --------------------------------------------------------------------------
 # Encoding, verification, main

@@ -1,0 +1,7 @@
+{
+ "name": "console",
+ "origin": "bottom-centre",
+ "w": 30,
+ "h": 26,
+ "interact": "console"
+}

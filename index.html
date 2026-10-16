@@ -1,19 +1,25 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Beast of Thornmoor</title>
-  <style>
-    html, body { margin: 0; padding: 0; background: #05060a; height: 100%; overflow: hidden; }
-    body { display: flex; align-items: center; justify-content: center; }
-    #game { width: 100vw; height: 100vh; }
-    canvas { image-rendering: auto; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Derelict</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #050607; overflow: hidden; color: #b8c0c8; font: 13px/1.4 monospace; }
+  #stage { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  #frame { position: relative; }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+  #hud { position: absolute; left: 0; top: 0; pointer-events: none; }
+  #boot { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #6f8b7a; letter-spacing: 2px; text-transform: uppercase; }
+  #boot.gone { display: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+</script>
 </head>
 <body>
-  <div id="game"></div>
-  <script src="vendor/phaser.min.js"></script>
-  <script type="module" src="src/main.js"></script>
+<div id="stage"><div id="frame"><canvas id="game"></canvas><canvas id="hud"></canvas></div></div>
+<div id="boot">docking…</div>
+<script type="module" src="./src/main.js"></script>
 </body>
 </html>

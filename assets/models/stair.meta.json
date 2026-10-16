@@ -1,0 +1,6 @@
+{
+ "name": "stair",
+ "tile": 32,
+ "origin": "bottom-left",
+ "rise": "right"
+}
