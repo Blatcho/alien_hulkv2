@@ -34,7 +34,7 @@ export class Audio {
     const names = [...SFX.map((n) => 'sfx_' + n), ...MUSIC];
     await Promise.all(names.map(async (n) => {
       try {
-        const r = await fetch(`assets/audio/${n}.ogg`);
+        const r = await fetch(`assets/sound/${n}.ogg`);
         if (!r.ok) return;
         const buf = await this.ctx.decodeAudioData(await r.arrayBuffer());
         this.buffers.set(n, buf);

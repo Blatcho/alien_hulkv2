@@ -2,7 +2,7 @@
 """Generate the bitmap fonts and UI frame art for Beast of Thornmoor.
 
 Outputs (all deterministic):
-  assets/fonts/{title,body,small}.{png,xml}   BMFont (XML) bitmap fonts
+  assets/fonts/derelict/{title,body,small}.{png,xml}   BMFont (XML) bitmap fonts
   assets/ui/*.png                              9-slice panel, bar frames, emblem, cursor,
                                                slots, vignette, controller/keyboard glyphs
   assets/ui/ui.json                            sizes and 9-slice insets of the UI art
@@ -28,7 +28,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FONT_DIR = os.path.join(ROOT, "assets", "fonts")
+FONT_DIR = os.path.join(ROOT, "assets", "fonts", "derelict")
 UI_DIR = os.path.join(ROOT, "assets", "ui")
 
 DISPLAY_TTF = "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf"
@@ -610,7 +610,7 @@ def write_ui_json() -> None:
         "button_rb.png": {"size": [28, 28]}, "button_lb.png": {"size": [28, 28]},
         "button_start.png": {"size": [28, 28]},
         "key.png": {"size": [28, 28], "label_area": {"x": 2, "y": 2, "width": 24, "height": 21}},
-        "fonts": {st.name: {"png": f"assets/fonts/{st.name}.png", "xml": f"assets/fonts/{st.name}.xml", "size": st.size}
+        "fonts": {st.name: {"png": f"assets/fonts/derelict/{st.name}.png", "xml": f"assets/fonts/derelict/{st.name}.xml", "size": st.size}
                   for st in FONT_STYLES},
     }
     with open(os.path.join(UI_DIR, "ui.json"), "w", encoding="utf-8") as fh:

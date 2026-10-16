@@ -2,10 +2,10 @@
 // the airlock to the bridge (the log) and back to the airlock, on many seeds, within a time budget.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateShip, TILE } from '../src/gen/Ship.js';
-import { World } from '../src/world/World.js';
-import { Physics, Body } from '../src/core/Physics.js';
-import { NavAgent, walk } from '../src/systems/Nav.js';
+import { generateShip, TILE } from '../src/derelict/gen/Ship.js';
+import { World } from '../src/derelict/world/World.js';
+import { Physics, Body } from '../src/derelict/core/Physics.js';
+import { NavAgent, walk } from '../src/derelict/systems/Nav.js';
 
 function walkTo(ship, world, physics, body, goal, budget = 240) {
   const nav = new NavAgent(world, physics);

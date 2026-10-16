@@ -64,13 +64,22 @@ function frame(now) {
   hud.draw(game, realDt);
 }
 
+const bootEl = document.getElementById('boot');
+const bootText = (t) => { if (bootEl && !bootEl.querySelector('.err')) bootEl.firstChild.textContent = t; };
 async function boot() {
-  await hud.load();
-  await game.loadModels().catch((e) => console.error(e));
-  document.getElementById('boot').classList.add('gone');
-  booted = true;
-  if (q.get('demo') === '1') begin(true);
-  else if (q.get('play') === '1') begin(false);
-  requestAnimationFrame(frame);
+  try {
+    bootText('docking… fonts');
+    await hud.load();
+    bootText('docking… models');
+    await game.loadModels();
+    bootEl.classList.add('gone');
+    booted = true;
+    if (q.get('demo') === '1') begin(true);
+    else if (q.get('play') === '1') begin(false);
+    requestAnimationFrame(frame);
+  } catch (e) {
+    console.error(e);
+    if (window.__bootFail) window.__bootFail('Boot failed: ' + (e && e.message ? e.message : e));
+  }
 }
 boot();

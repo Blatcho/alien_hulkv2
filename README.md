@@ -44,7 +44,7 @@ URL options: `?seed=123` picks a ship, `?demo=1` starts the demo, `?play=1` skip
 
 ## Running locally
 
-Everything is static: `index.html`, `src/`, `vendor/` (three.js, vendored, no CDN) and `assets/`.
+Everything is static: `index.html`, `src/derelict/`, `vendor/` (three.js, vendored, no CDN) and `assets/`.
 
 ```
 npm start            # static server on http://localhost:8080
@@ -91,6 +91,6 @@ for 40 seconds of game time, checks the marine moved and fought without errors, 
 
 ## Deployment
 
-`.github/workflows/deploy.yml` runs the unit tests and mirrors `index.html`, `src/`, `vendor/` and
+`.github/workflows/deploy.yml` runs the unit tests and mirrors `index.html`, `.htaccess`, `src/`, `vendor/` and
 `assets/` to the FTP host on every push to `main` (secrets `FTP_SERVER`, `FTP_USERNAME`,
 `FTP_PASSWORD`).

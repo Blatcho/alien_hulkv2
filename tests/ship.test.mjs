@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateShip, graphDistances, roomPath, shipToAscii, T, TILE, CELL_W, DECK_H } from '../src/gen/Ship.js';
+import { generateShip, graphDistances, roomPath, shipToAscii, T, TILE, CELL_W, DECK_H } from '../src/derelict/gen/Ship.js';
 
 const SEEDS = [1, 2, 3, 7, 42, 99, 2024, 777777];
 

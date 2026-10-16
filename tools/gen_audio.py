@@ -6,7 +6,7 @@ motion-tracker pings, ship systems (alarm, fire, power, doors, vents), the
 marine's own sounds, UI blips, stings and four dark ambient / industrial
 music loops.  Everything is synthesised with NumPy (no samples, no
 third-party DSP) and encoded to OGG Vorbis through the `ffmpeg` binary.
-Output goes to assets/audio/ as sfx_<name>.ogg and music_<name>.ogg, the
+Output goes to assets/sound/ as sfx_<name>.ogg and music_<name>.ogg, the
 exact names src/core/Audio.js loads.  The script is deterministic: every
 sound has its own seeded RNG and the encoder runs bitexact.
 
@@ -24,7 +24,7 @@ import numpy as np
 SR = 44100
 TAU = 2.0 * math.pi
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_DIR = os.path.join(ROOT, "assets", "audio")
+OUT_DIR = os.path.join(ROOT, "assets", "sound")
 
 # --------------------------------------------------------------------------
 # Basic helpers

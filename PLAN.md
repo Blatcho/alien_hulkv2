@@ -6,7 +6,7 @@ Browser only, controller first, no runtime network dependencies.
 
 ## 1. Pillars
 - **Cut-away ship**: 24 columns × 3 decks of rooms, generated from a spanning tree plus loops
-  (`src/gen/Ship.js`), joined by doors, ladders, stairs and alien-only vents. Props, loot,
+  (`src/derelict/gen/Ship.js`), joined by doors, ladders, stairs and alien-only vents. Props, loot,
   survivors, set pieces (hive growth, eggs) and ship events (fires, power failures).
 - **Mood**: dark and grimy. Flashlight beam, fog of war from visibility polygons that remembers
   what was seen, motion tracker, speech-bubble barks, hit-stop, screen shake, acid blood.
@@ -29,7 +29,7 @@ Browser only, controller first, no runtime network dependencies.
 | Pause | Start | Esc |
 The title screen's **Demo** plays the game by itself (autopilot) so it can be tested without a pad.
 
-## 3. Rendering (`src/core/Renderer.js`)
+## 3. Rendering (`src/derelict/core/Renderer.js`)
 - three.js orthographic camera; the scene is rendered at **450 art lines** (width from aspect) into
   the canvas, which CSS upscales by a whole number of device pixels (`image-rendering: pixelated`).
   Pixel mode is the default; `?smooth=1` renders at device resolution.
@@ -57,12 +57,12 @@ The title screen's **Demo** plays the game by itself (autopilot) so it can be te
   pickups), the Kestrel dropship.
 
 ## 5. Systems
-- `src/gen/Ship.js` ship generator + `tests/ship.test.mjs`. `src/world/World.js` builds meshes,
-  the collision grid, doors and vents. `src/core/Physics.js` AABB-vs-grid with slopes and ladders.
+- `src/derelict/gen/Ship.js` ship generator + `tests/ship.test.mjs`. `src/derelict/world/World.js` builds meshes,
+  the collision grid, doors and vents. `src/derelict/core/Physics.js` AABB-vs-grid with slopes and ladders.
 - Entities: `Player`, `Alien`, `Survivor`, `Bullet`, `Pickup`, `Door`.
 - Systems: `Fog`, `Lights`, `Tracker` (motion tracker), `Barks`, `FX` (hit-stop, shake, particles,
   muzzle flash, acid), `Events` (fires, power failures), `Director` (alien spawns), `Autopilot`.
-- `src/ui/HUD.js`: canvas overlay with the bitmap fonts: portrait, name, health, shield, ammo,
+- `src/derelict/ui/HUD.js`: canvas overlay with the bitmap fonts: portrait, name, health, shield, ammo,
   weapon slots, minimap, motion tracker, barks, objective.
 
 ## 6. Loop
