@@ -1,7 +1,7 @@
 // Smoke test: boots the game in headless Chromium (SwiftShader), runs the deterministic demo for a
 // stretch of game time, checks that the marine moved, fought and nothing threw, and writes
-// docs/screenshot.png. Needs Playwright with Chromium (see README).
-//   node tools/smoke.mjs [--seconds 40] [--seed 7] [--shot docs/screenshot.png]
+// docs/smoke.png. Needs Playwright with Chromium (see README).
+//   node tools/smoke.mjs [--seconds 40] [--seed 7] [--shot docs/smoke.png]
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf('--' + name); return i >= 0 ? args[i + 1] : def; };
-const SECONDS = Number(opt('seconds', 40)), SEED = Number(opt('seed', 7)), SHOT = opt('shot', 'docs/screenshot.png');
+const SECONDS = Number(opt('seconds', 40)), SEED = Number(opt('seed', 7)), SHOT = opt('shot', 'docs/smoke.png');
 
 let chromium;
 try {

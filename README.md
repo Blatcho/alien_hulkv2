@@ -87,7 +87,7 @@ npm test             # unit tests (generator + whole-ship walkability on 24 seed
 
 The smoke test needs Playwright with Chromium; it boots the game headless, runs the deterministic demo
 for 40 seconds of game time, checks the marine moved and fought without errors, and writes
-`docs/screenshot.png`.
+`docs/smoke.png`.
 
 ## Deployment
 
