@@ -1,0 +1,102 @@
+{
+ "name": "survivor",
+ "facing": "+x",
+ "height": 60,
+ "width": 20,
+ "bones": [
+  "hips",
+  "spine",
+  "chest",
+  "head",
+  "upper_arm_l",
+  "forearm_l",
+  "upper_arm_r",
+  "forearm_r",
+  "thigh_l",
+  "shin_l",
+  "foot_l",
+  "thigh_r",
+  "shin_r",
+  "foot_r"
+ ],
+ "upper": [
+  "spine",
+  "chest",
+  "head",
+  "upper_arm_l",
+  "forearm_l",
+  "upper_arm_r",
+  "forearm_r"
+ ],
+ "root": "hips",
+ "clips": {
+  "idle": {
+   "loop": true,
+   "fps": 24,
+   "frames": 47,
+   "events": {},
+   "upper": false
+  },
+  "cower": {
+   "loop": true,
+   "fps": 24,
+   "frames": 17,
+   "events": {},
+   "upper": false
+  },
+  "walk": {
+   "loop": true,
+   "fps": 24,
+   "frames": 25,
+   "events": {
+    "step": [
+     1,
+     13
+    ]
+   },
+   "upper": false
+  },
+  "run": {
+   "loop": true,
+   "fps": 24,
+   "frames": 17,
+   "events": {
+    "step": [
+     1,
+     9
+    ]
+   },
+   "upper": false
+  },
+  "wave": {
+   "loop": true,
+   "fps": 24,
+   "frames": 17,
+   "events": {},
+   "upper": true
+  },
+  "hurt": {
+   "loop": false,
+   "fps": 24,
+   "frames": 9,
+   "events": {},
+   "upper": false
+  },
+  "death": {
+   "loop": false,
+   "fps": 24,
+   "frames": 30,
+   "events": {},
+   "upper": false
+  }
+ },
+ "eye": [
+  3,
+  0,
+  56
+ ],
+ "speeds": {
+  "walk": 90,
+  "run": 200
+ }
+}

@@ -1,0 +1,6 @@
+{
+ "name": "airlock",
+ "tile": 32,
+ "origin": "bottom-left",
+ "height": 96
+}

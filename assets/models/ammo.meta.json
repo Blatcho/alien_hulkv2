@@ -1,0 +1,7 @@
+{
+ "name": "ammo",
+ "origin": "bottom-centre",
+ "w": 14,
+ "h": 10,
+ "pickup": "ammo"
+}

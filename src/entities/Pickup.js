@@ -1,67 +1,64 @@
-import { DEPTH } from '../config.js';
+// Loot on the deck: ammo, medkits, weapons, scrap and the ship's log. Hovering and glowing.
+import * as THREE from 'three';
 
-const RARITY_TINT = { common: 0xd0c8b8, rare: 0x5aa0ff, epic: 0xc060ff, legendary: 0xffa030 };
+const MODEL_FOR = { ammo: 'ammo', medkit: 'medkit', weapon: null, scrap: 'ammo', log: 'log' };
 
-// Physics pickups: coins, potions, gear orbs. They bounce, settle, then drift to the player when close.
-export default class Pickup {
-  constructor(scene, x, y, drop) {
-    this.scene = scene;
-    this.drop = drop;
-    this.alive = true;
-    this.age = 0;
-    const type = drop.type;
-    let key = 'prop_coin', frame = 0, anim = null;
-    if (type === 'gold') { key = 'prop_coin'; anim = 'coin_spin'; }
-    else if (type === 'potion') { key = 'prop_potion_red'; }
-    else if (type === 'item') { key = 'prop_gem'; anim = 'gem_spin'; }
-    else if (type === 'gem') { key = 'prop_gem'; anim = 'gem_spin'; }
-    this.sprite = scene.physics.add.sprite(x, y, key, frame).setDepth(DEPTH.pickups);
-    if (anim && scene.anims.exists(anim)) this.sprite.play(anim);
-    if (type === 'item') { this.sprite.setTint(RARITY_TINT[drop.item.rarity] || 0xffffff).setScale(1.2); }
-    this.sprite.body.setBounce(0.45, 0.45).setCollideWorldBounds(true).setDrag(300, 0);
-    this.sprite.body.setVelocity((Math.random() - 0.5) * 260, -300 - Math.random() * 200);
-    this.sprite.body.setSize(24, 24);
-    this.glow = scene.add.image(x, y, 'glow').setDepth(DEPTH.pickups - 1).setScale(type === 'item' ? 0.5 : 0.22).setAlpha(0.35).setBlendMode('ADD');
-    if (type === 'item') this.glow.setTint(RARITY_TINT[drop.item.rarity]);
-    else if (type === 'potion') this.glow.setTint(0xff4040);
-    else if (type === 'gem') this.glow.setTint(0x60ffd0);
-    scene.physics.add.collider(this.sprite, scene.ground);
-    scene.physics.add.collider(this.sprite, scene.platforms);
+export class Pickup {
+  constructor(game, rec, weaponKind) {
+    this.game = game; this.kind = rec.kind; this.x = rec.x; this.y = rec.y; this.room = rec.room;
+    this.weaponKind = weaponKind || null;
+    const name = this.kind === 'weapon' ? `weapon_${this.weaponKind}` : MODEL_FOR[this.kind];
+    const model = game.world.models[name];
+    this.alive = true; this.t = Math.random() * 6;
+    this.mesh = null;
+    if (model) {
+      let src = null; model.gltf.scene.traverse((o) => { if (o.isMesh && !src) src = o; });
+      const mats = (Array.isArray(src.material) ? src.material : [src.material]).map((m) => m.clone());
+      this.mesh = new THREE.Mesh(src.geometry, Array.isArray(src.material) ? mats : mats[0]);
+      if (this.kind === 'scrap') mats[0].color.setHex(0xb08a50);
+      this.mesh.position.set(this.x, this.y, 2);
+      this.mesh.frustumCulled = false;
+      game.renderer.scene.add(this.mesh);
+    }
+    this.needsInteract = this.kind === 'log';
+    this.label = this.kind === 'log' ? 'Take the ship\'s log' : null;
+  }
+
+  get cx() { return this.x; }
+  get cy() { return this.y + 8; }
+
+  interact() { if (this.needsInteract) this.collect(); return true; }
+
+  collect() {
+    const g = this.game, p = g.player;
+    this.alive = false;
+    if (this.mesh) g.renderer.scene.remove(this.mesh);
+    switch (this.kind) {
+      case 'ammo': p.giveAmmo(); g.audio.play('pickup_ammo', { volume: 0.8 }); g.fx.number(this.x, this.y + 20, '+AMMO', 0xd8d0a0); break;
+      case 'medkit': p.medkits++; g.audio.play('pickup_med', { volume: 0.8 }); g.fx.number(this.x, this.y + 20, '+MEDKIT', 0xff8a7a); break;
+      case 'scrap': p.scrap += 10; g.audio.play('loot', { volume: 0.6 }); g.fx.number(this.x, this.y + 20, '+SCRAP', 0xc0a070); break;
+      case 'weapon': {
+        const fresh = p.giveWeapon(this.weaponKind);
+        g.audio.play('levelup', { volume: 0.7 });
+        g.fx.number(this.x, this.y + 20, fresh ? `+${this.weaponKind.toUpperCase()}` : '+AMMO', 0xffd34a, true);
+        if (fresh) g.barks.say(p, this.weaponKind === 'shotgun' ? 'Now we\'re talking.' : 'That\'ll do.', 1.4);
+        break;
+      }
+      case 'log': {
+        p.hasLog = true;
+        g.audio.play('levelup', { volume: 0.9 });
+        g.fx.number(this.x, this.y + 20, 'SHIP\'S LOG', 0xffb340, true);
+        g.onObjective();
+        break;
+      }
+    }
   }
 
   update(dt) {
     if (!this.alive) return;
-    this.age += dt;
-    const p = this.scene.player;
-    const s = this.sprite;
-    this.glow.setPosition(s.x, s.y).setAlpha(0.3 + 0.15 * Math.sin(this.age / 150));
-    if (!p.alive) return;
-    const dx = p.x - s.x, dy = p.y - s.y;
-    const d = Math.hypot(dx, dy);
-    const magnet = this.drop.type === 'gold' ? 150 : 90;
-    if (this.age > 350 && d < magnet) {
-      s.body.setAllowGravity(false);
-      s.body.setVelocity(dx / d * 700, dy / d * 700);
-    }
-    if (this.age > 250 && d < 34) this.collect();
-    if (this.age > 60000) this.destroy();
-  }
-
-  collect() {
-    const s = this.scene;
-    const p = s.player;
-    const d = this.drop;
-    if (d.type === 'gold') { const n = Math.round(d.amount * p.stats.goldFind); p.gold += n; s.events.emit('gold', n); s.audio.play('sfx_coin', { volume: 0.6 }); s.fx.number(p.x, p.y - 80, `+${n}`, { color: 0xffd060, size: 0.9 }); }
-    else if (d.type === 'potion') { p.potions += 1; s.audio.play('sfx_loot'); s.events.emit('toast', 'Potion found', 1200); }
-    else if (d.type === 'gem') { const lv = p.stats.addXp(d.amount); s.audio.play('sfx_gem'); s.fx.number(p.x, p.y - 80, `+${d.amount} souls`, { color: 0x80ffd0, size: 0.9 }); if (lv) s.onLevelUp(lv); }
-    else if (d.type === 'item') { s.addItemToInventory(d.item); s.audio.play('sfx_loot'); }
-    this.destroy();
-  }
-
-  destroy() {
-    this.alive = false;
-    this.sprite.destroy(); this.glow.destroy();
-    const i = this.scene.pickups.indexOf(this);
-    if (i >= 0) this.scene.pickups.splice(i, 1);
+    this.t += dt;
+    if (this.mesh) this.mesh.position.y = this.y + 3 + Math.sin(this.t * 3) * 2;
+    const p = this.game.player;
+    if (!this.needsInteract && !p.dead && Math.abs(p.x - this.x) < 18 && Math.abs(p.y - this.y) < 30) this.collect();
   }
 }

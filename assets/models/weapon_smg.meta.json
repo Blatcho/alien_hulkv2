@@ -1,0 +1,8 @@
+{
+ "name": "weapon_smg",
+ "origin": "bottom-centre",
+ "w": 18,
+ "h": 7,
+ "pickup": "weapon",
+ "weapon": "smg"
+}

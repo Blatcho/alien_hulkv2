@@ -1,98 +1,146 @@
-import { DEPTH } from '../config.js';
+// Juice: pooled particles (sparks, acid, blood, dust, smoke, flame), acid pools that keep burning,
+// muzzle flashes, hit-stop, screen shake, floating damage numbers, the shield bubble.
+import * as THREE from 'three';
 
-// Visual effects helpers: slashes, impacts, particles, floating damage numbers, hit-stop and shake.
-export default class FX {
-  constructor(scene) {
-    this.scene = scene;
-    this.hitStopUntil = 0;
-    this.blood = scene.add.particles(0, 0, 'fx_drop', {
-      speed: { min: 120, max: 420 }, angle: { min: 200, max: 340 }, gravityY: 1400, lifespan: { min: 300, max: 700 },
-      scale: { start: 0.9, end: 0.2 }, alpha: { start: 1, end: 0.6 }, tint: [0x9a1020, 0xc02030, 0x5a0810], emitting: false,
-    }).setDepth(DEPTH.fx);
-    this.sparks = scene.add.particles(0, 0, 'fx_shard', {
-      speed: { min: 200, max: 600 }, angle: { min: 180, max: 360 }, gravityY: 900, lifespan: { min: 200, max: 450 },
-      scale: { start: 1, end: 0.1 }, rotate: { min: 0, max: 360 }, tint: [0xfff0b0, 0xffc040, 0xffffff], blendMode: 'ADD', emitting: false,
-    }).setDepth(DEPTH.fx);
-    this.dust = scene.add.particles(0, 0, 'particle_soft', {
-      speed: { min: 20, max: 90 }, angle: { min: 220, max: 320 }, lifespan: { min: 300, max: 600 },
-      scale: { start: 0.5, end: 1.2 }, alpha: { start: 0.35, end: 0 }, tint: 0x8a7a66, emitting: false,
-    }).setDepth(DEPTH.player - 1);
-    this.rubble = scene.add.particles(0, 0, 'fx_shard', {
-      speed: { min: 120, max: 420 }, angle: { min: 180, max: 360 }, gravityY: 1500, lifespan: { min: 500, max: 1100 },
-      scale: { start: 1.6, end: 0.8 }, rotate: { min: 0, max: 720 }, tint: [0x6a665e, 0x4e4a44, 0x8a8478], emitting: false,
-    }).setDepth(DEPTH.fx);
-    this.bones = scene.add.particles(0, 0, 'fx_shard', {
-      speed: { min: 100, max: 300 }, angle: { min: 200, max: 340 }, gravityY: 1200, lifespan: { min: 400, max: 800 },
-      scale: { start: 1.2, end: 0.6 }, rotate: { min: 0, max: 720 }, tint: [0xd8d0b8, 0xa89c80], emitting: false,
-    }).setDepth(DEPTH.fx);
+const MAX = 700;
+
+export class FX {
+  constructor(game) {
+    this.game = game;
+    const scene = game.renderer.scene;
+    this.parts = [];
+    this.geo = new THREE.BoxGeometry(2, 2, 2);
+    this.mat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+    this.mesh = new THREE.InstancedMesh(this.geo, this.mat, MAX);
+    this.mesh.frustumCulled = false; this.mesh.count = 0;
+    this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX * 3), 3);
+    scene.add(this.mesh);
+    this._m = new THREE.Matrix4(); this._c = new THREE.Color();
+    this.pools = [];                          // acid pools {x,y,r,t,mesh}
+    this.poolGeo = new THREE.BoxGeometry(1, 3, 6);
+    this.poolMat = new THREE.MeshBasicMaterial({ color: 0x8cff3a, toneMapped: false, transparent: true, opacity: 0.85 });
+    this.flashes = [];                         // {x,y,t,color,range}
+    this.hitStopT = 0; this.shakeAmp = 0; this.shakeT = 0; this.shakeDur = 0;
+    this.numbers = [];                         // {x,y,text,color,t,big}
+    this.timeScale = 1;
+    this.shieldMesh = new THREE.Mesh(new THREE.PlaneGeometry(14, 60), new THREE.MeshBasicMaterial({ color: 0x5ab8ff, transparent: true, opacity: 0.35, toneMapped: false, side: THREE.DoubleSide }));
+    this.shieldMesh.visible = false; scene.add(this.shieldMesh);
+    this.muzzleMesh = new THREE.Mesh(new THREE.PlaneGeometry(18, 10), new THREE.MeshBasicMaterial({ color: 0xfff0b0, transparent: true, opacity: 0.9, toneMapped: false }));
+    this.muzzleMesh.visible = false; scene.add(this.muzzleMesh);
+    this.muzzleT = 0;
+    this.kicks = new Map();
   }
 
-  slash(x, y, facing, kind = 'claw', scale = 1, tint = 0xffffff) {
-    const img = this.scene.add.image(x, y, kind === 'claw' ? 'fx_slash_claw' : 'fx_slash_sword')
-      .setDepth(DEPTH.fx).setScale(scale * 0.6 * facing, scale * 0.6).setAlpha(0.9).setBlendMode('ADD').setTint(tint);
-    this.scene.tweens.add({ targets: img, scaleX: scale * 1.15 * facing, scaleY: scale * 1.1, alpha: 0, duration: 220, ease: 'Cubic.easeOut', onComplete: () => img.destroy() });
+  emit(x, y, { n = 6, color = 0xffffff, speed = 120, spread = Math.PI * 2, dir = 0, life = 0.5, gravity = 600, size = 2, z = 6, drag = 0, flat = false, sticky = false, bright = 1 } = {}) {
+    for (let i = 0; i < n; i++) {
+      if (this.parts.length >= MAX) this.parts.shift();
+      const a = dir + (Math.random() - 0.5) * spread;
+      const s = speed * (0.4 + Math.random() * 0.8);
+      this.parts.push({ x, y, z, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: life * (0.6 + Math.random() * 0.8), t: 0, color, gravity, size: size * (0.7 + Math.random() * 0.7), drag, flat, sticky, bright, stuck: false });
+    }
   }
 
-  impact(x, y, { heavy = false, metal = false, blood = true, bone = false } = {}) {
-    const img = this.scene.add.image(x, y, 'fx_impact').setDepth(DEPTH.fx + 1).setScale(heavy ? 0.9 : 0.5).setBlendMode('ADD')
-      .setTint(metal ? 0xfff4d0 : 0xffd0c0).setAngle(Math.random() * 360);
-    this.scene.tweens.add({ targets: img, scale: heavy ? 1.6 : 1.0, alpha: 0, duration: heavy ? 220 : 150, onComplete: () => img.destroy() });
-    if (metal) this.sparks.explode(heavy ? 18 : 9, x, y);
-    if (blood) this.blood.explode(heavy ? 16 : 8, x, y);
-    if (bone) this.bones.explode(heavy ? 10 : 5, x, y);
+  spark(x, y, dx, dy) { this.emit(x, y, { n: 7, color: 0xffd080, speed: 220, spread: 1.6, dir: Math.atan2(dy, dx), life: 0.35, gravity: 500, bright: 2.5 }); this.flashes.push({ x, y, t: 0.06, color: 0xffc070, range: 50, intensity: 0.6 }); }
+  acid(x, y, dx, dy, n = 8, big = false) {
+    this.emit(x, y, { n, color: 0x9cff3c, speed: big ? 260 : 170, spread: 2.2, dir: Math.atan2(dy, dx), life: 0.9, gravity: 700, size: big ? 3 : 2.2, sticky: true, bright: 1.8 });
+    this.flashes.push({ x, y, t: 0.08, color: 0x8cff3a, range: 60, intensity: 0.5 });
+  }
+  acidPool(x, y, r = 24) {
+    const mesh = new THREE.Mesh(this.poolGeo, this.poolMat);
+    mesh.scale.set(r, 1, 1); mesh.position.set(x, y + 1.5, 3);
+    this.game.renderer.scene.add(mesh);
+    this.pools.push({ x, y, r, t: 7 + Math.random() * 3, mesh });
+    this.game.audio.play('acid', { volume: 0.7, x });
+  }
+  blood(x, y, n = 6) { this.emit(x, y, { n, color: 0xa01818, speed: 140, life: 0.6, gravity: 700, sticky: true }); }
+  dust(x, y, n = 6) { this.emit(x, y, { n, color: 0x8a8070, speed: 50, spread: Math.PI, dir: -Math.PI / 2, life: 0.8, gravity: 120, size: 2.5, drag: 2 }); }
+  smoke(x, y, n = 1) { this.emit(x, y, { n, color: 0x30302c, speed: 24, spread: 1.2, dir: Math.PI / 2, life: 1.6, gravity: -40, size: 4, drag: 1 }); }
+  flame(x, y, n = 2) { this.emit(x, y, { n, color: Math.random() < 0.5 ? 0xff8a2a : 0xffc050, speed: 60, spread: 0.9, dir: Math.PI / 2, life: 0.55, gravity: -260, size: 3, drag: 1.5, bright: 3 }); }
+  explosion(x, y) {
+    this.emit(x, y + 8, { n: 40, color: 0xffb040, speed: 320, life: 0.7, gravity: 300, size: 3, bright: 3 });
+    this.emit(x, y + 8, { n: 24, color: 0x3a3a3a, speed: 140, life: 1.6, gravity: -60, size: 4, drag: 1.5 });
+    this.flashes.push({ x, y: y + 10, t: 0.25, color: 0xffa040, range: 220, intensity: 2.5 });
+    this.shake(9, 0.45); this.hitStop(0.06);
+  }
+  slash(x, y, facing) { this.emit(x, y, { n: 10, color: 0xa01818, speed: 160, spread: 1.2, dir: facing > 0 ? 0 : Math.PI, life: 0.5, gravity: 700, sticky: true }); }
+  shieldHit(x, y) { this.emit(x, y, { n: 10, color: 0x7fd0ff, speed: 140, life: 0.35, gravity: 0, bright: 2.5 }); this.flashes.push({ x, y, t: 0.08, color: 0x5ab8ff, range: 70, intensity: 0.8 }); }
+  muzzle(x, y, dx, dy, scale = 1) {
+    this.flashes.push({ x: x + dx * 8, y: y + dy * 8, t: 0.05, color: 0xffd090, range: 140 * scale, intensity: 1.6 * scale });
+    this.muzzleMesh.visible = true; this.muzzleT = 0.045;
+    this.muzzleMesh.position.set(x + dx * 10, y + dy * 10, 8);
+    this.muzzleMesh.rotation.z = Math.atan2(dy, dx);
+    this.muzzleMesh.scale.set(scale, scale, 1);
+    this.emit(x + dx * 6, y + dy * 6, { n: 2, color: 0xffe0a0, speed: 200, spread: 0.5, dir: Math.atan2(dy, dx), life: 0.12, gravity: 0, bright: 2 });
+  }
+  hitStop(t) { this.hitStopT = Math.max(this.hitStopT, t); }
+  shake(amp, dur) { if (amp >= this.shakeAmp * (this.shakeT / Math.max(0.01, this.shakeDur))) { this.shakeAmp = amp; this.shakeT = dur; this.shakeDur = dur; } }
+  number(x, y, text, color = 0xffffff, big = false) { this.numbers.push({ x, y, text, color, t: 0, big, vy: 40 + Math.random() * 20, vx: (Math.random() - 0.5) * 30 }); }
+  kick(entity, amount) { this.kicks.set(entity, amount); }
+
+  update(dt, realDt) {
+    const g = this.game;
+    // hit-stop is handled by Game (it scales dt); shake decays in real time
+    if (this.shakeT > 0) {
+      this.shakeT -= realDt;
+      const k = Math.max(0, this.shakeT / this.shakeDur);
+      const a = this.shakeAmp * k * k;
+      g.renderer.shake.x = (Math.random() - 0.5) * 2 * a; g.renderer.shake.y = (Math.random() - 0.5) * 2 * a;
+    } else { g.renderer.shake.x = 0; g.renderer.shake.y = 0; }
+    this.muzzleT -= dt; if (this.muzzleT <= 0) this.muzzleMesh.visible = false;
+    // particles
+    const ph = g.physics;
+    for (let i = this.parts.length - 1; i >= 0; i--) {
+      const p = this.parts[i];
+      p.t += dt;
+      if (p.t >= p.life) { this.parts.splice(i, 1); continue; }
+      if (p.stuck) continue;
+      p.vy -= p.gravity * dt;
+      if (p.drag) { p.vx *= Math.max(0, 1 - p.drag * dt); p.vy *= Math.max(0, 1 - p.drag * dt); }
+      const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
+      if (p.sticky || p.gravity > 0) {
+        const r = ph.raycast(p.x, p.y, (nx - p.x) / (Math.hypot(nx - p.x, ny - p.y) || 1), (ny - p.y) / (Math.hypot(nx - p.x, ny - p.y) || 1), Math.hypot(nx - p.x, ny - p.y) || 0.01);
+        if (r) { if (p.sticky) { p.stuck = true; p.x = r.x; p.y = r.y; p.life = p.t + 3 + Math.random() * 3; } else { p.vy = -p.vy * 0.3; p.vx *= 0.5; } continue; }
+      }
+      p.x = nx; p.y = ny;
+    }
+    const n = Math.min(MAX, this.parts.length);
+    for (let i = 0; i < n; i++) {
+      const p = this.parts[i];
+      const k = 1 - p.t / p.life;
+      const s = p.size * (p.stuck ? 1 : 0.5 + 0.5 * k);
+      this._m.makeScale(s, s, s); this._m.setPosition(p.x, p.y, p.z);
+      this.mesh.setMatrixAt(i, this._m);
+      this._c.setHex(p.color).multiplyScalar(p.bright * (p.stuck ? 0.6 : 0.6 + 0.4 * k));
+      this.mesh.setColorAt(i, this._c);
+    }
+    this.mesh.count = n; this.mesh.instanceMatrix.needsUpdate = true;
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    // acid pools: burn, shrink, hurt whoever stands in them
+    for (let i = this.pools.length - 1; i >= 0; i--) {
+      const q = this.pools[i];
+      q.t -= dt;
+      q.mesh.scale.x = q.r * Math.min(1, q.t / 3);
+      q.mesh.material.opacity = Math.min(0.85, q.t / 3);
+      if (Math.random() < dt * 6) this.emit(q.x + (Math.random() - 0.5) * q.r, q.y + 2, { n: 1, color: 0xa0ff50, speed: 20, spread: 0.6, dir: Math.PI / 2, life: 0.5, gravity: -80, size: 1.5, bright: 1.5 });
+      const pl = g.player;
+      if (!pl.dead && Math.abs(pl.x - q.x) < q.r * 0.5 + 6 && Math.abs(pl.y - q.y) < 6 && pl.body.onGround) {
+        pl.acidT = (pl.acidT || 0) + dt;
+        if (pl.acidT > 0.4) { pl.acidT = 0; pl.damage(5, { acid: true }); g.barks.say(pl, 'Acid!', 0.9); }
+      }
+      if (q.t <= 0) { g.renderer.scene.remove(q.mesh); this.pools.splice(i, 1); }
+    }
+    for (let i = this.flashes.length - 1; i >= 0; i--) { this.flashes[i].t -= dt; if (this.flashes[i].t <= 0) this.flashes.splice(i, 1); }
+    for (let i = this.numbers.length - 1; i >= 0; i--) {
+      const q = this.numbers[i]; q.t += dt; q.y += q.vy * dt; q.x += q.vx * dt; q.vy -= 40 * dt;
+      if (q.t > 1.1) this.numbers.splice(i, 1);
+    }
+    // shield bubble
+    const pl = g.player;
+    this.shieldMesh.visible = pl.shieldUp && !pl.dead;
+    if (this.shieldMesh.visible) { this.shieldMesh.position.set(pl.x + pl.facing * 18, pl.y + 30, 6); this.shieldMesh.material.opacity = 0.25 + 0.15 * Math.sin(g.time * 20) + 0.2 * (pl.shield / pl.shieldMax); }
   }
 
-  landDust(x, y, n = 6) { this.dust.explode(n, x, y); }
-
-  // Ground slam: expanding shock ring along the ground plus a dust burst.
-  shockwave(x, y, facing, scale = 1) {
-    const key = this.scene.textures.exists('fx_shockwave') ? 'fx_shockwave' : 'fx_impact';
-    const img = this.scene.add.image(x, y - 6, key).setDepth(DEPTH.fx).setOrigin(0.5, 0.6).setScale(0.3 * scale, 0.5 * scale).setBlendMode('ADD').setTint(0xffc080);
-    this.scene.tweens.add({ targets: img, scaleX: 2.6 * scale, scaleY: 0.9 * scale, alpha: 0, duration: 420, ease: 'Cubic.easeOut', onComplete: () => img.destroy() });
-    const dkey = this.scene.textures.exists('fx_dust_ring') ? 'fx_dust_ring' : 'particle_soft';
-    const d = this.scene.add.image(x, y, dkey).setDepth(DEPTH.fx - 1).setOrigin(0.5, 0.8).setScale(0.6 * scale, 0.6 * scale).setAlpha(0.7).setTint(0x8a7a66);
-    this.scene.tweens.add({ targets: d, scaleX: 2.2 * scale, scaleY: 1.4 * scale, alpha: 0, duration: 600, ease: 'Sine.easeOut', onComplete: () => d.destroy() });
-    this.sparks.explode(10, x, y - 10);
-  }
-
-  airRing(x, y) {
-    const key = this.scene.textures.exists('fx_air_ring') ? 'fx_air_ring' : 'particle_hard';
-    const img = this.scene.add.image(x, y, key).setDepth(DEPTH.fx).setScale(0.4, 0.25).setAlpha(0.8).setBlendMode('ADD');
-    this.scene.tweens.add({ targets: img, scaleX: 1.4, scaleY: 0.5, alpha: 0, duration: 300, ease: 'Cubic.easeOut', onComplete: () => img.destroy() });
-    this.dust.explode(5, x, y);
-  }
-
-  parry(x, y) {
-    const key = this.scene.textures.exists('fx_parry') ? 'fx_parry' : 'fx_impact';
-    const img = this.scene.add.image(x, y, key).setDepth(DEPTH.fx + 1).setScale(0.5).setBlendMode('ADD').setTint(0xa0e0ff).setAngle(Math.random() * 90);
-    this.scene.tweens.add({ targets: img, scale: 1.6, alpha: 0, duration: 260, ease: 'Cubic.easeOut', onComplete: () => img.destroy() });
-    this.sparks.explode(16, x, y);
-    this.flashScreen(0x80c0ff, 60, 0.15);
-  }
-
-  guardFlash(x, y, facing) {
-    const key = this.scene.textures.exists('fx_guard_flash') ? 'fx_guard_flash' : 'fx_impact';
-    const img = this.scene.add.image(x, y, key).setDepth(DEPTH.fx + 1).setScale(0.8 * facing, 0.8).setBlendMode('ADD').setTint(0xc0d8ff).setAlpha(0.9);
-    this.scene.tweens.add({ targets: img, scaleX: 1.2 * facing, scaleY: 1.3, alpha: 0, duration: 200, onComplete: () => img.destroy() });
-    this.sparks.explode(5, x, y);
-  }
-
-  number(x, y, value, { color = 0xffffff, crit = false, size = 1 } = {}) {
-    const t = this.scene.add.bitmapText(x + (Math.random() * 20 - 10), y, 'small', String(value), 16 * (crit ? 1.6 : 1.15) * size)
-      .setOrigin(0.5).setDepth(DEPTH.fx + 2).setTint(color);
-    this.scene.tweens.add({ targets: t, y: y - 50, alpha: 0, duration: 800, ease: 'Cubic.easeOut', onComplete: () => t.destroy() });
-    if (crit) this.scene.tweens.add({ targets: t, scale: 1.3, duration: 120, yoyo: true });
-  }
-
-  hitStop(ms) {
-    this.hitStopUntil = Math.max(this.hitStopUntil, this.scene.time.now + ms);
-  }
-
-  get stopped() { return this.scene.time.now < this.hitStopUntil; }
-
-  shake(intensity = 0.004, ms = 120) { this.scene.cameras.main.shake(ms, intensity); }
-
-  flashScreen(color = 0xffffff, ms = 80, alpha = 0.25) {
-    this.scene.cameras.main.flash(ms, (color >> 16) & 255, (color >> 8) & 255, color & 255, false);
+  collectLights(out) {
+    for (const f of this.flashes) out.push({ x: f.x, y: f.y, z: 30, color: f.color, intensity: f.intensity * Math.min(1, f.t / 0.04), range: f.range, priority: 1 });
   }
 }

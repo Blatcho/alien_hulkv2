@@ -1,4 +1,4 @@
-# Continuous deployment of Beast of Thornmoor to blatcho.com/games/sotb over FTP.
+# Continuous deployment of Derelict to blatcho.com/games/sotb over FTP.
 #
 # Runs on every push to main (and on demand from the Actions tab). It copies only the files the
 # browser needs (index.html, src/, vendor/, assets/) into a staging folder and mirrors that folder
@@ -38,7 +38,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run unit tests
-        run: node --test "tests/**/*.test.mjs"
+        run: node --import ./tests/_resolve.mjs --test "tests/**/*.test.mjs"
 
       - name: Stage the runtime files
         run: |

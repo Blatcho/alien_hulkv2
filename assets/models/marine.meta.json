@@ -1,0 +1,176 @@
+{
+ "name": "marine",
+ "facing": "+x",
+ "height": 62,
+ "width": 24,
+ "bones": [
+  "hips",
+  "spine",
+  "chest",
+  "head",
+  "upper_arm_l",
+  "forearm_l",
+  "upper_arm_r",
+  "forearm_r",
+  "gun",
+  "thigh_l",
+  "shin_l",
+  "foot_l",
+  "thigh_r",
+  "shin_r",
+  "foot_r"
+ ],
+ "upper": [
+  "spine",
+  "chest",
+  "head",
+  "upper_arm_l",
+  "forearm_l",
+  "upper_arm_r",
+  "forearm_r",
+  "gun"
+ ],
+ "root": "hips",
+ "clips": {
+  "idle": {
+   "loop": true,
+   "fps": 24,
+   "frames": 47,
+   "events": {},
+   "upper": false
+  },
+  "walk": {
+   "loop": true,
+   "fps": 24,
+   "frames": 25,
+   "events": {
+    "step": [
+     1,
+     13
+    ]
+   },
+   "upper": false
+  },
+  "run": {
+   "loop": true,
+   "fps": 24,
+   "frames": 17,
+   "events": {
+    "step": [
+     1,
+     9
+    ]
+   },
+   "upper": false
+  },
+  "jump": {
+   "loop": false,
+   "fps": 24,
+   "frames": 8,
+   "events": {},
+   "upper": false
+  },
+  "fall": {
+   "loop": true,
+   "fps": 24,
+   "frames": 23,
+   "events": {},
+   "upper": false
+  },
+  "land": {
+   "loop": false,
+   "fps": 24,
+   "frames": 8,
+   "events": {},
+   "upper": false
+  },
+  "aim": {
+   "loop": true,
+   "fps": 24,
+   "frames": 3,
+   "events": {},
+   "upper": true
+  },
+  "fire": {
+   "loop": false,
+   "fps": 24,
+   "frames": 6,
+   "events": {},
+   "upper": true
+  },
+  "reload": {
+   "loop": false,
+   "fps": 24,
+   "frames": 30,
+   "events": {
+    "mag_out": [
+     8
+    ],
+    "mag_in": [
+     24
+    ]
+   },
+   "upper": true
+  },
+  "strike": {
+   "loop": false,
+   "fps": 24,
+   "frames": 12,
+   "events": {
+    "hit": [
+     7
+    ]
+   },
+   "upper": true
+  },
+  "hurt": {
+   "loop": false,
+   "fps": 24,
+   "frames": 10,
+   "events": {},
+   "upper": false
+  },
+  "dodge": {
+   "loop": false,
+   "fps": 24,
+   "frames": 10,
+   "events": {},
+   "upper": false
+  },
+  "climb": {
+   "loop": true,
+   "fps": 24,
+   "frames": 25,
+   "events": {
+    "rung": [
+     1,
+     13
+    ]
+   },
+   "upper": false
+  },
+  "death": {
+   "loop": false,
+   "fps": 24,
+   "frames": 30,
+   "events": {},
+   "upper": false
+  }
+ },
+ "aim_bone": "chest",
+ "gun_bone": "gun",
+ "muzzle": [
+  32,
+  -3,
+  45
+ ],
+ "eye": [
+  4,
+  0,
+  56
+ ],
+ "speeds": {
+  "walk": 95,
+  "run": 230
+ }
+}

@@ -236,9 +236,10 @@ def build_font(st: FontStyle) -> None:
 
 
 FONT_STYLES = [
-    FontStyle("title", DISPLAY_TTF, 64, 3, "#1a0c08", "#e8dcc0", "#9c7a3a", shadow=(3, 3), shadow_alpha=0.6),
-    FontStyle("body", BODY_TTF, 24, 2, "#120a08", "#e0d6c0", "#e0d6c0"),
-    FontStyle("small", BODY_TTF, 16, 1, "#120a08", "#ffffff", "#ffffff"),
+    # Derelict: a cold military HUD at 450 art lines (sizes are art pixels)
+    FontStyle("title", "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf", 34, 2, "#06080c", "#eef2f5", "#8fa6ba", shadow=(2, 2), shadow_alpha=0.6),
+    FontStyle("body", SANS_TTF, 13, 1, "#06080c", "#e6ebef", "#c8d2da"),
+    FontStyle("small", SANS_TTF, 9, 1, "#06080c", "#ffffff", "#ffffff"),
 ]
 
 
@@ -273,7 +274,7 @@ def bmfont_render(name: str, text: str, guides: bool = True) -> Image.Image:
 
 
 def write_preview(path: str) -> None:
-    sample = "Beast of Thornmoor: gold 1,250 / XP 97%"
+    sample = "DERELICT: SGT. VANCE 78/150 45 CRIT"
     strips = [bmfont_render(st.name, sample) for st in FONT_STYLES]
     strips.append(bmfont_render("body", "Quick jumpy fox & [grey] \"wyvern\" (ok)!?"))
     W = max(s.width for s in strips)
@@ -621,6 +622,7 @@ def write_ui_json() -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--preview", help="write a font verification PNG (rendered from the atlases) to this path")
+    ap.add_argument("--fonts-only", action="store_true", help="only rebuild the bitmap fonts, leave the UI art")
     args = ap.parse_args()
 
     os.makedirs(FONT_DIR, exist_ok=True)
@@ -630,6 +632,8 @@ def main() -> None:
         build_font(st)
     if args.preview:
         write_preview(args.preview)
+    if args.fonts_only:
+        return
 
     rng = np.random.default_rng(0x7E0)
     gen_panel(rng)

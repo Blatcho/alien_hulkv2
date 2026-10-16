@@ -1,219 +1,78 @@
-import { PLAYER } from '../config.js';
+// Demo mode: drives the marine through the mission without a controller. Sweeps towards the bridge,
+// rescues survivors on the way, grabs loot it passes, takes the log, returns to the Kestrel. It
+// writes a virtual controller state; a human touching the keys or pad takes over for a while.
+import { NavAgent } from './Nav.js';
+import { TILE } from '../gen/Ship.js';
 
-// Demo autopilot: plays the game by feeding a virtual action set into the shared InputManager.
-// It explores to the right, fights whatever it meets (blocks/parries telegraphed swings, backsteps,
-// chains light combos, slams groups), drinks potions when hurt, lights shrines, opens chests and
-// passes gates. Any real keyboard or pad activity ends the demo (handled by the Game scene).
-export default class Autopilot {
-  constructor(scene) {
-    this.scene = scene;
-    this.actions = new Set();
-    this.taps = {};              // action -> ms remaining held
-    this.moveX = 0;
-    this.lastX = 0;
-    this.stuckMs = 0;
-    this.interactCooldown = 0;
-    this.thinkTimer = 0;
-    this.mood = Math.random();   // per-fight randomness so demos differ
-    this.plan = 'explore';
-    this.flourishTimer = 3000;
-    this.attackCadence = 0;
-    this.guardHold = 0;
-    this.routeIndex = 0;
-    this.wpTime = 0;
-    this.goal = null; this.goalTime = 0; this.abandoned = null;
+export class Autopilot {
+  constructor(game) {
+    this.game = game;
+    this.nav = new NavAgent(game.world, game.physics);
+    this.v = { moveX: 0, moveY: 0, aimX: 0, aimY: 0, aiming: false, fire: 0, shield: 0, jump: false, dodge: false, weapon: false, interact: false, reload: false, medkit: false };
+    this.plan = null; this.planT = 0; this.interactT = 0; this.dodgeT = 0; this.waitT = 0; this.label = '';
+    this.visited = new Set();
+    this.lootT = 0;
   }
 
-  tap(action, ms = 70) { this.taps[action] = Math.max(this.taps[action] || 0, ms); }
-
-  // A standing cracked wall or a shut gate between here and there: no point charging at it.
-  barrierBetween(p, e) {
-    const s = this.scene;
-    const lo = Math.min(p.x, e.x), hi = Math.max(p.x, e.x);
-    const levelY = (y) => Math.abs(y - p.feetY) < 260;
-    if ((s.breakables || []).some((w) => w.alive && w.x > lo && w.x < hi && levelY(w.y))) return true;
-    if ((s.doors || []).some((d) => d.open < 0.5 && d.locked && d.x > lo && d.x < hi && levelY(d.y))) return true;
-    return false;
+  // Where to go next: survivor to rescue → loot nearby → the log → the airlock.
+  choose() {
+    const g = this.game, p = g.player, ship = g.ship;
+    const here = g.world.roomIdAt(p.x, p.y + 4);
+    if (p.dead) return null;
+    if (p.hasLog) {
+      const air = ship.rooms[ship.airlock];
+      return { kind: 'extract', x: ship.start.x + 40, y: ship.start.y, room: air.id, label: 'Return to the Kestrel' };
+    }
+    // nearby survivor (by graph distance)
+    const cands = [];
+    for (const s of g.survivors) if (s.state === 'cower' && s.alive) cands.push({ kind: 'survivor', x: s.body.x, y: s.body.y, room: g.world.roomIdAt(s.body.x, s.body.y + 4), d: g.director.roomDistance(here, g.world.roomIdAt(s.body.x, s.body.y + 4)), who: s, label: `Rescue ${s.name}` });
+    for (const k of g.pickups) if (k.alive && k.kind !== 'log') cands.push({ kind: 'loot', x: k.x, y: k.y, room: k.room, d: g.director.roomDistance(here, k.room) + 0.5, who: k, label: 'Grab supplies' });
+    const log = g.pickups.find((k) => k.alive && k.kind === 'log');
+    if (log) cands.push({ kind: 'log', x: log.x, y: log.y, room: log.room, d: g.director.roomDistance(here, log.room) + 1.5, who: log, label: 'Retrieve the ship\'s log' });
+    cands.sort((a, b) => a.d - b.d);
+    return cands[0] || null;
   }
 
-  update(dt) {
-    const s = this.scene;
-    const p = s.player;
-    this.actions.clear();
-    this.moveX = 0;
-    for (const a of Object.keys(this.taps)) {
-      if (this.taps[a] > 0) { this.actions.add(a); this.taps[a] -= dt; }
+  update(dt, input) {
+    const g = this.game, p = g.player, v = this.v;
+    v.moveX = 0; v.moveY = 0; v.jump = false; v.dodge = false; v.interact = false; v.reload = false; v.medkit = false; v.weapon = false; v.fire = 0; v.shield = 0; v.aiming = false;
+    if (p.dead) return;
+    this.planT -= dt;
+    if (!this.plan || this.planT <= 0 || (this.plan.who && (this.plan.who.alive === false || (this.plan.who.state && this.plan.who.state !== 'cower')))) {
+      this.plan = this.choose(); this.planT = 2.5;
+      if (this.plan) this.nav.setGoal(this.plan.x, this.plan.y, this.plan.room);
     }
-    this.interactCooldown -= dt;
-    this.flourishTimer -= dt;
-    this.attackCadence -= dt;
-    this.guardHold -= dt;
-    if (!p || !p.alive) { this.publish(); return; }
-
-    // --- potion ---------------------------------------------------------------------------
-    if (p.hp < p.maxHp * 0.35 && p.potions > 0 && p.canAct() && this.interactCooldown <= 0) {
-      this.tap('potion'); this.interactCooldown = 1500;
-    }
-
-    // --- pick a target -------------------------------------------------------------------
-    const enemies = s.enemies.filter((e) => e.alive);
-    let target = null, best = 1e9;
-    for (const e of enemies) {
-      const d = Math.abs(e.x - p.x) + Math.abs(e.y - p.y) * 0.5;
-      if (d < best && Math.abs(e.x - p.x) < 720 && Math.abs(e.y - p.y) < 220 && !this.barrierBetween(p, e)) { best = d; target = e; }
-    }
-
-    if (p.state === 'climb') { this.actions.add('up'); this.publish(); return; }
-    if (target && Math.abs(target.y - p.y) < 160) this.fight(p, target, enemies, dt);
-    else this.explore(p, dt);
-
-    // --- stuck detection: hop over whatever is in the way --------------------------------
-    if (Math.abs(this.moveX) > 0.1 && Math.abs(p.x - this.lastX) < 0.4 && p.grounded) this.stuckMs += dt; else this.stuckMs = 0;
-    if (this.stuckMs > 700) { this.tap('jump', 120); this.stuckMs = -400; }
-    this.lastX = p.x;
-    this.publish();
-  }
-
-  fight(p, e, enemies, dt) {
-    const s = this.scene;
-    const dx = e.x - p.x;
-    const dy = e.y - p.y;
-    const dist = Math.abs(dx);
-    const dir = Math.sign(dx) || 1;
-    const facingTarget = p.facing === dir;
-    const flying = e.t.flying;
-    const threat = e.state === 'attack' && dist < (e.t.attack.range + 90);
-    const nearby = enemies.filter((o) => Math.abs(o.x - p.x) < 160 && Math.abs(o.y - p.y) < 120).length;
-    const reach = 86;
-
-    if (this.guardHold > 0) {
-      // keep the guard up for a beat after the swing resolves
-      this.actions.add('defend');
-      if (!facingTarget) this.moveX = dir * 0.3;
-      return;
-    }
-
-    if (threat && p.canAct() && p.grounded) {
-      // telegraphed swing: block/parry most of the time, otherwise backstep out of it
-      if (this.mood < 0.65 && p.stamina > PLAYER.blockStamina + 6) {
-        if (!facingTarget) this.moveX = dir;
-        this.actions.add('defend');
-        this.guardHold = 260 + Math.random() * 200;
-      } else if (p.stamina > PLAYER.dodgeStamina) {
-        if (!facingTarget) this.moveX = dir;
-        this.tap('dodge', 90);
-        this.mood = Math.random();
-      }
-      return;
-    }
-
-    if (flying && dy < -60 && dist < 140) {
-      // bat overhead: jump and swipe
-      if (p.grounded && this.attackCadence <= 0) { this.tap('jump', 100); this.attackCadence = 400; }
-      else if (!p.grounded && this.attackCadence <= 0 && p.stamina > PLAYER.lightStamina) { this.tap('light'); this.attackCadence = 500; }
-      this.moveX = dir * 0.4;
-      return;
-    }
-
-    if (dist > reach) {
-      this.moveX = dir;
-      // close with an occasional leap when the enemy is far
-      if (dist > 400 && p.grounded && Math.random() < 0.004) this.tap('jump', 100);
-      return;
-    }
-
-    // in range: face and attack
-    if (!facingTarget) { this.moveX = dir; return; }
-    if (this.attackCadence > 0) return;
-    const staggered = e.state === 'stagger' || e.state === 'recover';
-    const heavyNow = p.stamina >= PLAYER.heavyStamina && (nearby >= 2 || (staggered && Math.random() < 0.5) || (e.t.boss && Math.random() < 0.25));
-    if (heavyNow && p.canAct()) {
-      this.tap('heavy', 420 + Math.random() * 300);   // hold to charge the slam
-      this.attackCadence = 1200;
-    } else if (p.stamina >= PLAYER.lightStamina) {
-      this.tap('light');
-      this.attackCadence = 230;
+    if (!this.plan) return;
+    this.label = this.plan.label;
+    const it = this.nav.update(p.body, dt);
+    // threats: hold ground and shoot when a hostile is close; dodge back when one is on us
+    const threat = g.aliens.filter((a) => a.alive && !a.hidden && a.visibleToPlayer && Math.hypot(a.cx - p.cx, a.cy - p.cy) < 260);
+    const closest = threat.sort((a, b) => Math.hypot(a.cx - p.cx, a.cy - p.cy) - Math.hypot(b.cx - p.cx, b.cy - p.cy))[0];
+    this.dodgeT -= dt;
+    if (closest) {
+      const d = Math.hypot(closest.cx - p.cx, closest.cy - p.cy);
+      const dir = Math.sign(closest.cx - p.cx) || 1;
+      if (d < 70 && closest.state === 'attack' && this.dodgeT <= 0 && p.body.onGround) { v.dodge = true; this.dodgeT = 1.4; }
+      else if (d < 60 && this.dodgeT <= 0) { v.shield = 1; v.moveX = -dir * 0.5; }
+      else if (d < 120) v.moveX = -dir * 0.6;
+      else if (p.state !== 'ladder') v.moveX = it.moveX * 0.4;
+      if (p.state === 'ladder') { v.moveY = it.moveY; v.moveX = it.moveX; }
     } else {
-      // out of stamina: give ground
-      this.moveX = -dir * 0.6;
-      this.attackCadence = 300;
+      v.moveX = it.moveX; v.moveY = it.moveY; v.jump = it.jump;
     }
+    // ammo and health
+    if (p.ammo.mag < p.weaponDef.mag * 0.3 && p.ammo.reserve > 0 && !p.reload && !closest) v.reload = true;
+    if (p.hp < 45 && p.medkits > 0 && p.healing <= 0 && !closest) v.medkit = true;
+    if (p.ammo.mag === 0 && p.ammo.reserve === 0) v.weapon = true;
+    // interact at the goal
+    this.interactT -= dt;
+    if (this.plan.who && this.plan.who.interact && this.plan.kind !== 'loot' && Math.abs(p.x - this.plan.x) < 30 && Math.abs(p.y - this.plan.y) < 40 && this.interactT <= 0) { v.interact = true; this.interactT = 0.6; }
+    if (this.plan.kind === 'extract' && Math.abs(p.x - this.plan.x) < 40 && Math.abs(p.y - this.plan.y) < 40 && this.interactT <= 0) {
+      // wait for followers
+      const pending = g.survivors.filter((s) => s.state === 'follow' && s.alive);
+      if (!pending.length || this.waitT > 20) { v.interact = true; this.interactT = 0.6; } else this.waitT += dt;
+    }
+    if (this.nav.arrived && this.plan.kind === 'loot') { this.planT = 0; }
+    input.virtual = v;
   }
-
-  explore(p, dt) {
-    const s = this.scene;
-    // a cracked wall across the way: square up and smash it (a charged slam when there is stamina)
-    const wall = (s.breakables || []).find((w) => w.alive && Math.abs(w.y - p.feetY) < 140 && Math.abs(w.x - p.x) < 170);
-    if (wall) {
-      const dx = wall.x - p.x;
-      if (Math.abs(dx) > 92) this.moveX = Math.sign(dx);
-      else {
-        this.moveX = p.facing === Math.sign(dx) ? 0 : Math.sign(dx) * 0.3;
-        if (this.attackCadence <= 0 && p.canAct() && p.grounded) {
-          if (p.stamina >= PLAYER.heavyStamina) { this.tap('heavy', 520); this.attackCadence = 1400; }
-          else if (p.stamina >= PLAYER.lightStamina) { this.tap('light'); this.attackCadence = 420; }
-        }
-      }
-      return;
-    }
-    // opportunistic objectives in reach: unlit shrine, unopened chest (not behind a wall, and given
-    // up after a while if they cannot be reached)
-    let goal = null;
-    for (const it of s.interactables) {
-      const dy = Math.abs(it.y - p.feetY);
-      if (dy > 80 || it === this.abandoned || this.barrierBetween(p, it)) continue;
-      if (it.kind === 'shrine' && !it.lit && Math.abs(it.x - p.x) < 500) goal = goal || it;
-      if (it.kind === 'chest' && !it.opened && Math.abs(it.x - p.x) < 500) goal = goal || it;
-    }
-    if (goal) {
-      if (goal !== this.goal) { this.goal = goal; this.goalTime = 0; }
-      this.goalTime += dt;
-      if (this.goalTime > 7000) { this.abandoned = goal; this.goal = null; this.goalTime = 0; }
-      else {
-        const dx = goal.x - p.x;
-        if (Math.abs(dx) < 40) { if (this.interactCooldown <= 0) { this.tap('interact'); this.interactCooldown = 900; } }
-        else this.moveX = Math.sign(dx);
-        return;
-      }
-    } else this.goal = null;
-    // follow the generated critical path
-    const route = s.level ? s.level.route : [];
-    const wp = route[this.routeIndex];
-    if (!wp) { this.moveX = 1; return; }
-    this.wpTime += dt;
-    const dx = wp.x - p.x;
-    if (wp.type === 'walk') {
-      // the room's floor level is a hint only: a tomb or terrace may stand on the waypoint itself
-      if (Math.abs(dx) < 40 && Math.abs(wp.y - p.feetY) < 220) { this.next(); return; }
-      this.moveX = Math.sign(dx);
-      if (p.state === 'climb') this.actions.add('up');
-    } else if (wp.type === 'ladder') {
-      if (p.feetY <= wp.topY + 4 && Math.abs(dx) < 90) { this.next(); return; }
-      if (p.state === 'climb') { this.actions.add('up'); return; }
-      if (Math.abs(dx) > 20) this.moveX = Math.sign(dx) * (Math.abs(dx) < 160 ? 0.3 : 1);
-      else { this.moveX = 0; this.actions.add('up'); }
-    } else if (wp.type === 'gate') {
-      if (Math.abs(dx) < 50) {
-        this.moveX = 0;
-        if (s.gateKillsNeeded() === 0 && this.interactCooldown <= 0) { this.tap('interact'); this.interactCooldown = 1200; }
-        else if (this.wpTime > 4000) { this.routeIndex = Math.max(0, this.routeIndex - 2); this.wpTime = 0; }   // go hunt stragglers
-      } else this.moveX = Math.sign(dx);
-    }
-    // stuck on a waypoint: hop (platform lip) then give up and skip it
-    if (this.wpTime > 6000 && p.grounded) { this.tap('jump', 140); this.wpTime = 3000; }
-    if (this.wpTime > 14000) this.next();
-    if (this.flourishTimer <= 0 && p.grounded && wp.type === 'walk') {
-      this.tap('jump', 120);
-      this.flourishTimer = 5000 + Math.random() * 6000;
-      this.scene.time.delayedCall(260, () => this.tap('jump', 120));
-    }
-  }
-
-  next() { this.routeIndex += 1; this.wpTime = 0; }
-
-  publish() {
-    this.scene.input_.virtual = { moveX: this.moveX, moveY: 0, actions: this.actions };
-  }
-
-  detach() { this.scene.input_.virtual = null; }
 }
