@@ -1,0 +1,59 @@
+{
+  "name": "survivor",
+  "file": "survivor.glb",
+  "clips": [
+    {
+      "name": "cower",
+      "loop": true,
+      "duration": 2.0
+    },
+    {
+      "name": "idle",
+      "loop": true,
+      "duration": 3.0
+    },
+    {
+      "name": "walk",
+      "loop": true,
+      "duration": 0.8,
+      "speed": 1.7
+    },
+    {
+      "name": "run",
+      "loop": true,
+      "duration": 0.6,
+      "speed": 3.333
+    },
+    {
+      "name": "wave",
+      "loop": false,
+      "duration": 1.5
+    },
+    {
+      "name": "hit",
+      "loop": false,
+      "duration": 0.4
+    },
+    {
+      "name": "die",
+      "loop": false,
+      "duration": 1.3333333333333333
+    }
+  ],
+  "sockets": [
+    "socket_head",
+    "socket_light"
+  ],
+  "bounds": {
+    "min": [
+      -0.2336210459470749,
+      0.0,
+      -0.14499999582767487
+    ],
+    "max": [
+      0.2336210459470749,
+      1.7619999647140503,
+      0.19064044952392578
+    ]
+  }
+}

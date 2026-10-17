@@ -1,0 +1,194 @@
+{
+  "name": "props",
+  "file": "props.glb",
+  "nodes": [
+    "crate",
+    "locker",
+    "chest",
+    "cabinet",
+    "ammo_rack",
+    "barrel",
+    "bigcrate",
+    "console",
+    "bunk",
+    "medbed",
+    "shelf",
+    "table",
+    "reactor",
+    "pilot_seat",
+    "control_panel",
+    "debris",
+    "beam",
+    "airlock_hatch",
+    "barrel_explosive",
+    "barrel_wreck",
+    "console_broken",
+    "weapon_case",
+    "safe",
+    "scorch",
+    "barricade",
+    "turret",
+    "eggs",
+    "cryopod",
+    "body"
+  ],
+  "pieces": {
+    "crate": {
+      "w": 1.22,
+      "h": 0.79,
+      "tris": 838
+    },
+    "locker": {
+      "w": 1.04,
+      "h": 2.22,
+      "tris": 956
+    },
+    "chest": {
+      "w": 1.3,
+      "h": 0.56,
+      "tris": 662
+    },
+    "cabinet": {
+      "w": 1.44,
+      "h": 0.92,
+      "tris": 745
+    },
+    "ammo_rack": {
+      "w": 1.64,
+      "h": 1.94,
+      "tris": 1424
+    },
+    "barrel": {
+      "w": 0.88,
+      "h": 1.07,
+      "tris": 550
+    },
+    "bigcrate": {
+      "w": 2.61,
+      "h": 2.2,
+      "tris": 1291
+    },
+    "console": {
+      "w": 1.84,
+      "h": 1.86,
+      "tris": 1012
+    },
+    "bunk": {
+      "w": 2.4,
+      "h": 1.95,
+      "tris": 952
+    },
+    "medbed": {
+      "w": 2.29,
+      "h": 1.95,
+      "tris": 708
+    },
+    "shelf": {
+      "w": 2.04,
+      "h": 2.22,
+      "tris": 1208
+    },
+    "table": {
+      "w": 2.2,
+      "h": 0.9,
+      "tris": 810
+    },
+    "reactor": {
+      "w": 3.4,
+      "h": 4.11,
+      "tris": 2475
+    },
+    "pilot_seat": {
+      "w": 1.23,
+      "h": 1.588,
+      "tris": 596
+    },
+    "control_panel": {
+      "w": 2.44,
+      "h": 2.355,
+      "tris": 2072
+    },
+    "debris": {
+      "w": 1.469,
+      "h": 0.763,
+      "tris": 675
+    },
+    "beam": {
+      "w": 1.802,
+      "h": 3.201,
+      "tris": 431
+    },
+    "airlock_hatch": {
+      "w": 1.0,
+      "h": 2.338,
+      "tris": 971
+    },
+    "barrel_explosive": {
+      "w": 0.86,
+      "h": 1.203,
+      "tris": 877
+    },
+    "barrel_wreck": {
+      "w": 0.98,
+      "h": 0.805,
+      "tris": 431
+    },
+    "console_broken": {
+      "w": 1.841,
+      "h": 1.857,
+      "tris": 970
+    },
+    "weapon_case": {
+      "w": 1.44,
+      "h": 1.258,
+      "tris": 956
+    },
+    "safe": {
+      "w": 1.01,
+      "h": 1.21,
+      "tris": 1444
+    },
+    "scorch": {
+      "w": 2.0,
+      "h": 2.85,
+      "tris": 158
+    },
+    "barricade": {
+      "w": 1.2,
+      "h": 1.147,
+      "tris": 432
+    },
+    "turret": {
+      "w": 0.97,
+      "h": 1.53,
+      "tris": 722
+    },
+    "eggs": {
+      "w": 1.58,
+      "h": 0.606,
+      "tris": 1374
+    },
+    "cryopod": {
+      "w": 1.335,
+      "h": 2.05,
+      "tris": 632
+    },
+    "body": {
+      "w": 2.056,
+      "h": 0.195,
+      "tris": 624
+    }
+  },
+  "bounds": {
+    "min": [
+      -1.7000000476837158,
+      -0.009702231734991074,
+      -1.9181121587753296
+    ],
+    "max": [
+      1.7000000476837158,
+      4.500749111175537,
+      1.00600004196167
+    ]
+  }
+}

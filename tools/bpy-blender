@@ -1,0 +1,4 @@
+#!/bin/sh
+# `blender` via the bpy Python module - see tools/bpy-blender.py. (PYTHONHASHSEED pinned: the colour
+# jitter in lib/common.paint seeds from hash(), so builds come out the same every time.)
+PYTHONHASHSEED=0 exec "${BPY_PYTHON:-python3}" "$(dirname "$0")/bpy-blender.py" "$@"

@@ -1,0 +1,271 @@
+{
+  "name": "marine",
+  "file": "marine.glb",
+  "clips": [
+    {
+      "name": "idle_casual",
+      "loop": true,
+      "duration": 2.4
+    },
+    {
+      "name": "walk_casual",
+      "loop": true,
+      "duration": 1.0,
+      "speed": 1.72
+    },
+    {
+      "name": "run",
+      "loop": true,
+      "duration": 0.7,
+      "speed": 3.265
+    },
+    {
+      "name": "idle_alert",
+      "loop": true,
+      "duration": 3.0
+    },
+    {
+      "name": "walk_alert",
+      "loop": true,
+      "duration": 2.0,
+      "speed": 1.72
+    },
+    {
+      "name": "crouch_alert",
+      "loop": true,
+      "duration": 2.4
+    },
+    {
+      "name": "crouch_walk",
+      "loop": true,
+      "duration": 1.1,
+      "speed": 0.88
+    },
+    {
+      "name": "aim",
+      "loop": true,
+      "duration": 2.0
+    },
+    {
+      "name": "walk_aim",
+      "loop": true,
+      "duration": 0.9,
+      "speed": 1.19
+    },
+    {
+      "name": "shoot",
+      "loop": true,
+      "duration": 0.4
+    },
+    {
+      "name": "crouch_aim",
+      "loop": true,
+      "duration": 2.0
+    },
+    {
+      "name": "crouch_shoot",
+      "loop": true,
+      "duration": 0.4
+    },
+    {
+      "name": "aim_up",
+      "loop": true,
+      "duration": 2.0
+    },
+    {
+      "name": "aim_down",
+      "loop": true,
+      "duration": 2.0
+    },
+    {
+      "name": "signal",
+      "loop": false,
+      "duration": 1.2
+    },
+    {
+      "name": "reload",
+      "loop": false,
+      "duration": 2.2
+    },
+    {
+      "name": "jump",
+      "loop": false,
+      "duration": 0.6666666666666666
+    },
+    {
+      "name": "climb",
+      "loop": true,
+      "duration": 0.7333333333333333,
+      "speed": 1.432
+    },
+    {
+      "name": "interact",
+      "loop": true,
+      "duration": 1.6
+    },
+    {
+      "name": "hit",
+      "loop": false,
+      "duration": 0.4
+    },
+    {
+      "name": "bash",
+      "loop": false,
+      "duration": 0.4666666666666667
+    },
+    {
+      "name": "slash",
+      "loop": false,
+      "duration": 0.6
+    },
+    {
+      "name": "punch",
+      "loop": false,
+      "duration": 0.4666666666666667
+    },
+    {
+      "name": "die",
+      "loop": false,
+      "duration": 1.4
+    }
+  ],
+  "sockets": [
+    "socket_muzzle",
+    "socket_light",
+    "socket_eye",
+    "socket_head",
+    "socket_muzzle_carbine",
+    "socket_light_carbine",
+    "socket_muzzle_heavy",
+    "socket_light_heavy",
+    "socket_muzzle_breacher",
+    "socket_light_breacher",
+    "socket_muzzle_marksman",
+    "socket_light_marksman",
+    "socket_muzzle_pistol",
+    "socket_light_pistol",
+    "socket_muzzle_minigun",
+    "socket_light_minigun",
+    "socket_muzzle_fists",
+    "socket_light_fists"
+  ],
+  "nodes": [
+    "marine_base",
+    "var_helmet_command",
+    "var_helmet_heavy",
+    "var_helmet_breacher",
+    "var_helmet_marksman",
+    "var_pads_command",
+    "var_pads_heavy",
+    "var_pads_breacher",
+    "var_pads_marksman",
+    "var_pack_command",
+    "var_pack_heavy",
+    "var_pack_breacher",
+    "var_pack_marksman",
+    "var_weapon_carbine",
+    "var_weapon_heavy",
+    "var_weapon_breacher",
+    "var_weapon_marksman",
+    "var_weapon_pistol",
+    "var_weapon_minigun",
+    "var_weapon_fists",
+    "var_melee_sword"
+  ],
+  "variants": {
+    "helmet": [
+      "command",
+      "heavy",
+      "breacher",
+      "marksman"
+    ],
+    "pads": [
+      "command",
+      "heavy",
+      "breacher",
+      "marksman"
+    ],
+    "pack": [
+      "command",
+      "heavy",
+      "breacher",
+      "marksman"
+    ],
+    "weapon": [
+      "carbine",
+      "heavy",
+      "breacher",
+      "marksman",
+      "pistol",
+      "minigun",
+      "fists"
+    ],
+    "melee": [
+      "sword"
+    ]
+  },
+  "loadouts": [
+    {
+      "name": "command",
+      "helmet": "command",
+      "pads": "command",
+      "pack": "command",
+      "weapon": "carbine"
+    },
+    {
+      "name": "heavy",
+      "helmet": "heavy",
+      "pads": "heavy",
+      "pack": "heavy",
+      "weapon": "heavy"
+    },
+    {
+      "name": "breacher",
+      "helmet": "breacher",
+      "pads": "breacher",
+      "pack": "breacher",
+      "weapon": "breacher"
+    },
+    {
+      "name": "marksman",
+      "helmet": "marksman",
+      "pads": "marksman",
+      "pack": "marksman",
+      "weapon": "marksman"
+    },
+    {
+      "name": "duelist",
+      "helmet": "command",
+      "pads": "breacher",
+      "pack": "marksman",
+      "weapon": "pistol",
+      "melee": "sword"
+    },
+    {
+      "name": "brawler",
+      "helmet": "breacher",
+      "pads": "heavy",
+      "pack": "breacher",
+      "weapon": "fists"
+    },
+    {
+      "name": "gunner",
+      "helmet": "heavy",
+      "pads": "heavy",
+      "pack": "heavy",
+      "weapon": "minigun"
+    }
+  ],
+  "bounds": {
+    "min": [
+      -0.7790656685829163,
+      0.0,
+      -0.6919999718666077
+    ],
+    "max": [
+      0.7642353177070618,
+      2.033747911453247,
+      1.3599998950958252
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "critter",
+  "file": "critter.glb",
+  "clips": [
+    {
+      "name": "idle",
+      "loop": true,
+      "duration": 2.0
+    },
+    {
+      "name": "scurry",
+      "loop": true,
+      "duration": 0.3333333333333333,
+      "speed": 1.92
+    },
+    {
+      "name": "die",
+      "loop": false,
+      "duration": 0.8
+    }
+  ],
+  "sockets": [],
+  "bounds": {
+    "min": [
+      -0.27260681986808777,
+      0.010607053525745869,
+      -0.299454927444458
+    ],
+    "max": [
+      0.27260681986808777,
+      0.24143464863300323,
+      0.33124664425849915
+    ]
+  }
+}

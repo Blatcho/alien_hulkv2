@@ -1,8 +1,9 @@
-# Continuous deployment of Derelict to blatcho.com/games/sotb over FTP.
+# Continuous deployment of Hull Breach to https://blatcho.com/games/sotb/ over FTPS.
 #
-# Runs on every push to main (and on demand from the Actions tab). It copies only the files the
-# browser needs (index.html, src/, vendor/, assets/) into a staging folder and mirrors that folder
-# to the server directory, uploading only what changed since the last deploy.
+# Runs on every push to main (and on demand from the Actions tab): installs, runs the tests, builds
+# the production bundle with a relative base, and mirrors dist/ to the server folder, uploading only
+# what changed since the last deploy and deleting files an earlier deploy put there that the build no
+# longer has. Files in the folder that this action never uploaded are left alone.
 #
 # Required repository secrets (Settings → Secrets and variables → Actions → Secrets):
 #   FTP_SERVER    hostname of the FTP server, e.g. ftp.blatcho.com (no protocol, no path)
@@ -24,32 +25,42 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# One deploy at a time: overlapping uploads would race on the server's sync-state file.
 concurrency:
   group: deploy-sotb
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
-    name: FTP deploy
+    name: Build and FTP deploy
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Run unit tests
-        run: node --import ./tests/_resolve.mjs --test "tests/**/*.test.mjs"
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
 
-      - name: Stage the runtime files
-        run: |
-          rm -rf dist && mkdir dist
-          cp index.html .htaccess dist/
-          cp -r src vendor assets dist/
-          find dist -name '.DS_Store' -delete
-          echo "Staged $(find dist -type f | wc -l) files, $(du -sh dist | cut -f1)"
+      - name: Install
+        run: npm ci
+
+      # A failing test stops the deploy, so the live site never gets a broken build.
+      - name: Run tests
+        run: npm test
+
+      # Relative base: the build works from the domain root or any subfolder.
+      - name: Build
+        run: npm run build -- --base=./
 
       - name: Upload over FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
@@ -57,6 +68,7 @@ jobs:
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
           port: ${{ vars.FTP_PORT || 21 }}
           local-dir: ./dist/
+          # Relative to the FTP account's home folder (the games/sotb folder); must end with "/".
           server-dir: ${{ vars.FTP_SERVER_DIR || './' }}
           state-name: .ftp-deploy-sync-state.json
           exclude: |

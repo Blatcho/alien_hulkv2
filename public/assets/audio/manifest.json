@@ -1,0 +1,909 @@
+{
+ "version": 1,
+ "sounds": {
+  "ambience": {
+   "loop": true,
+   "files": [
+    {
+     "file": "ambience_1.mp3",
+     "dur": 44,
+     "lead": 0.025057,
+     "from": "\"Spaceship_Ambience_Interior\" by ChrisDisk (Freesound) (20.00-68.00 s)",
+     "url": "https://freesound.org/people/ChrisDisk/sounds/829563/"
+    }
+   ]
+  },
+  "ambience_drone": {
+   "loop": true,
+   "files": [
+    {
+     "file": "ambience_drone_1.mp3",
+     "dur": 30.700023,
+     "lead": 0.025057,
+     "from": "\"Sci-fi Ambient Drone.wav\" by LookIMadeAThing (Freesound) (15.20-48.90 s)",
+     "url": "https://freesound.org/people/LookIMadeAThing/sounds/534018/"
+    }
+   ]
+  },
+  "ambience_thud": {
+   "loop": false,
+   "files": [
+    {
+     "file": "ambience_thud_1.mp3",
+     "dur": 1.550023,
+     "lead": 0.025057,
+     "from": "\"amb, industrial drone, percussive thuds.wav\" by pointparkcinema (Freesound) (5.85-7.40 s)",
+     "url": "https://freesound.org/people/pointparkcinema/sounds/402495/"
+    },
+    {
+     "file": "ambience_thud_2.mp3",
+     "dur": 2.1,
+     "lead": 0.025057,
+     "from": "\"amb, industrial drone, percussive thuds.wav\" by pointparkcinema (Freesound) (7.50-9.60 s)",
+     "url": "https://freesound.org/people/pointparkcinema/sounds/402495/"
+    },
+    {
+     "file": "ambience_thud_3.mp3",
+     "dur": 2.25,
+     "lead": 0.025057,
+     "from": "\"amb, industrial drone, percussive thuds.wav\" by pointparkcinema (Freesound) (11.35-13.60 s)",
+     "url": "https://freesound.org/people/pointparkcinema/sounds/402495/"
+    },
+    {
+     "file": "ambience_thud_4.mp3",
+     "dur": 2.5,
+     "lead": 0.025057,
+     "from": "\"amb, industrial drone, percussive thuds.wav\" by pointparkcinema (Freesound) (16.10-18.60 s)",
+     "url": "https://freesound.org/people/pointparkcinema/sounds/402495/"
+    }
+   ]
+  },
+  "ambience_beep": {
+   "loop": false,
+   "files": [
+    {
+     "file": "ambience_beep_1.mp3",
+     "dur": 0.368481,
+     "lead": 0.025057,
+     "from": "terminal_01.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_2.mp3",
+     "dur": 0.330907,
+     "lead": 0.025057,
+     "from": "terminal_02.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_3.mp3",
+     "dur": 0.250476,
+     "lead": 0.025057,
+     "from": "terminal_04.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_4.mp3",
+     "dur": 0.343492,
+     "lead": 0.025057,
+     "from": "terminal_05.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_5.mp3",
+     "dur": 0.286531,
+     "lead": 0.025057,
+     "from": "terminal_06.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_6.mp3",
+     "dur": 0.230317,
+     "lead": 0.025057,
+     "from": "terminal_07.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_7.mp3",
+     "dur": 0.266417,
+     "lead": 0.025057,
+     "from": "terminal_08.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_8.mp3",
+     "dur": 0.28322,
+     "lead": 0.025057,
+     "from": "terminal_09.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_9.mp3",
+     "dur": 0.312766,
+     "lead": 0.025057,
+     "from": "beep_01.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_10.mp3",
+     "dur": 0.399615,
+     "lead": 0.025057,
+     "from": "beep_02.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_11.mp3",
+     "dur": 0.226213,
+     "lead": 0.025057,
+     "from": "beep_03.ogg from oga-50-sci-fi",
+     "url": "https://opengameart.org/content/50-cc0-sci-fi-sfx"
+    },
+    {
+     "file": "ambience_beep_12.mp3",
+     "dur": 3.111406,
+     "lead": 0.025057,
+     "from": "\"SciFi, Beeping Technology 02.wav\" by LilMati (Freesound)",
+     "url": "https://freesound.org/people/LilMati/sounds/431901/"
+    },
+    {
+     "file": "ambience_beep_13.mp3",
+     "dur": 1.5,
+     "lead": 0.025057,
+     "from": "\"Beeping Robot or Machine\" by Jofae (Freesound) (0.05-1.55 s)",
+     "url": "https://freesound.org/people/Jofae/sounds/363251/"
+    },
+    {
+     "file": "ambience_beep_14.mp3",
+     "dur": 1.5,
+     "lead": 0.025057,
+     "from": "\"Retro Sci Fi Computer\" by notKlaatu (Freesound) (0.00-1.50 s)",
+     "url": "https://freesound.org/people/notKlaatu/sounds/260103/"
+    }
+   ]
+  },
+  "door": {
+   "loop": false,
+   "files": [
+    {
+     "file": "door_1.mp3",
+     "dur": 1.83966,
+     "lead": 0.025057,
+     "from": "\"SCI_FI_DOOR.wav\" by alexo400 (Freesound)",
+     "url": "https://freesound.org/people/alexo400/sounds/543404/"
+    },
+    {
+     "file": "door_2.mp3",
+     "dur": 2.049161,
+     "lead": 0.025057,
+     "from": "\"SCI-FI_DOOR_2\" by alexo400 (Freesound)",
+     "url": "https://freesound.org/people/alexo400/sounds/543654/"
+    }
+   ]
+  },
+  "airlock": {
+   "loop": false,
+   "files": [
+    {
+     "file": "airlock_1.mp3",
+     "dur": 5.305215,
+     "lead": 0.025057,
+     "from": "\"Sci-Fi Doors-Airlock Sound Effect\" by RyanKingArt (Freesound) (3.35-8.70 s)",
+     "url": "https://freesound.org/people/RyanKingArt/sounds/607265/"
+    }
+   ]
+  },
+  "shot_carbine": {
+   "loop": false,
+   "files": [
+    {
+     "file": "shot_carbine_1.mp3",
+     "dur": 0.599388,
+     "lead": 0.025057,
+     "from": "\"M4A1 Rifle Shot 5\" by qubodup (Freesound) (0.00-0.60 s)",
+     "url": "https://freesound.org/people/qubodup/sounds/854226/"
+    },
+    {
+     "file": "shot_carbine_2.mp3",
+     "dur": 0.599977,
+     "lead": 0.025057,
+     "from": "\"M4A1 Rifle Shot 6\" by qubodup (Freesound) (0.00-0.60 s)",
+     "url": "https://freesound.org/people/qubodup/sounds/854227/"
+    },
+    {
+     "file": "shot_carbine_3.mp3",
+     "dur": 0.596939,
+     "lead": 0.025057,
+     "from": "\"M4A1 Rifle Shot 7\" by qubodup (Freesound) (0.00-0.60 s)",
+     "url": "https://freesound.org/people/qubodup/sounds/854228/"
+    },
+    {
+     "file": "shot_carbine_4.mp3",
+     "dur": 0.6,
+     "lead": 0.025057,
+     "from": "\"M4A1 Rifle Shot 8\" by qubodup (Freesound) (0.00-0.60 s)",
+     "url": "https://freesound.org/people/qubodup/sounds/854229/"
+    },
+    {
+     "file": "shot_carbine_5.mp3",
+     "dur": 0.599116,
+     "lead": 0.025057,
+     "from": "\"M4A1 Rifle Shot 9\" by qubodup (Freesound) (0.00-0.60 s)",
+     "url": "https://freesound.org/people/qubodup/sounds/854230/"
+    },
+    {
+     "file": "shot_carbine_6.mp3",
+     "dur": 0.598957,
+     "lead": 0.025057,
+     "from": "\"M4A1 Rifle Shot 10\" by qubodup (Freesound) (0.00-0.60 s)",
+     "url": "https://freesound.org/people/qubodup/sounds/854231/"
+    },
+    {
+     "file": "shot_carbine_7.mp3",
+     "dur": 0.538141,
+     "lead": 0.025057,
+     "from": "\"M4A1 Rifle Shot 11\" by qubodup (Freesound) (0.00-0.60 s)",
+     "url": "https://freesound.org/people/qubodup/sounds/854232/"
+    },
+    {
+     "file": "shot_carbine_8.mp3",
+     "dur": 0.598435,
+     "lead": 0.025057,
+     "from": "\"M4A1 Rifle Shot 12\" by qubodup (Freesound) (0.00-0.60 s)",
+     "url": "https://freesound.org/people/qubodup/sounds/854233/"
+    }
+   ]
+  },
+  "shot_heavy": {
+   "loop": false,
+   "files": [
+    {
+     "file": "shot_heavy_1.mp3",
+     "dur": 0.0878,
+     "lead": 0.025057,
+     "from": "\"Clean Machine Gun Burst\" by qubodup (Freesound)",
+     "url": "https://freesound.org/people/qubodup/sounds/482122/"
+    },
+    {
+     "file": "shot_heavy_2.mp3",
+     "dur": 0.091791,
+     "lead": 0.025057,
+     "from": "\"Clean Machine Gun Burst\" by qubodup (Freesound)",
+     "url": "https://freesound.org/people/qubodup/sounds/482122/"
+    },
+    {
+     "file": "shot_heavy_3.mp3",
+     "dur": 0.091791,
+     "lead": 0.025057,
+     "from": "\"Clean Machine Gun Burst\" by qubodup (Freesound)",
+     "url": "https://freesound.org/people/qubodup/sounds/482122/"
+    },
+    {
+     "file": "shot_heavy_4.mp3",
+     "dur": 0.089796,
+     "lead": 0.025057,
+     "from": "\"Clean Machine Gun Burst\" by qubodup (Freesound)",
+     "url": "https://freesound.org/people/qubodup/sounds/482122/"
+    },
+    {
+     "file": "shot_heavy_5.mp3",
+     "dur": 0.0878,
+     "lead": 0.025057,
+     "from": "\"Clean Machine Gun Burst\" by qubodup (Freesound)",
+     "url": "https://freesound.org/people/qubodup/sounds/482122/"
+    },
+    {
+     "file": "shot_heavy_6.mp3",
+     "dur": 0.089796,
+     "lead": 0.025057,
+     "from": "\"Clean Machine Gun Burst\" by qubodup (Freesound)",
+     "url": "https://freesound.org/people/qubodup/sounds/482122/"
+    }
+   ]
+  },
+  "shot_heavy_tail": {
+   "loop": false,
+   "files": [
+    {
+     "file": "shot_heavy_tail_1.mp3",
+     "dur": 0.228005,
+     "lead": 0.025057,
+     "from": "\"Clean Machine Gun Burst\" by qubodup (Freesound) (1.37-1.60 s)",
+     "url": "https://freesound.org/people/qubodup/sounds/482122/"
+    }
+   ]
+  },
+  "shot_breacher": {
+   "loop": false,
+   "files": [
+    {
+     "file": "shot_breacher_1.mp3",
+     "dur": 0.941134,
+     "lead": 0.025057,
+     "from": "\"shotgun shoot\" by MrGungus (Freesound) (0.00-0.95 s)",
+     "url": "https://freesound.org/people/MrGungus/sounds/773873/"
+    },
+    {
+     "file": "shot_breacher_2.mp3",
+     "dur": 1.597347,
+     "lead": 0.025057,
+     "from": "\"Shotgun Shot 03.wav\" by LilMati (Freesound) (0.00-1.60 s)",
+     "url": "https://freesound.org/people/LilMati/sounds/473846/"
+    },
+    {
+     "file": "shot_breacher_3.mp3",
+     "dur": 0.836417,
+     "lead": 0.025057,
+     "from": "\"shotgun with clink.mp3\" by CraftyIndividual (Freesound) (0.15-end s)",
+     "url": "https://freesound.org/people/CraftyIndividual/sounds/418435/"
+    }
+   ]
+  },
+  "shot_marksman": {
+   "loop": false,
+   "files": [
+    {
+     "file": "shot_marksman_1.mp3",
+     "dur": 0.63678,
+     "lead": 0.025057,
+     "from": "\"Sniper Shot\" by LeMudCrab (Freesound)",
+     "url": "https://freesound.org/people/LeMudCrab/sounds/163460/"
+    },
+    {
+     "file": "shot_marksman_2.mp3",
+     "dur": 0.918503,
+     "lead": 0.025057,
+     "from": "\"Sniper Rifle M24 SFX.mp3\" by kennysvoice (Freesound) (0.68-1.70 s)",
+     "url": "https://freesound.org/people/kennysvoice/sounds/351777/"
+    }
+   ]
+  },
+  "reload": {
+   "loop": false,
+   "files": [
+    {
+     "file": "reload_1.mp3",
+     "dur": 2.920385,
+     "lead": 0.025057,
+     "from": "\"Assault Rifle Reload\" by Kodack (Freesound) (0.50-3.45 s)",
+     "url": "https://freesound.org/people/Kodack/sounds/256912/"
+    },
+    {
+     "file": "reload_2.mp3",
+     "dur": 1.94322,
+     "lead": 0.025057,
+     "from": "\"Rifle-or-shotgun-reload.wav\" by MaximBomba (Freesound) (0.00-1.95 s)",
+     "url": "https://freesound.org/people/MaximBomba/sounds/432141/"
+    }
+   ]
+  },
+  "alien_hiss": {
+   "loop": false,
+   "files": [
+    {
+     "file": "alien_hiss_1.mp3",
+     "dur": 4.1,
+     "lead": 0.025057,
+     "from": "\"Alien Xenomorph Hissing and Growling (with and without FX)\" by MSEpitaph (Freesound) (0.70-4.80 s)",
+     "url": "https://freesound.org/people/MSEpitaph/sounds/545484/"
+    },
+    {
+     "file": "alien_hiss_2.mp3",
+     "dur": 2.7,
+     "lead": 0.025057,
+     "from": "\"Alien Xenomorph Hissing and Growling (with and without FX)\" by MSEpitaph (Freesound) (7.90-10.60 s)",
+     "url": "https://freesound.org/people/MSEpitaph/sounds/545484/"
+    },
+    {
+     "file": "alien_hiss_3.mp3",
+     "dur": 4.09542,
+     "lead": 0.025057,
+     "from": "\"Alien Xenomorph Hissing and Growling (with and without FX)\" by MSEpitaph (Freesound) (45.10-49.20 s)",
+     "url": "https://freesound.org/people/MSEpitaph/sounds/545484/"
+    },
+    {
+     "file": "alien_hiss_4.mp3",
+     "dur": 2.7,
+     "lead": 0.025057,
+     "from": "\"Alien Xenomorph Hissing and Growling (with and without FX)\" by MSEpitaph (Freesound) (52.20-54.90 s)",
+     "url": "https://freesound.org/people/MSEpitaph/sounds/545484/"
+    },
+    {
+     "file": "alien_hiss_5.mp3",
+     "dur": 0.943424,
+     "lead": 0.025057,
+     "from": "\"Alien Cat Hissing Sound Effect\" by Mastersoundboy2005 (Freesound) (0.10-end s)",
+     "url": "https://freesound.org/people/Mastersoundboy2005/sounds/763384/"
+    }
+   ]
+  },
+  "alien_growl": {
+   "loop": false,
+   "files": [
+    {
+     "file": "alien_growl_1.mp3",
+     "dur": 1.481111,
+     "lead": 0.025057,
+     "from": "\"Alien Xenomorph Hissing and Growling (with and without FX)\" by MSEpitaph (Freesound) (20.00-21.50 s)",
+     "url": "https://freesound.org/people/MSEpitaph/sounds/545484/"
+    },
+    {
+     "file": "alien_growl_2.mp3",
+     "dur": 3.169751,
+     "lead": 0.025057,
+     "from": "\"Alien Xenomorph Hissing and Growling (with and without FX)\" by MSEpitaph (Freesound) (22.50-25.70 s)",
+     "url": "https://freesound.org/people/MSEpitaph/sounds/545484/"
+    },
+    {
+     "file": "alien_growl_3.mp3",
+     "dur": 3.600023,
+     "lead": 0.025057,
+     "from": "\"Alien Xenomorph Hissing and Growling (with and without FX)\" by MSEpitaph (Freesound) (27.50-31.10 s)",
+     "url": "https://freesound.org/people/MSEpitaph/sounds/545484/"
+    },
+    {
+     "file": "alien_growl_4.mp3",
+     "dur": 5.364853,
+     "lead": 0.025057,
+     "from": "\"Alien Xenomorph Hissing and Growling (with and without FX)\" by MSEpitaph (Freesound) (32.30-37.70 s)",
+     "url": "https://freesound.org/people/MSEpitaph/sounds/545484/"
+    }
+   ]
+  },
+  "alien_screech": {
+   "loop": false,
+   "files": [
+    {
+     "file": "alien_screech_1.mp3",
+     "dur": 2.417868,
+     "lead": 0.025057,
+     "from": "\"Monster screech\" by Khrinx (Freesound) (2.45-4.90 s)",
+     "url": "https://freesound.org/people/Khrinx/sounds/565024/"
+    },
+    {
+     "file": "alien_screech_2.mp3",
+     "dur": 2.487551,
+     "lead": 0.025057,
+     "from": "\"alien screech.wav\" by jvmyka@gmail.com (Freesound) (0.10-2.60 s)",
+     "url": "https://freesound.org/people/jvmyka@gmail.com/sounds/556535/"
+    },
+    {
+     "file": "alien_screech_3.mp3",
+     "dur": 1.962562,
+     "lead": 0.025057,
+     "from": "\"alien screech.wav\" by jvmyka@gmail.com (Freesound) (7.35-9.32 s)",
+     "url": "https://freesound.org/people/jvmyka@gmail.com/sounds/556535/"
+    },
+    {
+     "file": "alien_screech_4.mp3",
+     "dur": 0.724172,
+     "lead": 0.025057,
+     "from": "alien_02.ogg from oga-80-creature",
+     "url": "https://opengameart.org/content/80-cc0-creature-sfx"
+    },
+    {
+     "file": "alien_screech_5.mp3",
+     "dur": 0.765125,
+     "lead": 0.025057,
+     "from": "alien_03.ogg from oga-80-creature",
+     "url": "https://opengameart.org/content/80-cc0-creature-sfx"
+    },
+    {
+     "file": "alien_screech_6.mp3",
+     "dur": 0.531791,
+     "lead": 0.025057,
+     "from": "alien_07.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    }
+   ]
+  },
+  "alien_attack": {
+   "loop": false,
+   "files": [
+    {
+     "file": "alien_attack_1.mp3",
+     "dur": 0.585646,
+     "lead": 0.025057,
+     "from": "attack_02.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    },
+    {
+     "file": "alien_attack_2.mp3",
+     "dur": 0.459546,
+     "lead": 0.025057,
+     "from": "attack_03.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    },
+    {
+     "file": "alien_attack_3.mp3",
+     "dur": 0.987619,
+     "lead": 0.025057,
+     "from": "attack_04.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    },
+    {
+     "file": "alien_attack_4.mp3",
+     "dur": 0.412494,
+     "lead": 0.025057,
+     "from": "alien_06.ogg from oga-80-creature",
+     "url": "https://opengameart.org/content/80-cc0-creature-sfx"
+    }
+   ]
+  },
+  "alien_death": {
+   "loop": false,
+   "files": [
+    {
+     "file": "alien_death_1.mp3",
+     "dur": 0.464989,
+     "lead": 0.025057,
+     "from": "die_01.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    },
+    {
+     "file": "alien_death_2.mp3",
+     "dur": 0.637664,
+     "lead": 0.025057,
+     "from": "die_02.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    },
+    {
+     "file": "alien_death_3.mp3",
+     "dur": 0.623424,
+     "lead": 0.025057,
+     "from": "die_03.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    },
+    {
+     "file": "alien_death_4.mp3",
+     "dur": 0.769433,
+     "lead": 0.025057,
+     "from": "die_04.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    }
+   ]
+  },
+  "alien_hit": {
+   "loop": false,
+   "files": [
+    {
+     "file": "alien_hit_1.mp3",
+     "dur": 0.499841,
+     "lead": 0.025057,
+     "from": "slime_02.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    },
+    {
+     "file": "alien_hit_2.mp3",
+     "dur": 0.39941,
+     "lead": 0.025057,
+     "from": "slime_03.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    },
+    {
+     "file": "alien_hit_3.mp3",
+     "dur": 0.365873,
+     "lead": 0.025057,
+     "from": "slime_07.ogg from oga-80-creature-2",
+     "url": "https://opengameart.org/content/80-cc0-creture-sfx-2"
+    },
+    {
+     "file": "alien_hit_4.mp3",
+     "dur": 0.497256,
+     "lead": 0.025057,
+     "from": "slime_000.ogg from kenney-sci-fi",
+     "url": "https://kenney.nl/assets/sci-fi-sounds"
+    }
+   ]
+  },
+  "armor_hit": {
+   "loop": false,
+   "files": [
+    {
+     "file": "armor_hit_1.mp3",
+     "dur": 0.488662,
+     "lead": 0.025057,
+     "from": "impactPlate_heavy_000.ogg from kenney-impact",
+     "url": "https://kenney.nl/assets/impact-sounds"
+    },
+    {
+     "file": "armor_hit_2.mp3",
+     "dur": 0.349433,
+     "lead": 0.025057,
+     "from": "impactPlate_heavy_001.ogg from kenney-impact",
+     "url": "https://kenney.nl/assets/impact-sounds"
+    },
+    {
+     "file": "armor_hit_3.mp3",
+     "dur": 0.343651,
+     "lead": 0.025057,
+     "from": "impactPlate_heavy_003.ogg from kenney-impact",
+     "url": "https://kenney.nl/assets/impact-sounds"
+    }
+   ]
+  },
+  "explosion": {
+   "loop": false,
+   "files": [
+    {
+     "file": "explosion_1.mp3",
+     "dur": 3.5,
+     "lead": 0.025057,
+     "from": "\"Grenade Explosion SFX (medium-sized, meaty, realistic)\" by unfa (Freesound) (0.00-3.50 s)",
+     "url": "https://freesound.org/people/unfa/sounds/609587/"
+    },
+    {
+     "file": "explosion_2.mp3",
+     "dur": 3.467234,
+     "lead": 0.025057,
+     "from": "\"Bang/Explosion Metallic\" by Werra (Freesound) (0.00-3.50 s)",
+     "url": "https://freesound.org/people/Werra/sounds/244394/"
+    },
+    {
+     "file": "explosion_3.mp3",
+     "dur": 1.356803,
+     "lead": 0.025057,
+     "from": "explosionCrunch_001.ogg from kenney-sci-fi",
+     "url": "https://kenney.nl/assets/sci-fi-sounds"
+    },
+    {
+     "file": "explosion_4.mp3",
+     "dur": 1.980136,
+     "lead": 0.025057,
+     "from": "explosionCrunch_004.ogg from kenney-sci-fi",
+     "url": "https://kenney.nl/assets/sci-fi-sounds"
+    }
+   ]
+  },
+  "explosion_sub": {
+   "loop": false,
+   "files": [
+    {
+     "file": "explosion_sub_1.mp3",
+     "dur": 1.964603,
+     "lead": 0.025057,
+     "from": "lowFrequency_explosion_000.ogg from kenney-sci-fi",
+     "url": "https://kenney.nl/assets/sci-fi-sounds"
+    }
+   ]
+  },
+  "clang": {
+   "loop": false,
+   "files": [
+    {
+     "file": "clang_1.mp3",
+     "dur": 1.770385,
+     "lead": 0.025057,
+     "from": "\"Metal Boom\" by Johnnyfarmer (Freesound) (0.20-2.00 s)",
+     "url": "https://freesound.org/people/Johnnyfarmer/sounds/209772/"
+    },
+    {
+     "file": "clang_2.mp3",
+     "dur": 0.634898,
+     "lead": 0.025057,
+     "from": "impactMetal_000.ogg from kenney-sci-fi",
+     "url": "https://kenney.nl/assets/sci-fi-sounds"
+    },
+    {
+     "file": "clang_3.mp3",
+     "dur": 0.687574,
+     "lead": 0.025057,
+     "from": "impactMetal_001.ogg from kenney-sci-fi",
+     "url": "https://kenney.nl/assets/sci-fi-sounds"
+    },
+    {
+     "file": "clang_4.mp3",
+     "dur": 0.77678,
+     "lead": 0.025057,
+     "from": "impactMetal_003.ogg from kenney-sci-fi",
+     "url": "https://kenney.nl/assets/sci-fi-sounds"
+    },
+    {
+     "file": "clang_5.mp3",
+     "dur": 0.488662,
+     "lead": 0.025057,
+     "from": "impactPlate_heavy_000.ogg from kenney-impact",
+     "url": "https://kenney.nl/assets/impact-sounds"
+    },
+    {
+     "file": "clang_6.mp3",
+     "dur": 0.494195,
+     "lead": 0.025057,
+     "from": "impactPlate_heavy_002.ogg from kenney-impact",
+     "url": "https://kenney.nl/assets/impact-sounds"
+    },
+    {
+     "file": "clang_7.mp3",
+     "dur": 0.55907,
+     "lead": 0.025057,
+     "from": "impactPlate_heavy_004.ogg from kenney-impact",
+     "url": "https://kenney.nl/assets/impact-sounds"
+    }
+   ]
+  },
+  "footstep": {
+   "loop": false,
+   "files": [
+    {
+     "file": "footstep_1.mp3",
+     "dur": 0.6,
+     "lead": 0.025057,
+     "from": "\"Footsteps on Metal\" by IENBA (Freesound) (0.00-0.60 s)",
+     "url": "https://freesound.org/people/IENBA/sounds/698697/"
+    },
+    {
+     "file": "footstep_2.mp3",
+     "dur": 0.441111,
+     "lead": 0.025057,
+     "from": "\"Footsteps on Metal\" by IENBA (Freesound) (1.48-1.95 s)",
+     "url": "https://freesound.org/people/IENBA/sounds/698697/"
+    },
+    {
+     "file": "footstep_3.mp3",
+     "dur": 0.638367,
+     "lead": 0.025057,
+     "from": "\"Footsteps on Metal\" by IENBA (Freesound) (2.98-3.65 s)",
+     "url": "https://freesound.org/people/IENBA/sounds/698697/"
+    },
+    {
+     "file": "footstep_4.mp3",
+     "dur": 0.617415,
+     "lead": 0.025057,
+     "from": "\"Footsteps on Metal\" by IENBA (Freesound) (4.50-5.15 s)",
+     "url": "https://freesound.org/people/IENBA/sounds/698697/"
+    },
+    {
+     "file": "footstep_5.mp3",
+     "dur": 0.472585,
+     "lead": 0.025057,
+     "from": "\"Footsteps on Metal\" by IENBA (Freesound) (5.99-6.50 s)",
+     "url": "https://freesound.org/people/IENBA/sounds/698697/"
+    },
+    {
+     "file": "footstep_6.mp3",
+     "dur": 0.411338,
+     "lead": 0.025034,
+     "from": "\"Footsteps on Metal\" by IENBA (Freesound) (7.47-7.90 s)",
+     "url": "https://freesound.org/people/IENBA/sounds/698697/"
+    },
+    {
+     "file": "footstep_7.mp3",
+     "dur": 0.490113,
+     "lead": 0.025057,
+     "from": "\"Footsteps on Metal\" by IENBA (Freesound) (8.99-9.50 s)",
+     "url": "https://freesound.org/people/IENBA/sounds/698697/"
+    }
+   ]
+  },
+  "tracker": {
+   "loop": false,
+   "files": [
+    {
+     "file": "tracker_1.mp3",
+     "dur": 0.473787,
+     "lead": 0.025057,
+     "from": "\"motion tracker blip.wav\" by Balcoran (Freesound) (0.15-0.65 s)",
+     "url": "https://freesound.org/people/Balcoran/sounds/478187/"
+    },
+    {
+     "file": "tracker_2.mp3",
+     "dur": 0.478503,
+     "lead": 0.025057,
+     "from": "\"motion tracker blip.wav\" by Balcoran (Freesound) (1.21-1.71 s)",
+     "url": "https://freesound.org/people/Balcoran/sounds/478187/"
+    },
+    {
+     "file": "tracker_3.mp3",
+     "dur": 0.46839,
+     "lead": 0.025057,
+     "from": "\"motion tracker blip.wav\" by Balcoran (Freesound) (4.45-4.95 s)",
+     "url": "https://freesound.org/people/Balcoran/sounds/478187/"
+    }
+   ]
+  },
+  "alarm": {
+   "loop": true,
+   "files": [
+    {
+     "file": "alarm_1.mp3",
+     "dur": 7.900023,
+     "lead": 0.025057,
+     "from": "\"Alarm Siren, Fast Oscillations\" by Kinoton (Freesound) (0.00-8.30 s)",
+     "url": "https://freesound.org/people/Kinoton/sounds/420661/"
+    }
+   ]
+  },
+  "spark": {
+   "loop": false,
+   "files": [
+    {
+     "file": "spark_1.mp3",
+     "dur": 1.741179,
+     "lead": 0.025057,
+     "from": "\"Electric Sparks.wav\" by kev_durr (Freesound) (0.05-1.80 s)",
+     "url": "https://freesound.org/people/kev_durr/sounds/396470/"
+    },
+    {
+     "file": "spark_2.mp3",
+     "dur": 1.382902,
+     "lead": 0.025057,
+     "from": "\"Electric Sparks.wav\" by kev_durr (Freesound) (2.10-3.50 s)",
+     "url": "https://freesound.org/people/kev_durr/sounds/396470/"
+    },
+    {
+     "file": "spark_3.mp3",
+     "dur": 0.617687,
+     "lead": 0.025057,
+     "from": "\"Electric Sparks.wav\" by kev_durr (Freesound) (3.55-4.20 s)",
+     "url": "https://freesound.org/people/kev_durr/sounds/396470/"
+    },
+    {
+     "file": "spark_4.mp3",
+     "dur": 0.22059,
+     "lead": 0.025057,
+     "from": "\"Electric zap.wav\" by michael_grinnell (Freesound)",
+     "url": "https://freesound.org/people/michael_grinnell/sounds/512471/"
+    }
+   ]
+  },
+  "ui_prompt": {
+   "loop": false,
+   "files": [
+    {
+     "file": "ui_prompt_1.mp3",
+     "dur": 0.487392,
+     "lead": 0.025057,
+     "from": "question_001.ogg from kenney-interface",
+     "url": "https://kenney.nl/assets/interface-sounds"
+    }
+   ]
+  },
+  "ui_ok": {
+   "loop": false,
+   "files": [
+    {
+     "file": "ui_ok_1.mp3",
+     "dur": 0.539002,
+     "lead": 0.025057,
+     "from": "confirmation_002.ogg from kenney-interface",
+     "url": "https://kenney.nl/assets/interface-sounds"
+    }
+   ]
+  },
+  "ui_fail": {
+   "loop": false,
+   "files": [
+    {
+     "file": "ui_fail_1.mp3",
+     "dur": 0.522902,
+     "lead": 0.025057,
+     "from": "error_003.ogg from kenney-interface",
+     "url": "https://kenney.nl/assets/interface-sounds"
+    }
+   ]
+  },
+  "ui_order": {
+   "loop": false,
+   "files": [
+    {
+     "file": "ui_order_1.mp3",
+     "dur": 0.237778,
+     "lead": 0.025057,
+     "from": "select_003.ogg from kenney-interface (0.00-0.25 s)",
+     "url": "https://kenney.nl/assets/interface-sounds"
+    }
+   ]
+  },
+  "loot": {
+   "loop": false,
+   "files": [
+    {
+     "file": "loot_1.mp3",
+     "dur": 0.48678,
+     "lead": 0.025057,
+     "from": "confirmation_004.ogg from kenney-interface",
+     "url": "https://kenney.nl/assets/interface-sounds"
+    }
+   ]
+  }
+ }
+}

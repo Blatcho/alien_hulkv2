@@ -1,0 +1,70 @@
+{
+  "name": "alien",
+  "file": "alien.glb",
+  "clips": [
+    {
+      "name": "idle",
+      "loop": true,
+      "duration": 2.4
+    },
+    {
+      "name": "lurk",
+      "loop": true,
+      "duration": 3.0
+    },
+    {
+      "name": "skitter",
+      "loop": true,
+      "duration": 0.4,
+      "speed": 5.938
+    },
+    {
+      "name": "climb",
+      "loop": true,
+      "duration": 0.5,
+      "speed": 3.2
+    },
+    {
+      "name": "leap",
+      "loop": false,
+      "duration": 0.4666666666666667
+    },
+    {
+      "name": "attack",
+      "loop": true,
+      "duration": 1.7,
+      "swing": 0.85
+    },
+    {
+      "name": "hit",
+      "loop": false,
+      "duration": 0.36666666666666664
+    },
+    {
+      "name": "scream",
+      "loop": false,
+      "duration": 1.2
+    },
+    {
+      "name": "die",
+      "loop": false,
+      "duration": 1.2
+    }
+  ],
+  "sockets": [
+    "socket_head",
+    "socket_mouth"
+  ],
+  "bounds": {
+    "min": [
+      -0.4153095483779907,
+      -0.012046140618622303,
+      -1.0806012153625488
+    ],
+    "max": [
+      0.4153095483779907,
+      1.5520068407058716,
+      0.8655757904052734
+    ]
+  }
+}

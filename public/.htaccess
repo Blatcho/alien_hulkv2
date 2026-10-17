@@ -1,0 +1,13 @@
+# Served with the game on Apache hosts (ignored elsewhere). The pages must not be cached: each build
+# references freshly hashed bundles, and a stale index.html would point at files that no longer exist.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+<IfModule mod_mime.c>
+  AddType application/javascript .js .mjs
+  AddType model/gltf-binary .glb
+  AddType audio/ogg .ogg
+  AddType audio/mpeg .mp3
+</IfModule>
