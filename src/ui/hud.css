@@ -364,3 +364,38 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color:
 .perks small { display: block; color: var(--ink-dim); font-size: 11px; margin-top: 4px; }
 .screen .menu { display: grid; gap: 10px; max-width: 360px; margin: 18px auto 0; }
 #objective .ship { font-size: 12px; color: var(--warn); letter-spacing: 2px; }
+
+/* ---------- lead mode (one marine on the controller - sim/world.js control 'lead') */
+.portrait .point.you { background: var(--warn); }
+#hud.lead #actions .orders { grid-template-columns: repeat(4, 92px); }
+.ord[hidden], .act[hidden] { display: none !important; }
+#reticle { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border: 2px solid var(--accent); border-radius: 50%; box-shadow: 0 0 10px var(--glow), inset 0 0 6px var(--glow); display: none; pointer-events: none; z-index: 3; }
+#reticle::before, #reticle::after { content: ''; position: absolute; background: var(--accent); }
+#reticle::before { left: 50%; top: -7px; bottom: -7px; width: 2px; margin-left: -1px; }
+#reticle::after { top: 50%; left: -7px; right: -7px; height: 2px; margin-top: -1px; }
+#reticle.show { display: block; }
+#reticle.lock { border-color: var(--danger); box-shadow: 0 0 12px rgba(198,54,42,.8); animation: ringpulse .6s ease-in-out infinite; }
+#reticle.lock::before, #reticle.lock::after { background: var(--danger); }
+#hud.lead #interact .tag::after { content: ' ▸ A · E'; }
+#hud.lead #interact .ring { animation-duration: .7s; }
+#interact .enc button.hl { border-color: var(--accent); box-shadow: 0 0 10px var(--glow); background: #243029; }
+#weapon .gun { position: relative; }
+#weapon .gun .wname { position: absolute; left: 0; right: 0; bottom: 3px; text-align: center; font-size: 10px; letter-spacing: 1px; color: var(--ink-dim); display: none; }
+#hud.lead #weapon .gun .wname { display: block; }
+#hud.lead #weapon .gun svg { margin-top: -8px; }
+#weapon .ammo.low span { color: var(--danger); }
+.keys.pad { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--edge); }
+.keys.pad b { grid-column: 1; color: var(--accent); font-weight: normal; }
+.keys.pad b + span { grid-column: 2 / -1; }
+/* the briefing's command choice and the pad map */
+.cmdchoice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cmdchoice button { font: inherit; text-align: left; padding: 10px 12px; background: #1d2624; color: var(--ink); border: 1px solid var(--edge); cursor: pointer; }
+.cmdchoice button b { display: block; font-weight: normal; font-size: 16px; letter-spacing: 3px; color: #fff; }
+.cmdchoice button small { display: block; margin-top: 3px; font-size: 11px; color: var(--ink-dim); }
+.cmdchoice button.on { border-color: var(--accent); box-shadow: 0 0 12px var(--glow); background: #243029; }
+.cmdchoice button.on b { color: var(--accent); }
+.briefing .slot.you { background: var(--warn); }
+.controls { display: grid; gap: 3px; font-size: 12px; }
+.controls div { display: grid; grid-template-columns: 90px 1fr; gap: 8px; padding: 3px 8px; border: 1px solid var(--edge); background: rgba(10,14,14,.7); }
+.controls kbd { font-family: inherit; color: var(--warn); }
+.controls span { color: var(--ink-dim); }

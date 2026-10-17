@@ -3,6 +3,10 @@
 // bursts, the heavy repeater hoses, the breacher fires pellet spreads with damage falloff,
 // the marksman rifle takes slow precise shots from further away.
 // Friendly fire is impossible: marine rays only test world + alien + critter groups.
+//
+// Lead mode: the player's own marine (m.controlled) shoots for himself - updatePlayerCombat:
+// the right stick aims, the trigger fires; a hostile close to his line of aim draws the rounds
+// in (assist), so a thumb-stick is enough against something skittering along a ceiling.
 import { practice } from './stats.js';
 import { ABILITY, BREAK, DRILL, ROE } from '../core/config.js';
 import { G } from '../physics/physics.js';
@@ -10,6 +14,9 @@ import { bodyPoint, canSee } from '../vis/sight.js';
 import { barrelValue, blastSafe } from './hazards.js';
 
 const DEG = Math.PI / 180;
+const ASSIST_CONE = 0.32;  // rad off the player's line of aim within which a hostile draws fire
+const HELD_SPREAD = 0.8;   // x spread after a couple of seconds on the trigger (lead)
+const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 /**
  * Pure ROE filter: may this marine shoot at entity e under the current mental state?
@@ -84,28 +91,34 @@ function pickTarget(world, m) {
   return best;
 }
 
-function fire(world, m, t) {
+/**
+ * One shot (every pellet of it). `t` is what he's shooting at; `aim` (lead mode) the player's own
+ * line of fire in radians, in which case `t` may be null (he fires where he points) or the
+ * hostile his aim is drawn to.
+ */
+function fire(world, m, t, aim = null) {
   const W = m.weapon;
   const crouched = m.crouch || world.squad.cover;
   const o = muzzle(m, crouched);
-  const { x: tx, y: ty } = bodyPoint(t, 0.5);
+  const { x: tx, y: ty } = t ? bodyPoint(t, 0.5) : { x: o.x + Math.cos(aim) * W.range, y: o.y + Math.sin(aim) * W.range };
   let spread = W.spread * m.mods.spread * (m.panicT > 0 ? 2.2 : 1) * world.morale.mods.spread * berserk(m, 'SPREAD'); // panicking: firing wild
   if (crouched) spread *= 0.6;
   if (m.role === 'heavy' && world.squad.cover) spread *= ABILITY.HOLD.spread; // holding the line
   if (world.squad.running && m.moving) spread *= 1.8;
   if (world.settings.roe === ROE.ALERT) spread *= 0.8;
   if (world.stimT > 0) spread *= 0.75;
-  if (t.moving && W.pellets === 1) spread *= t.state === 'leap' || t.state === 'drop' || t.state === 'spring' ? 2.4 : 1.7; // skittering targets are hard to track
+  if (t?.moving && W.pellets === 1) spread *= t.state === 'leap' || t.state === 'drop' || t.state === 'spring' ? 2.4 : 1.7; // skittering targets are hard to track
+  if (aim !== null) spread *= 1 + HELD_SPREAD * Math.min(1, (m.fireT ?? 0) / 2); // the longer he leans on the trigger, the wilder
   const base = Math.atan2(ty - o.y, tx - o.x);
   const rays = [];
   for (let p = 0; p < W.pellets; p++) {
     const ang = base + world.rng.float(-spread, spread) * DEG * (W.pellets > 1 ? 1 : 1 + Math.abs(tx - o.x) / 20);
     const dx = Math.cos(ang);
     const dy = Math.sin(ang);
-    const mask = G.WORLD | G.ALIEN | G.CRITTER | G.SURVIVOR | (t.kind === 'prop' ? G.PROP : 0);
+    const mask = G.WORLD | G.ALIEN | G.CRITTER | G.SURVIVOR | (t?.kind === 'prop' || aim !== null ? G.PROP : 0);
     let hit = world.physics.raycast(o.x, o.y, dx, dy, W.range, mask);
     // A round that misses its target can still find a barrel or console on its way.
-    if (t.kind !== 'prop' && hit?.entity !== t) {
+    if (t && t.kind !== 'prop' && hit?.entity !== t) {
       // (Barrels right next to the shooter sit below the line of fire.)
       const stray = world.physics.raycast(o.x, o.y, dx, dy, hit ? hit.dist : W.range, G.PROP);
       if (stray && stray.dist > 3) hit = stray;
@@ -161,6 +174,7 @@ export function updateMarineCombat(world, m, dt) {
       m.reserve -= take;
     }
   }
+  if (m.controlled) return updatePlayerCombat(world, m, dt);
   // Frozen, running or hiding (sim/breakdown.js): not firing.
   if (m.breakdown && m.breakdown.mode !== 'berserk') { m.target = null; m.burst = 0; return; }
   // Power fists (no gun): he only tracks the nearest threat to face it - sim/melee.js does the rest.
@@ -232,4 +246,85 @@ export function updateMarineCombat(world, m, dt) {
     if (!t.alive) break;
   }
   if (m.burst <= 0 || !t.alive) { m.burst = 0; m.pauseT = W.pause * world.rng.float(0.7, 1.4) * (covering(world, m) ? DRILL.COVER : 1); }
+}
+
+/** Lead: the hostile nearest the player's line of aim (within the assist cone) with a clear shot. */
+function pickPlayerTarget(world, m, angle) {
+  const W = m.weapon;
+  const o = muzzle(m, m.crouch || world.squad.cover);
+  let best = null;
+  let bestScore = Infinity;
+  for (const e of world.targets()) {
+    if (!e.alive || e.kind === 'survivor' || !e.visible) continue;
+    if (e.kind === 'alien' && e.state === 'vent') continue;
+    const c = bodyPoint(e, 0.5);
+    const d = Math.hypot(c.x - o.x, c.y - o.y);
+    if (d > W.range) continue;
+    const off = Math.abs(wrap(Math.atan2(c.y - o.y, c.x - o.x) - angle));
+    if (off > ASSIST_CONE) continue;
+    if (!world.physics.los(o.x, o.y, c.x, c.y)) continue;
+    let score = off * 12 + d * 0.3 + (e.kind === 'critter' ? 4 : 0) + (e.kind === 'prop' ? 2 : 0);
+    if (e === m.target) score -= 1.5; // sticky
+    if (score < bestScore) { bestScore = score; best = e; }
+  }
+  return best;
+}
+
+/**
+ * Lead mode: the player's own gun. The right stick aims him (and turns him), the trigger fires
+ * at the weapon's rate for as long as it's held and there's a round in the mag; RB changes mags
+ * (world.reloadWeapon). m.target is what his aim is drawn to - the HUD marks it - and nothing
+ * fires by itself.
+ */
+function updatePlayerCombat(world, m, dt) {
+  const W = m.weapon;
+  const pad = world.pad;
+  const stick = Math.hypot(pad.aimX, pad.aimY);
+  m.aiming = stick > 0.35 && !m.down;
+  if (m.aiming) {
+    if (Math.abs(pad.aimX) > 0.25) m.facing = Math.sign(pad.aimX);
+    m.aimAngle = Math.atan2(pad.aimY, Math.abs(pad.aimX)); // elevation (+ up), in his facing
+    m.aimSet = true;
+  } else { m.aimSet = false; m.aimAngle = 0; }
+  if (m.down || (m.breakdown && m.breakdown.mode !== 'berserk')) { m.target = null; m.burst = 0; m.fireT = 0; return; }
+  const angle = m.facing > 0 ? m.aimAngle : Math.PI - m.aimAngle;
+  if (W.melee) {
+    // Power fists: he squares up to the nearest threat; sim/melee.js swings for him.
+    m.targetT -= dt;
+    if (m.targetT <= 0) { m.targetT = 0.1; m.target = pickPlayerTarget(world, m, angle); }
+    if (m.target && !m.target.alive) m.target = null;
+    m.burst = 0;
+    return;
+  }
+  if (m.strikeT > 0) return;
+  m.targetT -= dt;
+  if (m.target && (!m.target.alive || m.target.state === 'vent')) m.target = null;
+  if (m.targetT <= 0) { m.targetT = 0.1; m.target = m.aiming || pad.fire ? pickPlayerTarget(world, m, angle) : null; }
+  if (m.wantReload) {
+    m.wantReload = false;
+    if (m.reloadT <= 0 && m.mag < W.mag && m.reserve > 0 && canShoot(m)) reload(world, m, m.mag > 0);
+  }
+  // The minigun spins up while the trigger is held, and winds down off it.
+  if (W.spin) {
+    const was = m.spin ?? 0;
+    m.spin = pad.fire ? Math.min(1, was + dt / W.spin) : Math.max(0, was - dt / (W.spin * 2));
+    if (pad.fire && was === 0) world.emit('spin-up', { marine: m });
+  }
+  m.shotT -= dt;
+  if (!pad.fire || (W.spin && m.spin < 1)) { m.burst = 0; m.fireT = 0; m.shotT = Math.max(0, m.shotT); return; }
+  if (!canShoot(m)) { m.burst = 0; return; } // changing mags, on a ladder, signalling
+  if (m.mag <= 0) {
+    m.burst = 0;
+    if (m.reserve > 0) reload(world, m);
+    else if (!m.dry) { m.dry = true; world.bark(m, 'dry'); }
+    return;
+  }
+  m.fireT = (m.fireT ?? 0) + dt;
+  m.burst = 1;
+  const rate = W.rate * (world.stimT > 0 ? 1.2 : 1) * (m.role === 'heavy' && world.squad.cover ? ABILITY.HOLD.rate : 1) * berserk(m, 'RATE');
+  while (m.shotT <= 0 && m.mag > 0) {
+    if (m.target && !m.target.alive) m.target = null;
+    fire(world, m, m.target, angle);
+    m.shotT += 1 / rate;
+  }
 }

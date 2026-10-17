@@ -19,5 +19,6 @@ export const params = {
   pool: Number(q.get('pool') || 0),                     // quick play: which set of candidates (rerolls)
   doc: q.get('doc') || null,                            // quick play: standing orders (sim/doctrine.js)
   diff: q.get('diff') || null,                          // quick play: difficulty (meta/difficulty.js)
+  ctrl: q.get('ctrl') || null,                          // quick play: 'lead' = you walk the first marine (sim/world.js)
   synthSfx: q.get('sfx') === 'synth',                   // procedural sound only (no recorded effects)
 };

@@ -45,6 +45,7 @@ export function makeMarine(index, x, y, room, t = null, { hpBonus = 0 } = {}) {
     stance: 'casual', crouch: false, cover: null, face: 0, signalT: 0, lastKillT: -99,
     reloadT: 0, burst: 0, shotT: 0, pauseT: 0, target: null, targetT: 0, turnT: 0,
     kills: 0, shots: 0,
+    controlled: false, aiming: false, aimSet: false, // the player's own marine (sim/squad.js steer, sim/combat.js)
     bark: null, barkT: 0,
     // Movement + awareness (sim/squad.js, sim/awareness.js). pace: brisk walkers push ahead,
     // heavy ones lag. pitch: weapon/torch elevation (rad, + up) - also the sight cone's.

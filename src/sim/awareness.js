@@ -138,14 +138,16 @@ export class Awareness {
       m.slack += Math.sign(goal - m.slack) * Math.min(Math.abs(goal - m.slack), dt * (loose ? 0.3 : 1.5));
     }
 
-    // ---- point man: threshold pause on a new room, bounds when nervous
+    // ---- point man: threshold pause on a new room, bounds when nervous (not the player's own)
     if (this.entry && !sq.trav && sq.state === 'advance') {
       this.entry = false;
-      lead.holdT = AWARE.ENTRY_PAUSE;
-      lead.slowT = 1.8;
-      lead.bound = false;
+      if (!lead.controlled) {
+        lead.holdT = AWARE.ENTRY_PAUSE;
+        lead.slowT = 1.8;
+        lead.bound = false;
+      }
     }
-    if (nervous && loose && sq.pace !== 'run' && lead.holdT <= 0) {
+    if (nervous && loose && sq.pace !== 'run' && lead.holdT <= 0 && !lead.controlled) {
       this.boundLeft -= lead.v * dt;
       if (this.boundLeft <= 0) {
         lead.holdT = this.rng.float(AWARE.BOUND_HOLD[0], AWARE.BOUND_HOLD[1]);
@@ -231,7 +233,7 @@ export class Awareness {
     if (this.heardT <= 0) this.heardT = 0;
 
     for (const m of order) {
-      if (m.watchT <= 0 || m.face || !free(m)) continue;
+      if (m.watchT <= 0 || m.face || !free(m) || m.controlled) continue;
       m.face = m.watchDir;
       if (m.moving) m.backpedal = true;
       raise(m, 'engaged');
@@ -244,7 +246,7 @@ export class Awareness {
         const dir = Math.sign(m.target.x - m.x) || m.facing;
         const behind = shooters.some((o) => o !== m && (Math.sign(o.target.x - o.x) || o.facing) === dir
           && (m.x - o.x) * dir > 0.3 && (m.x - o.x) * dir < 4);
-        if (behind && free(m) && !m.moving) m.kneelUntil = now + AWARE.KNEEL;
+        if (behind && free(m) && !m.moving && !m.controlled) m.kneelUntil = now + AWARE.KNEEL;
       }
       for (const m of order) if (now < m.kneelUntil && free(m)) m.crouch = true;
       const first = shooters[0];
@@ -262,6 +264,16 @@ export class Awareness {
     const n = order.length;
     for (const m of this.world.marines) {
       if (!m.alive) continue;
+      if (m.controlled) {
+        // The player's: his gun goes where the right stick points (or onto what it's drawn to).
+        const c = m.target ? bodyPoint(m.target) : null;
+        const pitch = m.aimSet ? m.aimAngle : c ? this.pitchTo(m, c.x, c.y) : AWARE.PITCH_BASE[m.stance] ?? 0;
+        m.aimPitch = clamp(pitch, -1.25, 1.25);
+        const rate = AWARE.PITCH_RATE * 3 * dt;
+        m.pitch += clamp(m.aimPitch - m.pitch, -rate, rate);
+        m.glance += clamp(-m.glance, -3 * dt, 3 * dt);
+        continue;
+      }
       const i = order.indexOf(m);
       const role = i === 0 ? 'point' : i === n - 1 && n > 2 ? 'rear' : i === 1 ? 'high' : 'low';
       let pitch = AWARE.PITCH_BASE[m.stance] ?? 0;

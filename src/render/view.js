@@ -194,9 +194,12 @@ export class GameView {
     // Follow the same interpolated positions the actors are drawn at - using raw sim
     // positions (which advance in whole steps) makes the whole scene judder by a pixel.
     const lerp = (a, b) => a + (b - a) * alpha;
-    const cx = alive.reduce((s, m) => s + lerp(m.prevX, m.x), 0) / alive.length;
-    const lead = alive[0];
-    this.lookAhead = (this.lookAhead ?? sq.heading * 3.2) + (sq.heading * 3.2 - (this.lookAhead ?? 0)) * Math.min(1, dt * 1.5);
+    // Lead: the player's marine, looking the way he faces (gently - he turns a lot in a fight).
+    const you = w.lead && w.player?.alive ? w.player : null;
+    const cx = you ? lerp(you.prevX, you.x) : alive.reduce((s, m) => s + lerp(m.prevX, m.x), 0) / alive.length;
+    const lead = you ?? alive[0];
+    const ahead = you ? you.facing * 2.2 : sq.heading * 3.2;
+    this.lookAhead = (this.lookAhead ?? ahead) + (ahead - (this.lookAhead ?? 0)) * Math.min(1, dt * (you ? 1.1 : 1.5));
     this.camera.update(dt, cx + this.lookAhead, lerp(lead.prevY, lead.y) + 2.3);
     this.starfield.userData.update(this.camera, dt);
 

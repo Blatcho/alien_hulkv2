@@ -64,6 +64,8 @@ Useful URL parameters:
 
 | mouse | hover over a door, ladder, stairwell, crate, terminal, vent, door control, survivor, man down or fuel barrel the squad has seen, then click to send them | | |
 
+(Squad mode. For a controller and one marine of your own, see **Lead mode** below.)
+
 Everything you can click glows faintly in the scene, breathing slowly, so you can see it before the cursor finds it. The colour shows what it is:
 - **Blue:** doors, ladders and stairs (dimmer for an open door), with a smaller pip for door controls and vents.
 - **Amber:** crates and lockers with something left in them.
@@ -77,6 +79,22 @@ A glow appears only for rooms the squad knows, sits under the fog of war, and fa
 The **kit buttons** next to Cover and Turn around show what's left of the grenades, flares and Defend kits. The **orders bar** beside them shows the seven standing orders. Click one to pick another option (or press its key to cycle it); the squad acknowledges and acts on it from then on. Fire carries the squad's energy meter, Pace its breath (the most winded trooper).
 
 Everything else is handled by the marines themselves: doors, ladders, fights and loot by their orders.
+
+### Lead mode: one marine on the controller
+
+The briefing's **COMMAND** choice picks how a mission is run. **SQUAD** is the game above: the four run themselves by your standing orders and you point and click. **LEAD** puts you in one marine's boots: the first trooper you pick is you, up to three more follow you, and you walk, aim, shoot and use things yourself with an Xbox-style controller (or keys and mouse). Everything else is unchanged: the same ship, hostiles, encounters, kit, loot, wounds and campaign; the followers keep station behind you, shoot by their fire discipline, cover and stim you, search what you open and get you up when you go down (if you die, the next man in the line is yours).
+
+| Controller | Action | Controller | Action |
+|---|---|---|---|
+| left stick | walk; all the way is a run (while you have breath); up or down at a ladder or stairwell takes it | right stick | aim (a hostile near your line draws the fire) |
+| `RT` | fire, for as long as it's held | `LT` | cover: everyone crouches (slow, hard to hit) |
+| `A` | use whatever you're standing at: a crate, a terminal, a sealed or locked door, the command console, a man down | `B` | the followers hold where they are / fall in behind you again |
+| `X` `Y` `LB` | grenade, flare, defend | `RB` | reload |
+| D-pad | the followers' orders (fire discipline, stims, lights, kit) - or an encounter's options, `A` to pick | `Start` `Back` | pause, pixel mode |
+
+Keyboard and mouse do the same: `WASD` / arrows walk, the mouse aims from your marine, mouse 1 fires, `Shift` cover, `E` use, `R` reload, `T` hold / follow, `Q` `F` `G` grenade, flare, defend, `X` `H` `V` `K` the followers' orders.
+
+Open doors, obstacles to vault or duck under and the outer lock are taken in your stride; a plain sealed door opens when you walk into it; welded, burning and locked doors, crates, terminals and the console wait for `A`. A prompt in the scene shows what `A` would do, and the reticle turns red on the hostile your aim has locked onto. Quick play carries the choice as `&ctrl=lead`; a campaign remembers it between missions.
 
 ## The campaign (roguelike layer)
 
