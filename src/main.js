@@ -212,7 +212,9 @@ class Game {
           // The controller (or keys and mouse) steers the player's marine: read every frame.
           const p = this.world.player;
           const origin = p ? this.view.toScreen(p.x, p.y + 1.4 * (p.scale ?? 1), p.z) : null;
-          this.world.steer(this.input.poll(origin));
+          const st = this.input.poll(origin);
+          if (st.fire || st.moveX) this.sfx.unlock(); // (the sticks and triggers never reach command())
+          this.world.steer(st);
         }
         this.view.render(alpha, dt);
         this.hud.update(dt, this.loop.paused);

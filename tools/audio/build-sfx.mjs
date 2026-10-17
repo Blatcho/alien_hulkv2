@@ -4,22 +4,40 @@
 // without a seam, encode small MP3s into public/assets/audio with manifest.json + CREDITS.md.
 // Decoding/cutting runs in headless Chrome (WebAudio); MP3 encoding in node (lamejs).
 //
-// Usage: node tools/audio/build-sfx.mjs            (then audition at /sfx.html)
+// Usage: node tools/audio/build-sfx.mjs                 everything (then audition at /sfx.html)
+//        node tools/audio/build-sfx.mjs --only fire_carbine,fire_carbine_tail
+//                                                     just those sounds, keeping the rest of the set
+//                                                     (sounds cut from tools/audio/src need no fetch)
+//        CHROME=/path/to/chrome picks the browser (else Chrome on Windows, or Playwright's Chromium).
 import { createServer } from 'vite';
 import puppeteer from 'puppeteer-core';
 import { Mp3Encoder } from '@breezystack/lamejs';
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const SRC = join(ROOT, 'tools', 'out', 'sfx-src');
 const OUT = join(ROOT, 'public', 'assets', 'audio');
 const SR = 44100;
+// (process is the cutting step below: the Node global goes by its full name here)
+const argv = globalThis.process.argv.slice(2);
+const only = argv.includes('--only') ? argv[argv.indexOf('--only') + 1].split(',') : null;
 
 const FS = (id) => `freesound/${id}.mp3`;
 const K = (pack, f) => `packs/${pack}/Audio/${f}.ogg`;
 const O = (pack, f) => `packs/${pack}/${f}.ogg`;
+// A recording kept in the repo (tools/audio/src) rather than fetched: credited in LOCAL below.
+const LOCAL = (f) => `tools/audio/src/${f}`;
 const range = (src, spans, extra = {}) => spans.map(([s, e]) => ({ src, s, e, ...extra }));
+
+// Where the repo's own recordings came from, and on what terms (the fetched ones are all CC0).
+const LOCAL_CREDITS = {
+  [LOCAL('m41a-pulse-rifle-67111.mp3')]: {
+    text: '"M41A Pulse Rifle" by freesound_community (Pixabay)', url: 'https://pixabay.com/sound-effects/m41a-pulse-rifle-67111/',
+    license: 'Pixabay Content License (free to use, no attribution required)',
+  },
+};
 
 // key -> { what the game plays for it }. norm: target peak dBFS (one-shots) or RMS dB (loops).
 // shots: n single shots sliced out of a full-auto recording at each shot's attack.
@@ -37,8 +55,13 @@ export const SELECTION = {
   },
   door: { norm: { peak: -3 }, items: [{ src: FS(543404) }, { src: FS(543654) }] },
   airlock: { norm: { peak: -2 }, items: [{ src: FS(607265), s: 3.35, e: 8.7, fo: 0.3 }] }, // clunk, bang, hiss
-  // Single M4A1 shots, each ringing out with its own echo (overlapping at 8 rounds/s).
+  // Single M4A1 shots, each ringing out with its own echo (overlapping at 8 rounds/s). The sentry
+  // guns fire these; the marines' carbines run the pulse-rifle loop below instead.
   shot_carbine: { norm: { peak: -1 }, items: [854226, 854227, 854228, 854229, 854230, 854231, 854232, 854233].map((id) => ({ src: FS(id), e: 0.6, fo: 0.25, trim: 0.25 })) },
+  // The carbine firing: the pulse rifle's sustained chatter (the last four seconds of the clip)
+  // looped for as long as rounds keep coming (Sfx.fireLoop), then one of its burst ends.
+  fire_carbine: { loop: true, norm: { rms: -12 }, items: [{ src: LOCAL('m41a-pulse-rifle-67111.mp3'), s: 11.1, e: 15.02, xfade: 0.25 }] },
+  fire_carbine_tail: { norm: { peak: -4 }, items: range(LOCAL('m41a-pulse-rifle-67111.mp3'), [[0.78, 1.0], [2.84, 3.04], [15.06, 15.24]], { fi: 0.01, fo: 0.06 }) },
   // Shots cut from a clean burst at ~11 rounds/s (the heavy fires 10): each is dry; the room's
   // ring after the last round is shot_heavy_tail, which Sfx plays when a burst stops.
   shot_heavy: { norm: { peak: -1 }, items: [{ src: FS(482122), shots: 6, skip: 2 }] },
@@ -85,7 +108,7 @@ async function process(tab, key, def) {
     const out = [];
     const toB64 = (f32) => { const b = new Uint8Array(f32.buffer); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
     for (const it of items) {
-      const buf = cache[it.src] ??= await ctx.decodeAudioData(await (await fetch(`/tools/out/sfx-src/${it.src}`)).arrayBuffer());
+      const buf = cache[it.src] ??= await ctx.decodeAudioData(await (await fetch(it.src.startsWith('tools/') ? `/${it.src}` : `/tools/out/sfx-src/${it.src}`)).arrayBuffer());
       const s = it.s ?? 0;
       const e = Math.min(it.e ?? buf.duration, buf.duration);
       const chans = it.stereo ? 2 : 1;
@@ -204,9 +227,10 @@ async function encoderLead(tab, mp3, channel0) {
 
 // ------------------------------------------------------------------ main
 
-const sources = JSON.parse(readFileSync(join(SRC, 'sources.json'), 'utf8'));
-/** Where a take came from: { text, url }. */
+const sources = existsSync(join(SRC, 'sources.json')) ? JSON.parse(readFileSync(join(SRC, 'sources.json'), 'utf8')) : { freesound: [], packs: [] };
+/** Where a take came from: { text, url, license? }. */
 const credit = (src) => {
+  if (LOCAL_CREDITS[src]) return LOCAL_CREDITS[src];
   if (src.startsWith('freesound/')) {
     const f = sources.freesound.find((q) => q.file === src);
     return f ? { text: `"${f.title.replace(` by ${f.author}`, '')}" by ${f.author} (Freesound)`, url: f.page } : { text: src };
@@ -215,16 +239,27 @@ const credit = (src) => {
   return pack ? { text: `${src.split('/').pop()} from ${pack.name}`, url: pack.page } : { text: src };
 };
 
-rmSync(OUT, { recursive: true, force: true });
+// A partial build (--only) keeps the rest of the set and its manifest; a full one starts clean.
+const manifest = only && existsSync(join(OUT, 'manifest.json')) ? JSON.parse(readFileSync(join(OUT, 'manifest.json'), 'utf8')) : { version: 1, sounds: {} };
+if (only) {
+  for (const key of only) {
+    if (!SELECTION[key]) { console.error(`no such sound: ${key}`); globalThis.process.exit(1); }
+    for (const f of manifest.sounds[key]?.files ?? []) rmSync(join(OUT, f.file), { force: true });
+    delete manifest.sounds[key];
+  }
+} else rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
+const CHROME = [globalThis.process.env.CHROME, 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  globalThis.process.platform !== 'win32' ? execSync('find /opt/pw-browsers -maxdepth 4 -type f -name chrome 2>/dev/null | head -1').toString().trim() : '']
+  .find((p) => p && existsSync(p));
+if (!CHROME) { console.error('no Chrome found: set CHROME=/path/to/chrome'); globalThis.process.exit(1); }
 const server = await createServer({ root: ROOT, logLevel: 'error', server: { port: 0 } });
 await server.listen();
-const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
 const tab = await browser.newPage();
 await tab.goto(`${server.resolvedUrls.local[0]}index.html`, { waitUntil: 'domcontentloaded' });
-const manifest = { version: 1, sounds: {} };
-const credits = [];
 for (const [key, def] of Object.entries(SELECTION)) {
+  if (only && !only.includes(key)) continue;
   const res = await process(tab, key, def);
   const files = [];
   for (const r of res) {
@@ -235,20 +270,23 @@ for (const [key, def] of Object.entries(SELECTION)) {
     if (length < lead + r.dur * SR - 2) console.warn(`  ${file}: decodes short (${length} < ${lead} + ${Math.round(r.dur * SR)})`);
     const c = credit(r.src);
     const cut = r.e !== null || r.s ? ` (${r.s.toFixed(2)}-${r.e === null ? 'end' : r.e.toFixed(2)} s)` : '';
-    files.push({ file, dur: +r.dur.toFixed(6), lead: +(lead / SR).toFixed(6), from: c.text + cut, url: c.url });
-    credits.push(`| ${file} | ${c.text}${cut}, CC0 - ${c.url ?? ''} |`);
+    files.push({ file, dur: +r.dur.toFixed(6), lead: +(lead / SR).toFixed(6), from: c.text + cut, url: c.url, ...(c.license ? { license: c.license } : {}) });
   }
   manifest.sounds[key] = { loop: !!def.loop, files };
-  console.log(`${key.padEnd(15)} ${files.length} file(s)`);
+  console.log(`${key.padEnd(18)} ${files.length} file(s)`);
 }
 await browser.close();
 await server.close();
+// The manifest in the sounds' order; the credits from it (every file's source rides in it).
+manifest.sounds = Object.fromEntries(Object.keys(SELECTION).filter((k) => manifest.sounds[k]).map((k) => [k, manifest.sounds[k]]));
+const credits = Object.values(manifest.sounds).flatMap((s) => s.files.map((f) => `| ${f.file} | ${f.from}, ${f.license ?? 'CC0'} - ${f.url ?? ''} |`));
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
 writeFileSync(join(OUT, 'CREDITS.md'), `# Sound credits
 
-Every sound here is **CC0 / public domain** (no attribution required - listed anyway, with thanks).
-Built by \`tools/audio/build-sfx.mjs\` from sources fetched by \`tools/audio/fetch-sfx.mjs\`
-(cut, mixed to mono, loudness-matched and re-encoded).
+Every sound here is **CC0 / public domain** unless its line says otherwise (no attribution
+required either way - listed anyway, with thanks). Built by \`tools/audio/build-sfx.mjs\` from
+sources fetched by \`tools/audio/fetch-sfx.mjs\`, or kept in \`tools/audio/src\` (cut, mixed to
+mono, loudness-matched and re-encoded).
 
 | File | Source |
 |---|---|

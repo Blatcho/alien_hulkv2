@@ -298,12 +298,13 @@ Key design decisions:
 
 ## Sound
 
-Every recording in `public/assets/audio` is **CC0** (public domain). Each file is credited in [CREDITS.md](public/assets/audio/CREDITS.md), and `tests/audio.test.js` keeps the credits complete. The sources are:
+Every recording in `public/assets/audio` is **CC0** (public domain) except where [CREDITS.md](public/assets/audio/CREDITS.md) says otherwise; each file is credited there, and `tests/audio.test.js` keeps the credits complete. The sources are:
 - Freesound: the hull ambience and drone, doors, the airlock, gunfire, reloads, the xenomorph hisses and growls, screeches, explosions, footsteps, the motion tracker, the alarm, sparks and computer beeps;
 - Kenney's sci-fi, impact and interface packs;
-- the OpenGameArt 50 sci-fi and 80 creature packs.
+- the OpenGameArt 50 sci-fi and 80 creature packs;
+- `tools/audio/src`: recordings kept in the repo rather than fetched. The carbine's fire is the M41A pulse rifle clip there (freesound_community on Pixabay, Pixabay Content License): its sustained chatter is looped for as long as a marine's rounds keep coming, then one of its burst ends plays (`FIRE_LOOP` in `src/audio/sfx.js`). The sentry guns still fire the single M4A1 shots.
 
-All 30 sounds come to 2.5 MB of MP3 (about 3 variations each, never the same one twice running). They load after the first click. Until a sound has loaded, and for any that is missing, the old procedural version plays. The stingers and the stim are still synthesised.
+All 33 sounds come to 2.6 MB of MP3 (about 3 variations each, never the same one twice running). They load after the first click, key or stick input. Until a sound has loaded, and for any that is missing, the old procedural version plays. The stingers and the stim are still synthesised.
 
 - **Hear them:** `/sfx.html` plays each game event exactly as a run does. It switches between recorded and synth, and lists every take with its source.
 - **Mix:** `MIX` in `src/audio/sfx.js` sets the level of each sound. `node tools/dev/sfx-levels.mjs` measures them against the synth versions. `node tools/dev/sfx-audit.mjs` plays a ship in real time and accounts for every sound: events, sounds played, drops, and each gun's level in the mix.
@@ -311,7 +312,7 @@ All 30 sounds come to 2.5 MB of MP3 (about 3 variations each, never the same one
   1. `node tools/audio/fetch-sfx.mjs` downloads the candidates into `tools/out/sfx-src`. It checks every Freesound page for the CC0 licence first.
   2. `node tools/audio/analyze-sfx.mjs` finds the separate events in each file (single shots, steps, hisses).
   3. Edit `SELECTION` in `tools/audio/build-sfx.mjs`, which sets the takes, cut points and loudness.
-  4. `node tools/audio/build-sfx.mjs` cuts, mixes to mono, matches loudness, crossfades the loops and writes the MP3s, `manifest.json` and `CREDITS.md`.
+  4. `node tools/audio/build-sfx.mjs` cuts, mixes to mono, matches loudness, crossfades the loops and writes the MP3s, `manifest.json` and `CREDITS.md`. `--only fire_carbine,fire_carbine_tail` rebuilds just those and keeps the rest of the set (a sound cut from `tools/audio/src` needs nothing fetched). `CHROME=/path/to/chrome` picks the browser it decodes in.
 
 ## Art pipeline
 

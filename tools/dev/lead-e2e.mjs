@@ -58,6 +58,8 @@ try {
   await new Promise((r) => setTimeout(r, 1200));
   await shot(tab, '3-run-start');
 
+  // Sound: the context opens on the first command or stick input; here, now, so the recordings load.
+  await tab.evaluate(async () => { const s = __game.sfx(); s.unlock(); await s.samples?.ready; });
   // 2. Walk right with the left stick for 6 s (real time), then aim and fire.
   const x0 = await tab.evaluate(() => __game.world().player.x);
   await tab.evaluate(() => { window.__pad.axes[0] = 1; });
@@ -69,11 +71,16 @@ try {
   await shot(tab, '4-run-walked');
   await tab.evaluate(() => { window.__pad.axes[2] = 1; window.__pad.axes[3] = -0.3; window.__pad.buttons[7] = { pressed: true, value: 1 }; });
   await new Promise((r) => setTimeout(r, 1500));
-  const fired = await tab.evaluate(() => { const p = __game.world().player; return { shots: p.shots, aiming: p.aiming, mag: p.mag, anim: p.anim, reticle: document.querySelector('#reticle').className, you: [...document.querySelectorAll('.portrait .point')].map((e) => `${e.hidden ? 'hidden' : e.textContent}`), ammo: document.querySelector('#weapon .ammo').textContent, hold: document.querySelector('.act[data-id="hold"]').hidden, turn: document.querySelector('.act[data-id="turn"]').hidden, tiles: [...document.querySelectorAll('.ord')].filter((e) => !e.hidden).map((e) => e.dataset.knob) }; });
+  const fired = await tab.evaluate(() => { const p = __game.world().player; const sfx = __game.sfx(); return { shots: p.shots, aiming: p.aiming, mag: p.mag, anim: p.anim, reticle: document.querySelector('#reticle').className, you: [...document.querySelectorAll('.portrait .point')].map((e) => `${e.hidden ? 'hidden' : e.textContent}`), ammo: document.querySelector('#weapon .ammo').textContent, hold: document.querySelector('.act[data-id="hold"]').hidden, turn: document.querySelector('.act[data-id="turn"]').hidden, tiles: [...document.querySelectorAll('.ord')].filter((e) => !e.hidden).map((e) => e.dataset.knob), sound: { ctx: sfx.ctx?.state ?? null, loaded: !!sfx.samples?.has('fire_carbine'), loops: sfx.loops.size } }; });
   console.log('firing:', JSON.stringify(fired));
   if (!fired.shots) { failed = true; console.log('FAIL: no shots fired'); }
+  if (fired.sound.loaded && fired.sound.loops !== 1) { failed = true; console.log('FAIL: the carbine fire loop is not running while the trigger is held'); }
   await shot(tab, '5-run-firing');
   await tab.evaluate(() => { window.__pad.buttons[7] = { pressed: false, value: 0 }; window.__pad.axes[2] = 0; window.__pad.axes[3] = 0; });
+  await new Promise((r) => setTimeout(r, 800));
+  const quiet = await tab.evaluate(() => ({ loops: __game.sfx().loops.size }));
+  console.log('trigger released:', JSON.stringify(quiet));
+  if (fired.sound.loaded && quiet.loops !== 0) { failed = true; console.log('FAIL: the fire loop kept running after the trigger was released'); }
   // B: followers hold; the use prompt near the inner door after walking to it.
   // (held across a few frames: headless software GL may run under 10 fps)
   await tab.evaluate(() => { window.__pad.buttons[1] = { pressed: true, value: 1 }; });

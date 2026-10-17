@@ -1,8 +1,9 @@
 # Sound credits
 
-Every sound here is **CC0 / public domain** (no attribution required - listed anyway, with thanks).
-Built by `tools/audio/build-sfx.mjs` from sources fetched by `tools/audio/fetch-sfx.mjs`
-(cut, mixed to mono, loudness-matched and re-encoded).
+Every sound here is **CC0 / public domain** unless its line says otherwise (no attribution
+required either way - listed anyway, with thanks). Built by `tools/audio/build-sfx.mjs` from
+sources fetched by `tools/audio/fetch-sfx.mjs`, or kept in `tools/audio/src` (cut, mixed to
+mono, loudness-matched and re-encoded).
 
 | File | Source |
 |---|---|
@@ -37,6 +38,10 @@ Built by `tools/audio/build-sfx.mjs` from sources fetched by `tools/audio/fetch-
 | shot_carbine_6.mp3 | "M4A1 Rifle Shot 10" by qubodup (Freesound) (0.00-0.60 s), CC0 - https://freesound.org/people/qubodup/sounds/854231/ |
 | shot_carbine_7.mp3 | "M4A1 Rifle Shot 11" by qubodup (Freesound) (0.00-0.60 s), CC0 - https://freesound.org/people/qubodup/sounds/854232/ |
 | shot_carbine_8.mp3 | "M4A1 Rifle Shot 12" by qubodup (Freesound) (0.00-0.60 s), CC0 - https://freesound.org/people/qubodup/sounds/854233/ |
+| fire_carbine_1.mp3 | "M41A Pulse Rifle" by freesound_community (Pixabay) (11.10-15.02 s), Pixabay Content License (free to use, no attribution required) - https://pixabay.com/sound-effects/m41a-pulse-rifle-67111/ |
+| fire_carbine_tail_1.mp3 | "M41A Pulse Rifle" by freesound_community (Pixabay) (0.78-1.00 s), Pixabay Content License (free to use, no attribution required) - https://pixabay.com/sound-effects/m41a-pulse-rifle-67111/ |
+| fire_carbine_tail_2.mp3 | "M41A Pulse Rifle" by freesound_community (Pixabay) (2.84-3.04 s), Pixabay Content License (free to use, no attribution required) - https://pixabay.com/sound-effects/m41a-pulse-rifle-67111/ |
+| fire_carbine_tail_3.mp3 | "M41A Pulse Rifle" by freesound_community (Pixabay) (15.06-15.24 s), Pixabay Content License (free to use, no attribution required) - https://pixabay.com/sound-effects/m41a-pulse-rifle-67111/ |
 | shot_heavy_1.mp3 | "Clean Machine Gun Burst" by qubodup (Freesound), CC0 - https://freesound.org/people/qubodup/sounds/482122/ |
 | shot_heavy_2.mp3 | "Clean Machine Gun Burst" by qubodup (Freesound), CC0 - https://freesound.org/people/qubodup/sounds/482122/ |
 | shot_heavy_3.mp3 | "Clean Machine Gun Burst" by qubodup (Freesound), CC0 - https://freesound.org/people/qubodup/sounds/482122/ |
