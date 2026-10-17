@@ -12,11 +12,17 @@ export const SHOT_ALIAS = {
   minigun: { key: 'shot_heavy', rate: 1.4, vol: 0.55 },
 };
 
+// Guns whose fire is one continuous recording rather than a shot per round: the loop runs from
+// a burst's first round for as long as rounds keep coming, then its tail plays (sfx.fireLoop).
+export const FIRE_LOOP = {
+  carbine: { key: 'fire_carbine', tail: 'fire_carbine_tail' },
+};
+
 // The mix: level of each recorded sound (build-sfx.mjs matches loudness within each sound;
 // this balances them against each other). Every key here is in public/assets/audio/manifest.json.
 export const MIX = {
   ambience: 0.5, ambience_drone: 0.32, ambience_thud: 0.3, ambience_beep: 0.16, spark: 0.18, alarm: 0.16,
-  shot_carbine: 0.55, shot_heavy: 0.7, shot_heavy_tail: 0.7, shot_breacher: 0.75, shot_marksman: 0.6, reload: 0.3,
+  shot_carbine: 0.55, fire_carbine: 0.6, fire_carbine_tail: 0.5, shot_heavy: 0.7, shot_heavy_tail: 0.7, shot_breacher: 0.75, shot_marksman: 0.6, reload: 0.3,
   alien_hiss: 0.4, alien_growl: 0.45, alien_screech: 0.45, alien_attack: 0.5, alien_death: 0.35, alien_hit: 0.3,
   armor_hit: 0.3, explosion: 0.9, explosion_sub: 0.7, clang: 0.4, door: 0.4, airlock: 0.45, footstep: 0.2,
   tracker: 0.25, ui_prompt: 0.3, ui_ok: 0.3, ui_fail: 0.3, ui_order: 0.25, loot: 0.3,
@@ -31,6 +37,7 @@ export class Sfx {
     this.stepT = 0;
     this.shotBudget = {}; // weapon -> recent shots: each gun has its own, so none drowns the others out
     this.tails = new Map(); // shooter -> the burst tail queued behind their last shot
+    this.loops = new Map(); // shooter -> their gun's fire loop while they're firing (FIRE_LOOP)
     this.ambT = 4;
     this.lastPlay = {};
     this.fires = new Map(); // burning doorways: portal id -> x (crackle while they burn)
@@ -69,15 +76,14 @@ export class Sfx {
   out(x, vol = 1, muffle = false) {
     const c = this.ctx;
     const g = c.createGain();
-    const dx = x === undefined ? 0 : x - this.cx;
-    g.gain.value = vol * Math.max(0.08, 1 - Math.abs(dx) / 40);
     let node = g;
     if (c.createStereoPanner) {
       const p = c.createStereoPanner();
-      p.pan.value = Math.max(-0.9, Math.min(0.9, dx / 18));
       g.connect(p);
       node = p;
+      g.pan = p;
     }
+    this.place(g, x, vol);
     if (muffle) {
       const f = c.createBiquadFilter();
       f.type = 'lowpass';
@@ -87,6 +93,13 @@ export class Sfx {
     }
     node.connect(this.master);
     return g;
+  }
+
+  /** Level and pan for world x (undefined = centred) on a node from out() - again later, if it moves. */
+  place(g, x, vol = 1) {
+    const dx = x === undefined ? 0 : x - this.cx;
+    g.gain.value = vol * Math.max(0.08, 1 - Math.abs(dx) / 40);
+    if (g.pan) g.pan.pan.value = Math.max(-0.9, Math.min(0.9, dx / 18));
   }
 
   /**
@@ -240,6 +253,8 @@ export class Sfx {
   // ------------------------------------------------------------------ effects
 
   gunshot(x, weapon = 'carbine', shooter = null) {
+    const L = FIRE_LOOP[weapon];
+    if (L && shooter && !this.synthOnly && this.samples?.has(L.key)) { this.fireLoop(x, weapon, shooter, L); return; }
     if ((this.shotBudget[weapon] ?? 0) > 10) return;
     this.shotBudget[weapon] = (this.shotBudget[weapon] ?? 0) + 1;
     // Guns with no recordings of their own: a pitched relative (the bolt pistol a punchy marksman
@@ -267,6 +282,37 @@ export class Sfx {
       this.tone(o, t, 0.09, { type: 'square', freq: 140, to: 50, vol: 0.35 });
       this.noise(o, t + 0.01, 0.05, { type: 'highpass', freq: 5000, vol: 0.2 });
     }
+  }
+
+  /**
+   * A gun recorded as continuous fire (FIRE_LOOP): a round starts its loop at the shooter, or
+   * keeps it going; it stops - with its tail - once no round has come for a round and a half
+   * (update). The loop follows the shooter about (place).
+   */
+  fireLoop(x, weapon, shooter, L) {
+    const now = this.ctx.currentTime;
+    const until = now + 1.6 / (WEAPONS[weapon]?.rate ?? 8);
+    const f = this.loops.get(shooter);
+    if (f && f.key === L.key) { f.until = until; f.x = x; return; }
+    if (f) this.endLoop(shooter, f);
+    const g = this.out(x, MIX[L.key] ?? 1);
+    g.gain.setValueAtTime(0.0001, now);
+    const src = this.samples.play(L.key, g, { loop: true, jitter: 0.03 });
+    if (!src) return;
+    this.place(g, x, MIX[L.key] ?? 1);
+    this.loops.set(shooter, { key: L.key, tail: L.tail, src, g, x, until, vol: MIX[L.key] ?? 1 });
+  }
+
+  /** The loop stops (a quick fade, no click) and the burst's end rings out where it was. */
+  endLoop(shooter, f = this.loops.get(shooter)) {
+    if (!f) return;
+    this.loops.delete(shooter);
+    const now = this.ctx.currentTime;
+    f.g.gain.cancelScheduledValues(now);
+    f.g.gain.setValueAtTime(f.g.gain.value, now);
+    f.g.gain.linearRampToValueAtTime(0.0001, now + 0.03);
+    try { f.src.stop(now + 0.05); } catch { /* already stopped */ }
+    if (f.tail) this.play(f.tail, f.x, 1, { jitter: 0.04 });
   }
 
   /**
@@ -517,8 +563,8 @@ export class Sfx {
     on('uplink-start', () => this.alarm(true));
     on('uplink-done', () => this.alarm(false));
     on('ship-clear', () => this.play('ui_ok'));
-    on('won', () => { this.alarm(false); this.stinger(); });
-    on('lost', () => { this.alarm(false); this.stinger(true); });
+    on('won', () => { this.alarm(false); this.stinger(); for (const s of [...this.loops.keys()]) this.endLoop(s); });
+    on('lost', () => { this.alarm(false); this.stinger(true); for (const s of [...this.loops.keys()]) this.endLoop(s); });
   }
 
   update(dt, camCenter) {
@@ -527,6 +573,13 @@ export class Sfx {
     if (!this.ctx || this.muted) return;
     this.ambienceTick(dt);
     this.crackle(dt);
+    // Fire loops: along with their shooters, and over once the rounds stop.
+    const now = this.ctx.currentTime;
+    for (const [shooter, f] of this.loops) {
+      if (now > f.until || !shooter.alive) { this.endLoop(shooter, f); continue; }
+      f.x = shooter.x;
+      this.place(f.g, f.x, f.vol);
+    }
     if (!this.world) return;
     this.stepT -= dt;
     const sq = this.world.squad;

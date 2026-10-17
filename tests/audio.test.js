@@ -26,7 +26,7 @@ describe('recorded sound set', () => {
     }
   });
 
-  it('every file exists, is small, and is credited to a CC0 source', () => {
+  it('every file exists, is small, and is credited to its source (CC0, or a stated free licence)', () => {
     let bytes = 0;
     for (const [key, s] of Object.entries(manifest.sounds)) {
       expect(s.files.length, key).toBeGreaterThan(0);
@@ -37,7 +37,7 @@ describe('recorded sound set', () => {
         // The MP3 encoder delay, measured at build time: skipped on play, kept out of loops.
         expect(f.lead, f.file).toBeGreaterThan(0.02);
         expect(f.lead, f.file).toBeLessThan(0.05);
-        expect(f.url, f.file).toMatch(/^https:\/\/(freesound\.org|kenney\.nl|opengameart\.org)\//);
+        expect(f.url, f.file).toMatch(/^https:\/\/(freesound\.org|kenney\.nl|opengameart\.org|pixabay\.com)\//);
         expect(credits).toContain(`| ${f.file} |`);
       }
     }

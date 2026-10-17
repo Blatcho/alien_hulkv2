@@ -253,6 +253,48 @@
     }
    ]
   },
+  "fire_carbine": {
+   "loop": true,
+   "files": [
+    {
+     "file": "fire_carbine_1.mp3",
+     "dur": 3.67,
+     "lead": 0.025057,
+     "from": "\"M41A Pulse Rifle\" by freesound_community (Pixabay) (11.10-15.02 s)",
+     "url": "https://pixabay.com/sound-effects/m41a-pulse-rifle-67111/",
+     "license": "Pixabay Content License (free to use, no attribution required)"
+    }
+   ]
+  },
+  "fire_carbine_tail": {
+   "loop": false,
+   "files": [
+    {
+     "file": "fire_carbine_tail_1.mp3",
+     "dur": 0.22,
+     "lead": 0.025057,
+     "from": "\"M41A Pulse Rifle\" by freesound_community (Pixabay) (0.78-1.00 s)",
+     "url": "https://pixabay.com/sound-effects/m41a-pulse-rifle-67111/",
+     "license": "Pixabay Content License (free to use, no attribution required)"
+    },
+    {
+     "file": "fire_carbine_tail_2.mp3",
+     "dur": 0.200023,
+     "lead": 0.025057,
+     "from": "\"M41A Pulse Rifle\" by freesound_community (Pixabay) (2.84-3.04 s)",
+     "url": "https://pixabay.com/sound-effects/m41a-pulse-rifle-67111/",
+     "license": "Pixabay Content License (free to use, no attribution required)"
+    },
+    {
+     "file": "fire_carbine_tail_3.mp3",
+     "dur": 0.18,
+     "lead": 0.025057,
+     "from": "\"M41A Pulse Rifle\" by freesound_community (Pixabay) (15.06-15.24 s)",
+     "url": "https://pixabay.com/sound-effects/m41a-pulse-rifle-67111/",
+     "license": "Pixabay Content License (free to use, no attribution required)"
+    }
+   ]
+  },
   "shot_heavy": {
    "loop": false,
    "files": [
