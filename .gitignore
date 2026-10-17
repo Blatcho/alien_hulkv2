@@ -1,6 +1,13 @@
 node_modules/
-tests/screens/
+dist/
+.vite/
+*.log
+.DS_Store
+Thumbs.db
+
+# Blender backups and local tool output
+*.blend1
+tools/out/
+shots/
 __pycache__/
 *.pyc
-.DS_Store
-docs/smoke.png

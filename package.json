@@ -1,20 +1,27 @@
 {
-  "name": "derelict",
-  "version": "0.2.0",
-  "description": "A side-on cut-away roguelike aboard a derelict starship. Browser only, controller first.",
+  "name": "alien-hulk",
   "private": true,
+  "version": "0.1.0",
+  "description": "Side-scrolling squad roguelike in a procedural derelict ship. three.js + Rapier, art generated in Blender.",
   "type": "module",
   "scripts": {
-    "start": "node tools/serve.js",
-    "test": "npm run test:unit && npm run test:glb && npm run test:smoke",
-    "test:unit": "node --import ./tests/_resolve.mjs --test \"tests/**/*.test.mjs\"",
-    "test:glb": "node tools/check-glb.mjs assets/models/*.glb",
-    "test:smoke": "node tools/smoke.mjs",
-    "models": "bash tools/build-models.sh",
-    "assets": "python3 tools/gen_font.py && python3 tools/gen_audio.py"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "assets": "node tools/run-blender.mjs",
+    "check-glb": "node tools/check-glb.mjs",
+    "shot": "node tools/shot.mjs"
+  },
+  "dependencies": {
+    "@dimforge/rapier2d-compat": "^0.21.0",
+    "@fontsource/share-tech-mono": "^5.3.0",
+    "three": "^0.186.1"
   },
   "devDependencies": {
-    "playwright": "^1.56.1"
-  },
-  "license": "MIT"
+    "@breezystack/lamejs": "^1.2.7",
+    "puppeteer-core": "^24.43.1",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
 }

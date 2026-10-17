@@ -1,0 +1,842 @@
+{
+  "built": 1791461845700,
+  "models": {
+    "alien": {
+      "name": "alien",
+      "file": "alien.glb",
+      "clips": [
+        {
+          "name": "idle",
+          "loop": true,
+          "duration": 2.4
+        },
+        {
+          "name": "lurk",
+          "loop": true,
+          "duration": 3
+        },
+        {
+          "name": "skitter",
+          "loop": true,
+          "duration": 0.4,
+          "speed": 5.938
+        },
+        {
+          "name": "climb",
+          "loop": true,
+          "duration": 0.5,
+          "speed": 3.2
+        },
+        {
+          "name": "leap",
+          "loop": false,
+          "duration": 0.4666666666666667
+        },
+        {
+          "name": "attack",
+          "loop": true,
+          "duration": 1.7,
+          "swing": 0.85
+        },
+        {
+          "name": "hit",
+          "loop": false,
+          "duration": 0.36666666666666664
+        },
+        {
+          "name": "scream",
+          "loop": false,
+          "duration": 1.2
+        },
+        {
+          "name": "die",
+          "loop": false,
+          "duration": 1.2
+        }
+      ],
+      "sockets": [
+        "socket_head",
+        "socket_mouth"
+      ],
+      "bounds": {
+        "min": [
+          -0.4153095483779907,
+          -0.012046140618622303,
+          -1.0806012153625488
+        ],
+        "max": [
+          0.4153095483779907,
+          1.5520068407058716,
+          0.8655757904052734
+        ]
+      }
+    },
+    "critter": {
+      "name": "critter",
+      "file": "critter.glb",
+      "clips": [
+        {
+          "name": "idle",
+          "loop": true,
+          "duration": 2
+        },
+        {
+          "name": "scurry",
+          "loop": true,
+          "duration": 0.3333333333333333,
+          "speed": 1.92
+        },
+        {
+          "name": "die",
+          "loop": false,
+          "duration": 0.8
+        }
+      ],
+      "sockets": [],
+      "bounds": {
+        "min": [
+          -0.27260681986808777,
+          0.010607053525745869,
+          -0.299454927444458
+        ],
+        "max": [
+          0.27260681986808777,
+          0.24143464863300323,
+          0.33124664425849915
+        ]
+      }
+    },
+    "dock": {
+      "name": "dock",
+      "file": "dock.glb",
+      "nodes": [
+        "dropship",
+        "dock_tube",
+        "hull_dock"
+      ],
+      "pieces": {
+        "dropship": {
+          "w": 18.311,
+          "h": 10.165,
+          "tris": 5893
+        },
+        "dock_tube": {
+          "w": 2,
+          "h": 4.7,
+          "tris": 862
+        },
+        "hull_dock": {
+          "w": 1.2,
+          "h": 5,
+          "tris": 1073
+        }
+      },
+      "bounds": {
+        "min": [
+          -18.31062126159668,
+          -2.5450000762939453,
+          -2.0999999046325684
+        ],
+        "max": [
+          2,
+          7.62000036239624,
+          1.1523081064224243
+        ]
+      }
+    },
+    "marine": {
+      "name": "marine",
+      "file": "marine.glb",
+      "clips": [
+        {
+          "name": "idle_casual",
+          "loop": true,
+          "duration": 2.4
+        },
+        {
+          "name": "walk_casual",
+          "loop": true,
+          "duration": 1,
+          "speed": 1.72
+        },
+        {
+          "name": "run",
+          "loop": true,
+          "duration": 0.7,
+          "speed": 3.265
+        },
+        {
+          "name": "idle_alert",
+          "loop": true,
+          "duration": 3
+        },
+        {
+          "name": "walk_alert",
+          "loop": true,
+          "duration": 2,
+          "speed": 1.72
+        },
+        {
+          "name": "crouch_alert",
+          "loop": true,
+          "duration": 2.4
+        },
+        {
+          "name": "crouch_walk",
+          "loop": true,
+          "duration": 1.1,
+          "speed": 0.88
+        },
+        {
+          "name": "aim",
+          "loop": true,
+          "duration": 2
+        },
+        {
+          "name": "walk_aim",
+          "loop": true,
+          "duration": 0.9,
+          "speed": 1.19
+        },
+        {
+          "name": "shoot",
+          "loop": true,
+          "duration": 0.4
+        },
+        {
+          "name": "crouch_aim",
+          "loop": true,
+          "duration": 2
+        },
+        {
+          "name": "crouch_shoot",
+          "loop": true,
+          "duration": 0.4
+        },
+        {
+          "name": "aim_up",
+          "loop": true,
+          "duration": 2
+        },
+        {
+          "name": "aim_down",
+          "loop": true,
+          "duration": 2
+        },
+        {
+          "name": "signal",
+          "loop": false,
+          "duration": 1.2
+        },
+        {
+          "name": "reload",
+          "loop": false,
+          "duration": 2.2
+        },
+        {
+          "name": "jump",
+          "loop": false,
+          "duration": 0.6666666666666666
+        },
+        {
+          "name": "climb",
+          "loop": true,
+          "duration": 0.7333333333333333,
+          "speed": 1.432
+        },
+        {
+          "name": "interact",
+          "loop": true,
+          "duration": 1.6
+        },
+        {
+          "name": "hit",
+          "loop": false,
+          "duration": 0.4
+        },
+        {
+          "name": "bash",
+          "loop": false,
+          "duration": 0.4666666666666667
+        },
+        {
+          "name": "slash",
+          "loop": false,
+          "duration": 0.6
+        },
+        {
+          "name": "punch",
+          "loop": false,
+          "duration": 0.4666666666666667
+        },
+        {
+          "name": "die",
+          "loop": false,
+          "duration": 1.4
+        }
+      ],
+      "sockets": [
+        "socket_muzzle",
+        "socket_light",
+        "socket_eye",
+        "socket_head",
+        "socket_muzzle_carbine",
+        "socket_light_carbine",
+        "socket_muzzle_heavy",
+        "socket_light_heavy",
+        "socket_muzzle_breacher",
+        "socket_light_breacher",
+        "socket_muzzle_marksman",
+        "socket_light_marksman",
+        "socket_muzzle_pistol",
+        "socket_light_pistol",
+        "socket_muzzle_minigun",
+        "socket_light_minigun",
+        "socket_muzzle_fists",
+        "socket_light_fists"
+      ],
+      "nodes": [
+        "marine_base",
+        "var_helmet_command",
+        "var_helmet_heavy",
+        "var_helmet_breacher",
+        "var_helmet_marksman",
+        "var_pads_command",
+        "var_pads_heavy",
+        "var_pads_breacher",
+        "var_pads_marksman",
+        "var_pack_command",
+        "var_pack_heavy",
+        "var_pack_breacher",
+        "var_pack_marksman",
+        "var_weapon_carbine",
+        "var_weapon_heavy",
+        "var_weapon_breacher",
+        "var_weapon_marksman",
+        "var_weapon_pistol",
+        "var_weapon_minigun",
+        "var_weapon_fists",
+        "var_melee_sword"
+      ],
+      "variants": {
+        "helmet": [
+          "command",
+          "heavy",
+          "breacher",
+          "marksman"
+        ],
+        "pads": [
+          "command",
+          "heavy",
+          "breacher",
+          "marksman"
+        ],
+        "pack": [
+          "command",
+          "heavy",
+          "breacher",
+          "marksman"
+        ],
+        "weapon": [
+          "carbine",
+          "heavy",
+          "breacher",
+          "marksman",
+          "pistol",
+          "minigun",
+          "fists"
+        ],
+        "melee": [
+          "sword"
+        ]
+      },
+      "loadouts": [
+        {
+          "name": "command",
+          "helmet": "command",
+          "pads": "command",
+          "pack": "command",
+          "weapon": "carbine"
+        },
+        {
+          "name": "heavy",
+          "helmet": "heavy",
+          "pads": "heavy",
+          "pack": "heavy",
+          "weapon": "heavy"
+        },
+        {
+          "name": "breacher",
+          "helmet": "breacher",
+          "pads": "breacher",
+          "pack": "breacher",
+          "weapon": "breacher"
+        },
+        {
+          "name": "marksman",
+          "helmet": "marksman",
+          "pads": "marksman",
+          "pack": "marksman",
+          "weapon": "marksman"
+        },
+        {
+          "name": "duelist",
+          "helmet": "command",
+          "pads": "breacher",
+          "pack": "marksman",
+          "weapon": "pistol",
+          "melee": "sword"
+        },
+        {
+          "name": "brawler",
+          "helmet": "breacher",
+          "pads": "heavy",
+          "pack": "breacher",
+          "weapon": "fists"
+        },
+        {
+          "name": "gunner",
+          "helmet": "heavy",
+          "pads": "heavy",
+          "pack": "heavy",
+          "weapon": "minigun"
+        }
+      ],
+      "bounds": {
+        "min": [
+          -0.7790656685829163,
+          0,
+          -0.6919999718666077
+        ],
+        "max": [
+          0.7642353177070618,
+          2.033747911453247,
+          1.3599998950958252
+        ]
+      }
+    },
+    "props": {
+      "name": "props",
+      "file": "props.glb",
+      "nodes": [
+        "crate",
+        "locker",
+        "chest",
+        "cabinet",
+        "ammo_rack",
+        "barrel",
+        "bigcrate",
+        "console",
+        "bunk",
+        "medbed",
+        "shelf",
+        "table",
+        "reactor",
+        "pilot_seat",
+        "control_panel",
+        "debris",
+        "beam",
+        "airlock_hatch",
+        "barrel_explosive",
+        "barrel_wreck",
+        "console_broken",
+        "weapon_case",
+        "safe",
+        "scorch",
+        "barricade",
+        "turret",
+        "eggs",
+        "cryopod",
+        "body"
+      ],
+      "pieces": {
+        "crate": {
+          "w": 1.22,
+          "h": 0.79,
+          "tris": 838
+        },
+        "locker": {
+          "w": 1.04,
+          "h": 2.22,
+          "tris": 956
+        },
+        "chest": {
+          "w": 1.3,
+          "h": 0.56,
+          "tris": 662
+        },
+        "cabinet": {
+          "w": 1.44,
+          "h": 0.92,
+          "tris": 745
+        },
+        "ammo_rack": {
+          "w": 1.64,
+          "h": 1.94,
+          "tris": 1424
+        },
+        "barrel": {
+          "w": 0.88,
+          "h": 1.07,
+          "tris": 550
+        },
+        "bigcrate": {
+          "w": 2.61,
+          "h": 2.2,
+          "tris": 1291
+        },
+        "console": {
+          "w": 1.84,
+          "h": 1.86,
+          "tris": 1012
+        },
+        "bunk": {
+          "w": 2.4,
+          "h": 1.95,
+          "tris": 952
+        },
+        "medbed": {
+          "w": 2.29,
+          "h": 1.95,
+          "tris": 708
+        },
+        "shelf": {
+          "w": 2.04,
+          "h": 2.22,
+          "tris": 1208
+        },
+        "table": {
+          "w": 2.2,
+          "h": 0.9,
+          "tris": 810
+        },
+        "reactor": {
+          "w": 3.4,
+          "h": 4.11,
+          "tris": 2475
+        },
+        "pilot_seat": {
+          "w": 1.23,
+          "h": 1.588,
+          "tris": 596
+        },
+        "control_panel": {
+          "w": 2.44,
+          "h": 2.355,
+          "tris": 2072
+        },
+        "debris": {
+          "w": 1.469,
+          "h": 0.763,
+          "tris": 675
+        },
+        "beam": {
+          "w": 1.802,
+          "h": 3.201,
+          "tris": 431
+        },
+        "airlock_hatch": {
+          "w": 1,
+          "h": 2.338,
+          "tris": 971
+        },
+        "barrel_explosive": {
+          "w": 0.86,
+          "h": 1.203,
+          "tris": 877
+        },
+        "barrel_wreck": {
+          "w": 0.98,
+          "h": 0.805,
+          "tris": 431
+        },
+        "console_broken": {
+          "w": 1.841,
+          "h": 1.857,
+          "tris": 970
+        },
+        "weapon_case": {
+          "w": 1.44,
+          "h": 1.258,
+          "tris": 956
+        },
+        "safe": {
+          "w": 1.01,
+          "h": 1.21,
+          "tris": 1444
+        },
+        "scorch": {
+          "w": 2,
+          "h": 2.85,
+          "tris": 158
+        },
+        "barricade": {
+          "w": 1.2,
+          "h": 1.147,
+          "tris": 432
+        },
+        "turret": {
+          "w": 0.97,
+          "h": 1.53,
+          "tris": 722
+        },
+        "eggs": {
+          "w": 1.58,
+          "h": 0.606,
+          "tris": 1374
+        },
+        "cryopod": {
+          "w": 1.335,
+          "h": 2.05,
+          "tris": 632
+        },
+        "body": {
+          "w": 2.056,
+          "h": 0.195,
+          "tris": 624
+        }
+      },
+      "bounds": {
+        "min": [
+          -1.7000000476837158,
+          -0.009702231734991074,
+          -1.9181121587753296
+        ],
+        "max": [
+          1.7000000476837158,
+          4.500749111175537,
+          1.00600004196167
+        ]
+      }
+    },
+    "roomkit": {
+      "name": "roomkit",
+      "file": "roomkit.glb",
+      "nodes": [
+        "wall_plain",
+        "wall_pipes",
+        "wall_vent",
+        "wall_window",
+        "wall_screen",
+        "wall_shelves",
+        "wall_hazard",
+        "floor_trim",
+        "ceiling_pipes",
+        "ceiling_lamp",
+        "bulkhead_door",
+        "bulkhead_solid",
+        "door_panel",
+        "hull_end",
+        "hull_airlock",
+        "ladder",
+        "stairs",
+        "shaft_rim",
+        "vent_wall",
+        "vent_ceiling",
+        "lamp_red",
+        "lamp_white",
+        "slime",
+        "cobweb",
+        "biomass"
+      ],
+      "pieces": {
+        "wall_plain": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1226
+        },
+        "wall_pipes": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1475
+        },
+        "wall_vent": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1053
+        },
+        "wall_window": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1229
+        },
+        "wall_screen": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1147
+        },
+        "wall_shelves": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1288
+        },
+        "wall_hazard": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1499
+        },
+        "floor_trim": {
+          "w": 2,
+          "h": 0.5,
+          "tris": 582
+        },
+        "ceiling_pipes": {
+          "w": 2,
+          "h": 0.765,
+          "tris": 732
+        },
+        "ceiling_lamp": {
+          "w": 1.28,
+          "h": 0.566,
+          "tris": 216
+        },
+        "bulkhead_door": {
+          "w": 0.6,
+          "h": 4.5,
+          "tris": 408
+        },
+        "bulkhead_solid": {
+          "w": 0.6,
+          "h": 4.5,
+          "tris": 781
+        },
+        "door_panel": {
+          "w": 0.5,
+          "h": 3,
+          "tris": 381
+        },
+        "hull_end": {
+          "w": 1.2,
+          "h": 5,
+          "tris": 877
+        },
+        "hull_airlock": {
+          "w": 1.2,
+          "h": 5,
+          "tris": 1407
+        },
+        "ladder": {
+          "w": 0.74,
+          "h": 6,
+          "tris": 456
+        },
+        "stairs": {
+          "w": 5,
+          "h": 5.826,
+          "tris": 1326
+        },
+        "shaft_rim": {
+          "w": 1.3,
+          "h": 0.5,
+          "tris": 363
+        },
+        "vent_wall": {
+          "w": 1,
+          "h": 0.7,
+          "tris": 170
+        },
+        "vent_ceiling": {
+          "w": 1,
+          "h": 0.14,
+          "tris": 316
+        },
+        "lamp_red": {
+          "w": 0.28,
+          "h": 0.512,
+          "tris": 356
+        },
+        "lamp_white": {
+          "w": 0.52,
+          "h": 0.25,
+          "tris": 122
+        },
+        "slime": {
+          "w": 1.165,
+          "h": 2.957,
+          "tris": 402
+        },
+        "cobweb": {
+          "w": 1.447,
+          "h": 1.575,
+          "tris": 528
+        },
+        "biomass": {
+          "w": 1.794,
+          "h": 2.668,
+          "tris": 1466
+        }
+      },
+      "bounds": {
+        "min": [
+          -1.0000001192092896,
+          -0.5,
+          -2
+        ],
+        "max": [
+          5,
+          6,
+          1
+        ]
+      }
+    },
+    "survivor": {
+      "name": "survivor",
+      "file": "survivor.glb",
+      "clips": [
+        {
+          "name": "cower",
+          "loop": true,
+          "duration": 2
+        },
+        {
+          "name": "idle",
+          "loop": true,
+          "duration": 3
+        },
+        {
+          "name": "walk",
+          "loop": true,
+          "duration": 0.8,
+          "speed": 1.7
+        },
+        {
+          "name": "run",
+          "loop": true,
+          "duration": 0.6,
+          "speed": 3.333
+        },
+        {
+          "name": "wave",
+          "loop": false,
+          "duration": 1.5
+        },
+        {
+          "name": "hit",
+          "loop": false,
+          "duration": 0.4
+        },
+        {
+          "name": "die",
+          "loop": false,
+          "duration": 1.3333333333333333
+        }
+      ],
+      "sockets": [
+        "socket_head",
+        "socket_light"
+      ],
+      "bounds": {
+        "min": [
+          -0.2336210459470749,
+          0,
+          -0.14499999582767487
+        ],
+        "max": [
+          0.2336210459470749,
+          1.7619999647140503,
+          0.19064044952392578
+        ]
+      }
+    }
+  }
+}
