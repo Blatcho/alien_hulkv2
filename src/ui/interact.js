@@ -4,6 +4,8 @@
 // goal (world.nudge -> sim/doctrine.js). A marker stays on the target until they've done it.
 // Encounters (sim/encounters.js) put their choices in the scene too: a card over the object,
 // each option with who'd do it and the odds, and a clock - when it runs out, the orders decide.
+// Lead mode: no pointing - the ring and tag sit on whatever the player's marine could use
+// right now (world.useTarget; A or E does it), and the D-pad walks a card's options.
 
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const PICK_PX = 34; // how close (screen px) the cursor must be to an object
@@ -18,12 +20,13 @@ export class Interact {
     this.orderEl = this.el.querySelector('.order');
     this.encEl = this.el.appendChild(h('<div class="enc"></div>'));
     this.encId = null;
+    this.encIndex = 0;
     this.mouse = null;
     this.hover = null;
     stage.addEventListener('mousemove', (e) => { this.mouse = { x: e.clientX, y: e.clientY }; });
     stage.addEventListener('mouseleave', () => { this.mouse = null; });
     stage.addEventListener('click', () => {
-      if (!this.hover || this.world?.status !== 'playing') return;
+      if (!this.hover || this.world?.status !== 'playing' || this.world.lead) return; // (lead: a click fires)
       if (this.hover.kind === 'move') this.game.command('move', this.hover.move);
       else this.game.command('nudge', this.hover.id);
     });
@@ -37,17 +40,19 @@ export class Interact {
     if (!d) { this.encId = null; return; }
     if (d.id !== this.encId) {
       this.encId = d.id;
+      this.encIndex = Math.max(0, d.options.findIndex((o) => !o.off));
       const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
       this.encEl.innerHTML = `<div class="et">${esc(d.title)}</div><div class="ex">${esc(d.text)}</div>`
         + d.options.map((o, i) => `<button data-i="${i}" ${o.off ? 'disabled' : ''}><kbd>${i + 1}</kbd><b>${esc(o.label)}</b>`
           + `${o.note ? `<small>${esc(o.off ? 'nothing left in the kit for it' : o.note)}</small>` : ''}`
           + `${o.odds !== undefined ? `<span class="odds ${o.odds >= 0.65 ? 'good' : o.odds < 0.4 ? 'bad' : ''}">${esc(o.who)} · ${Math.round(o.odds * 100)}%</span>` : ''}</button>`).join('')
-        + '<div class="clock"><i></i></div><div class="auto">or the squad follows its orders</div>';
+        + `<div class="clock"><i></i></div><div class="auto">${w.lead ? 'D-pad ▲▼ then A · or the followers decide' : 'or the squad follows its orders'}</div>`;
       this.encEl.querySelectorAll('button').forEach((b) => b.addEventListener('click', (e) => {
         e.stopPropagation();
         this.game.command(`option${+b.dataset.i + 1}`);
       }));
     }
+    if (w.lead) this.encEl.querySelectorAll('button').forEach((b, i) => b.classList.toggle('hl', i === this.encIndex));
     // Over the object, but kept on screen (the card scales with the HUD - ui/hud.js).
     const p = this.view.toScreen(d.x, d.y + 2.6);
     const ui = this.game.hud?.ui ?? 1;
@@ -75,13 +80,38 @@ export class Interact {
     this.view = view;
   }
 
+  // Lead mode: an encounter's card on the controller.
+  encounterOpen() { return !!this.encId && this.world?.squad.state === 'decision' && !!this.world.squad.decision?.encounter; }
+
+  moveHighlight(d) {
+    const opts = this.world?.squad.decision?.options ?? [];
+    if (!opts.length) return;
+    let i = this.encIndex;
+    for (let k = 0; k < opts.length; k++) {
+      i = (i + d + opts.length) % opts.length;
+      if (!opts[i].off) break;
+    }
+    this.encIndex = i;
+  }
+
+  pickHighlighted() { if (this.encounterOpen()) this.game.command(`option${this.encIndex + 1}`); }
+
+  /** B: the last option - leaving it be, or turning back. */
+  pickLast() {
+    const opts = this.world?.squad.decision?.options ?? [];
+    if (opts.length) this.game.command(`option${opts.length}`);
+  }
+
   update() {
     const w = this.world;
     if (!w || !this.view) return;
     this.encounter(w);
-    // Hover: the nearest interactable to the cursor, on screen.
+    // Hover: the nearest interactable to the cursor, on screen. Lead: whatever he could use.
     this.hover = null;
-    if (this.mouse && w.status === 'playing') {
+    if (w.lead) {
+      const t = w.status === 'playing' ? w.useTarget() : null;
+      if (t) { const p = this.view.toScreen(t.x, t.y); this.hover = { ...t, sx: p.x, sy: p.y }; }
+    } else if (this.mouse && w.status === 'playing') {
       const rect = this.stage.getBoundingClientRect();
       const mx = this.mouse.x - rect.left;
       const my = this.mouse.y - rect.top;
@@ -95,7 +125,7 @@ export class Interact {
       if (!this.hover && w.doctrine?.manual) this.hover = this.floorAt(w, mx, my, rect);
     }
     const hv = this.hover;
-    this.stage.style.cursor = hv ? 'pointer' : '';
+    this.stage.style.cursor = w.lead ? 'crosshair' : hv ? 'pointer' : '';
     this.ring.style.display = this.tag.style.display = hv ? 'block' : 'none';
     if (hv) {
       this.ring.style.left = this.tag.style.left = `${hv.sx}px`;

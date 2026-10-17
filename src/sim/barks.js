@@ -78,12 +78,16 @@ export const LINES = {
   rallied: ['Hold it together - we\'ve got this.', 'Steady. We\'re still in it.', 'Breathe. Eyes front.'],
   steady_squad: ['That\'s how it\'s done.', 'They bleed like anything else.', 'Keep it up - they\'re breaking.'],
   nudge_barrel: ['Barrel - on your call.', 'Lining it up. Clear the blast!', 'I have the drum.'],
+  took_point: ["I've got point. On me.", 'Taking the lead - stay with me.', "He's gone. I'm on point now. Move."],
+  hold_ack: ['Holding here.', 'Copy - holding position.', 'Set. We hold.'],
+  follow_ack: ['On you.', 'Copy - moving with you.', 'Falling in.'],
 };
 
 const COOLDOWN = {
   reload: 1.5, contact: 6, winded: 6, no_energy: 3, medic: 2, reviving: 3, going_back: 4, eat: 8, order_ack: 3, ceiling: 10, entry: 25, sleeper: 20, motion: 12, rear: 30, door_stack: 20, ladder_cover: 12, ladder_top: 12, quiet: 60, nest: 30, clear: 4, clear_ack: 4,
   nudge: 2, nudge_barrel: 2, in_position: 6, panic: 4, steady: 8, bound: 20, six: 25, check_vent: 20, check_body: 20, behind: 15, above: 15, below: 15, noise: 12,
   flank: 12, stalker: 10, flee: 8, dragged: 3, dropped: 4, screamer: 8, screamed: 10, scream_cut: 6, birth: 30, shy: 20,
+  took_point: 2, hold_ack: 0.5, follow_ack: 0.5,
   grenade: 1, flare: 2, defend: 2, break_freeze: 2, break_flee: 2, break_berserk: 2, break_over: 3, break_wait: 6, horde_warn: 5, horde_on: 5, horde_over: 5, covering: 6, topup: 15, shove: 4, melee: 6, dressing: 3, spotted: 10, shaken: 30, rallied: 30, steady_squad: 45,
 };
 

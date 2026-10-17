@@ -186,6 +186,12 @@ export class Tactics {
     for (const m of order) {
       m.faceT = (m.faceT ?? 1) + dt;
       if (m.target) m.lastTargetT = w.time;
+      if (m.controlled) {
+        // The player's marine: no drill post, no kneeling but his own, and the right stick turns him.
+        m.face = 0; m.cover = null; m.crouch = false;
+        if (m.target || m.aiming) m.stance = 'engaged';
+        continue;
+      }
       let want = m.facing;
       if (m.target) { m.stance = 'engaged'; m.cover = null; want = Math.sign(m.target.x - m.x) || m.facing; }
       else if ((!m.moving || m.backpedal) && m.face && (m.mode === 'walk' || m.mode === 'crouch')) want = m.face;
@@ -271,7 +277,7 @@ export class Tactics {
     const crouched = sq.cover || m.crouch || m.mode === 'crouch';
     if (m.moving) {
       m.animUpper = m.strikeT > 0 ? m.strikeAnim : m.hitT > 0.15 ? 'hit' : m.bashT > 0 ? 'bash' : m.reloadT > 0 ? 'reload' : m.signalT > 0 ? 'signal'
-        : m.target && m.burst > 0 ? (crouched ? 'crouch_shoot' : 'shoot') : null;
+        : (m.target || m.controlled) && m.burst > 0 ? (crouched ? 'crouch_shoot' : 'shoot') : null;
       return this.gait(m, crouched);
     }
     if (m.strikeT > 0) return m.strikeAnim; // a power-weapon blow (sim/melee.js)
@@ -286,8 +292,8 @@ export class Tactics {
     const working = sq.action && m === worker && ['search', 'door', 'uplink', 'encounter'].includes(sq.action.type);
     if (working && !m.target) return 'interact';
     if (m.cover && !m.target) return m.cover === 'up' ? 'aim_up' : 'aim_down';
-    if (m.stance === 'engaged' || m.target) {
-      if (m.target && m.burst > 0) return crouched ? 'crouch_shoot' : 'shoot';
+    if (m.stance === 'engaged' || m.target || m.aiming) {
+      if ((m.target || m.controlled) && m.burst > 0) return crouched ? 'crouch_shoot' : 'shoot';
       return crouched ? 'crouch_aim' : 'aim';
     }
     return crouched ? 'crouch_alert' : m.stance === 'alert' ? 'idle_alert' : 'idle_casual';

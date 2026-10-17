@@ -137,15 +137,16 @@ export class CommandScreen {
     this.briefing = new BriefingScreen(this.root, {
       heading: 'BRIEFING', ship: offer, pool, portraits: this.portraits,
       selected: deployable(p).map((t) => t.id), doctrine: p.doctrine ?? PRESETS.standard.doctrine,
-      difficulty: p.difficulty,
+      difficulty: p.difficulty, control: p.control,
       backLabel: 'BACK TO COMMAND',
       onBack: () => { this.briefing.dispose(); this.briefing = null; this.el.hidden = false; },
-      onDeploy: (ids, doctrine, difficulty) => {
+      onDeploy: (ids, doctrine, difficulty, control) => {
         p.squad = ids;
         p.doctrine = doctrine;
         p.difficulty = difficulty;
+        p.control = control;
         this.save();
-        this.onDeploy(offer, ids, doctrine, difficulty);
+        this.onDeploy(offer, ids, doctrine, difficulty, control);
       },
     });
   }

@@ -1,12 +1,13 @@
-// Briefing (before every run, campaign and quick play): read the ship intel, pick the four who
-// go and their order (slot 1 walks point, slot 4 is the rear guard), set the standing orders and
-// the difficulty. Once deployed the marines run themselves - this screen is where the mission is
-// won or lost.
+// Briefing (before every run, campaign and quick play): read the ship intel, choose how to
+// command - SQUAD: pick the four who go and their order (slot 1 walks point, slot 4 is the rear
+// guard) and set the standing orders they run themselves by; LEAD: pick the marine you'll walk
+// yourself with a controller and up to three who follow you, and the orders they keep - then
+// the difficulty. This screen is where a squad mission is won or lost.
 import { STATS } from '../core/config.js';
 import { DIFFICULTY, fitDifficulty } from '../meta/difficulty.js';
 import { tierOf } from '../meta/ranks.js';
 import { MODIFIERS } from '../meta/ships.js';
-import { KNOBS, PRESETS, disabledOptions, fitOrders, isManual } from '../sim/doctrine.js';
+import { KNOBS, LEAD_KNOBS, PRESETS, disabledOptions, fitOrders, isManual } from '../sim/doctrine.js';
 import { RARITY } from '../sim/loot.js';
 import { portrait } from './icons.js';
 import { archetypeChip, meleeSuffix, statBars } from './statbars.js';
@@ -15,6 +16,23 @@ const h = (html) => { const t = document.createElement('template'); t.innerHTML 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const SLOTS = ['POINT', '#2', '#3', 'REAR'];
+const LEAD_SLOTS = ['YOU', '#2', '#3', '#4'];
+// How to command the mission (sim/world.js control).
+const COMMAND = {
+  squad: { label: 'SQUAD', text: 'The four run themselves by your standing orders; you point and click.' },
+  lead: { label: 'LEAD', text: 'You walk one marine with a controller (or keys and mouse); up to three follow you.' },
+};
+const CONTROLS = [
+  ['L stick', 'walk, run (push it all the way) · up or down at a ladder or stairwell'],
+  ['R stick', 'aim (a hostile near your line draws the fire)'],
+  ['RT', 'fire'], ['LT', 'cover: everyone crouches'],
+  ['A', 'use: a crate, terminal, door, the console, a man down'],
+  ['B', 'followers hold where they are / fall in again'],
+  ['X · Y · LB', 'grenade, flare, defend'], ['RB', 'reload'],
+  ['D-pad', 'the followers\' orders · an encounter\'s options (A picks)'],
+  ['Start', 'pause'],
+  ['Keyboard', 'WASD walk · mouse aims · click fires · Shift cover · E use · R reload · T hold · Q F G kit'],
+];
 // What a ship modifier asks of the squad.
 const HINTS = {
   infested: ['acc', 'nrv'], blackout: ['per'], treasure: ['int', 'lck'], armory: ['lck'],
@@ -26,8 +44,9 @@ export class BriefingScreen {
   /**
    * @param {object} o
    *   heading, ship {name, size, threat, reward, modifiers}, pool (troopers), selected (ids, in
-   *   order), doctrine, difficulty, portraits (Map id -> url), onDeploy(ids, doctrine, difficulty),
-   *   onBack(), backLabel, onReroll() -> { pool, portraits } (quick play: a fresh set of troopers)
+   *   order), doctrine, difficulty, control ('squad' | 'lead'), portraits (Map id -> url),
+   *   onDeploy(ids, doctrine, difficulty, control), onBack(), backLabel,
+   *   onReroll() -> { pool, portraits } (quick play: a fresh set of troopers)
    */
   constructor(root, o) {
     this.o = o;
@@ -35,14 +54,20 @@ export class BriefingScreen {
     this.doctrine = fitOrders({ ...o.doctrine });
     this.preset = presetOf(this.doctrine);
     this.difficulty = fitDifficulty(o.difficulty);
+    this.control = o.control === 'lead' ? 'lead' : 'squad';
     this.el = root.appendChild(h('<div class="command briefing"></div>'));
     this.render();
   }
 
-  get need() { return Math.min(4, this.o.pool.length); }
+  get lead() { return this.control === 'lead'; }
+  get max() { return Math.min(4, this.o.pool.length); }
+  /** How many must be picked: the four (squad), or just yourself (lead). */
+  get need() { return this.lead ? 1 : this.max; }
 
   render() {
     const o = this.o;
+    const lead = this.lead;
+    const slots = lead ? LEAD_SLOTS : SLOTS;
     const chosen = this.selected.map((id) => o.pool.find((t) => t.id === id));
     const card = (t) => {
       const slot = this.selected.indexOf(t.id);
@@ -50,7 +75,7 @@ export class BriefingScreen {
       const w = t.weaponItem;
       const rank = tierOf(t.rank); // (meta/ranks.js: the card in his rank's colour)
       return `<div class="rt pick ranked ${slot >= 0 ? 'in' : ''}" data-id="${t.id}" style="--rank:${rank.color}">
-        <div class="pf">${img ? `<img src="${img}" alt="">` : portrait(t.tint, 0)}${slot >= 0 ? `<div class="slot">${SLOTS[slot]}</div>` : ''}</div>
+        <div class="pf">${img ? `<img src="${img}" alt="">` : portrait(t.tint, 0)}${slot >= 0 ? `<div class="slot ${slot === 0 && lead ? 'you' : ''}">${slots[slot]}</div>` : ''}</div>
         <div class="rtb">
           <div class="nm">${esc(rank.abbr)} ${esc(t.name)} ${archetypeChip(t)}<i class="rank-tag">${esc(rank.name)}</i></div>
           <div class="wp" style="color:${RARITY[w.rarity].color}">${esc(w.name + meleeSuffix(t))}</div>
@@ -58,7 +83,7 @@ export class BriefingScreen {
         </div>
       </div>`;
     };
-    const lineup = SLOTS.map((label, i) => {
+    const lineup = slots.map((label, i) => {
       const t = chosen[i];
       return `<div class="ln ${t ? '' : 'empty'}"><b>${label}</b><span>${t ? esc(t.name) : '—'}</span>
         ${t ? `<button data-up="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button><button data-down="${i}" ${i === chosen.length - 1 ? 'disabled' : ''} title="Move down">▼</button>` : ''}</div>`;
@@ -72,9 +97,10 @@ export class BriefingScreen {
         ${hintKeys.size ? `<div class="hint">Matters here: ${[...hintKeys].map((k) => `<b>${STATS.LABEL[k]}</b>`).join(', ')}</div>` : ''}
       </div>` : '';
     // Manual is point and click: the route is the player's, and some orders can't apply.
+    // Lead: the route, the pace and the looting are the player's own legs and hands.
     const off = disabledOptions(this.doctrine);
     const manual = isManual(this.doctrine);
-    const knobs = Object.entries(KNOBS).map(([k, knob]) => {
+    const knobs = Object.entries(KNOBS).filter(([k]) => !lead || LEAD_KNOBS.includes(k)).map(([k, knob]) => {
       const opts = Object.entries(knob.options).filter(([v]) => v !== 'manual');
       const allOff = opts.every(([v]) => off[k]?.includes(v));
       return `<div class="knob ${allOff ? 'off' : ''}"><span>${knob.label}</span><div class="seg">${
@@ -90,13 +116,19 @@ export class BriefingScreen {
       ? `${esc(PRESETS[this.preset].text)}${same(PRESETS[this.preset].doctrine, this.doctrine) ? '' : ' · orders adjusted'}`
       : 'Custom orders - the squad runs itself.';
     const presets = Object.entries(PRESETS).map(([k, p]) => `<button data-preset="${k}" class="${this.preset === k ? 'on' : ''}" title="${esc(p.text)}">${esc(p.label)}</button>`).join('');
+    const command = Object.entries(COMMAND).map(([k, c]) => `<button data-control="${k}" class="${this.control === k ? 'on' : ''}"><b>${c.label}</b><small>${esc(c.text)}</small></button>`).join('');
+    const controls = `<div class="controls">${CONTROLS.map(([k, t]) => `<div><kbd>${esc(k)}</kbd><span>${esc(t)}</span></div>`).join('')}</div>`;
+    const ready = chosen.length >= this.need;
+    const deployText = ready ? 'DEPLOY ▶' : lead ? 'PICK YOUR MARINE' : `PICK ${this.need - chosen.length} MORE`;
 
     this.el.innerHTML = `<div class="cmd panel">
-      <div class="top"><h1>${esc(o.heading ?? 'BRIEFING')}</h1><div class="stats">${chosen.length}/${this.need} SELECTED</div>
+      <div class="top"><h1>${esc(o.heading ?? 'BRIEFING')}</h1><div class="stats">${chosen.length}/${this.max} SELECTED · ${COMMAND[this.control].label}</div>
         <button class="quit">${esc(o.backLabel ?? 'BACK')}</button></div>
       <div class="cols">
         <div class="col">
-          <h2>TROOPERS <small>click to add or remove · order = who walks point</small></h2>
+          <h2>COMMAND <small>how you run this one</small></h2>
+          <div class="cmdchoice">${command}</div>
+          <h2>TROOPERS <small>${lead ? 'click to add or remove · the first you pick is you, up to three more follow' : 'click to add or remove · order = who walks point'}</small></h2>
           <div class="roster">${o.pool.map(card).join('')}</div>
           ${o.onReroll ? '<button class="reroll" title="A fresh set of troopers to choose from">⟳ RANDOMIZE TROOPERS</button>' : ''}
           <h2>DIFFICULTY</h2>
@@ -104,19 +136,23 @@ export class BriefingScreen {
         </div>
         <div class="col">
           ${intel ? `<h2>INTEL</h2>${intel}` : ''}
-          <h2>LINE-UP</h2>
+          <h2>LINE-UP${lead ? ' <small>you, then who follows in what order</small>' : ''}</h2>
           <div class="lineup">${lineup}</div>
           ${this.summary(chosen)}
-          <h2>STANDING ORDERS</h2>
+          ${lead ? `<h2>FOLLOWERS' ORDERS <small>they handle the rest themselves</small></h2>
+          <div class="knobs">${knobs}</div>
+          <h2>CONTROLS</h2>
+          ${controls}` : `<h2>STANDING ORDERS</h2>
           <div class="presets">${presets}</div>
           ${ptext ? `<p class="ptext">${ptext}</p>` : ''}
-          <div class="knobs">${knobs}</div>
-          <button class="deploy" ${chosen.length === this.need ? '' : 'disabled'}>${chosen.length === this.need ? 'DEPLOY ▶' : `PICK ${this.need - chosen.length} MORE`}</button>
+          <div class="knobs">${knobs}</div>`}
+          <button class="deploy" ${ready ? '' : 'disabled'}>${deployText}</button>
         </div>
       </div>
     </div>`;
 
     this.el.querySelectorAll('.pick').forEach((el) => el.addEventListener('click', () => this.toggle(el.dataset.id)));
+    this.el.querySelectorAll('[data-control]').forEach((el) => el.addEventListener('click', () => { this.control = el.dataset.control; this.render(); }));
     this.el.querySelectorAll('[data-up]').forEach((el) => el.addEventListener('click', () => this.move(+el.dataset.up, -1)));
     this.el.querySelectorAll('[data-down]').forEach((el) => el.addEventListener('click', () => this.move(+el.dataset.down, 1)));
     this.el.querySelectorAll('[data-preset]').forEach((el) => el.addEventListener('click', () => {
@@ -135,7 +171,7 @@ export class BriefingScreen {
       this.render();
     }));
     this.el.querySelector('.reroll')?.addEventListener('click', () => this.reroll());
-    this.el.querySelector('.deploy').addEventListener('click', () => { if (this.selected.length === this.need) this.o.onDeploy([...this.selected], { ...this.doctrine }, { ...this.difficulty }); });
+    this.el.querySelector('.deploy').addEventListener('click', () => { if (this.selected.length >= this.need) this.o.onDeploy([...this.selected], { ...this.doctrine }, { ...this.difficulty }, this.control); });
     this.el.querySelector('.quit').addEventListener('click', () => this.o.onBack?.());
   }
 
@@ -148,7 +184,12 @@ export class BriefingScreen {
     const eyes = best('per');
     const slow = worst('spd');
     const breath = worst('sta');
-    const rows = [
+    const you = chosen[0];
+    const rows = this.lead ? [
+      ['You', `${you.name} · ${you.weaponItem.name}`, `SPD ${you.stats.spd} is your pace, STA ${you.stats.sta} your breath, ACC ${you.stats.acc} your aim`],
+      ['Tech & medic', `${tech.name} · INT ${tech.stats.int}`, tech === you ? 'you: searches, the uplink, stims' : 'searches, the uplink, gets you up'],
+      ['Sharpest eyes', `${eyes.name} · PER ${eyes.stats.per}`, 'spots them first'],
+    ] : [
       ['Tech & medic', `${tech.name} · INT ${tech.stats.int}`, 'searches, the uplink, stims'],
       ['Sharpest eyes', `${eyes.name} · PER ${eyes.stats.per}`, chosen[0] === eyes ? 'walking point - good' : 'best on point'],
       ['Sets the pace', `${slow.name} · SPD ${slow.stats.spd}`, 'the squad walks at its slowest'],

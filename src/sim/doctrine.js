@@ -42,6 +42,10 @@ export const PRESETS = {
 
 export const isManual = (d) => d?.route === 'manual';
 
+/** Lead mode: the orders the followers still take (the route, the pace and the looting are the player's own legs and hands). */
+export const LEAD_KNOBS = ['roe', 'stims', 'light', 'kit'];
+export const leadOrders = (d) => ({ ...fitOrders(parseDoctrine(d)), route: 'direct', pace: 'steady' });
+
 /**
  * Orders that don't apply under Manual (the briefing greys them out): the route is the
  * player's clicks, and a squad that never moves on its own can't go looking for every crate.
@@ -102,7 +106,7 @@ function sanitize(d) {
 export class Doctrine {
   constructor(world, config) {
     this.world = world;
-    this.cfg = fitOrders(parseDoctrine(config));
+    this.cfg = world.lead ? leadOrders(config) : fitOrders(parseDoctrine(config));
     this.goal = null;
     this.override = null;   // { goal, until, verb, target } from Turn around / nudges
     this.forced = null;     // a fuel barrel the player wants shot (combat.js)
@@ -116,6 +120,9 @@ export class Doctrine {
   }
 
   get manual() { return isManual(this.cfg); }
+
+  /** Lead mode: the player walks the point man himself; the doctrine runs the men behind him. */
+  get lead() { return !!this.world.lead; }
 
   update(dt) {
     const w = this.world;
@@ -135,7 +142,7 @@ export class Doctrine {
     this.errands();
     this.steer(dt);
     // Cover is a full stop: nobody moves on and nothing is decided until it's released.
-    if (sq.cover || sq.state !== 'decision') { this.waitT = 0; return; }
+    if ((sq.cover && !this.lead) || sq.state !== 'decision') { this.waitT = 0; return; }
     const d = sq.decision;
     if (d !== this.lastDecision) { this.lastDecision = d; this.waitT = 0; this.decT = 0; }
     this.decT += dt;
@@ -154,7 +161,8 @@ export class Doctrine {
     const w = this.world;
     const sq = w.squad;
     // Pace: 'fast' runs whenever everyone has the breath for it (and not into a firefight).
-    if (this.cfg.pace === 'fast') {
+    // (Lead: the stick sets the pace - sim/squad.js steer.)
+    if (this.lead) { /* the player's legs */ } else if (this.cfg.pace === 'fast') {
       if (sq.pace !== 'run' && !sq.engaged && !sq.cover && w.stamina >= PACE.MIN_TO_RUN + 25) w.setPace('run');
       else if (sq.pace === 'run' && sq.engaged) w.setPace('normal');
     } else if (sq.pace !== PACE_OF[this.cfg.pace]) w.setPace(PACE_OF[this.cfg.pace]);
@@ -185,6 +193,7 @@ export class Doctrine {
     const w = this.world;
     if (!KNOBS[knob]?.options[value] || this.cfg[knob] === value) return false;
     if (knob === 'loot' && value === 'all' && this.manual) return false; // not with Manual orders
+    if (this.lead && !LEAD_KNOBS.includes(knob)) return false; // lead: the player's own legs and hands
     const wasManual = this.manual;
     this.cfg = fitOrders({ ...this.cfg, [knob]: value });
     if (knob === 'route') {
@@ -235,8 +244,9 @@ export class Doctrine {
     const medic = sq.order.filter((o) => o !== lead && o.room === m.room && o.mode === 'walk' && Math.abs(o.x - m.x) <= 14)
       .sort((p, q) => (q.mods?.medic ?? 1) - (p.mods?.medic ?? 1) || Math.abs(p.x - m.x) - Math.abs(q.x - m.x))[0];
     if (medic && lead.room === m.room) { sq.startRevive(m, medic, !!urgent); if (urgent) this.override = null; return; }
+    if (lead.controlled) return; // lead: the player gets him up himself (A - world.useNearby)
     if (lead.room === m.room && Math.abs(lead.x - m.x) < 1.6 && lead.mode === 'walk') { sq.startRevive(m, lead, !!urgent); if (urgent) this.override = null; return; }
-    if (urgent || this.manual) return; // the player's errand is already set / Manual waits for one
+    if (urgent || this.manual || this.lead) return; // the player's errand is already set / Manual waits for one / lead: the player goes back himself
     if (this.override?.verb !== 'downed') {
       this.override = { goal: { kind: 'downed', room: m.room, x: m.x }, until: Infinity, verb: 'downed',
         target: { kind: 'downed', marine: m.id, x: m.x, y: m.y + 0.5, label: `Get ${m.name} up` } };
@@ -251,6 +261,7 @@ export class Doctrine {
   steer(dt) {
     const w = this.world;
     const sq = w.squad;
+    if (this.lead) return; // the player picks the way
     this.steerT = (this.steerT ?? 0) - dt;
     if (this.steerT > 0 || sq.state !== 'advance' || sq.trav || sq.turnPending || sq.cover || sq.engaged || sq.ladder || sq.task) return;
     this.steerT = 0.5;

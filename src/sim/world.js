@@ -34,6 +34,11 @@ import { updateMedic, updateMelee } from './melee.js';
 import { Morale } from './morale.js';
 import { updateSentries } from './sentry.js';
 
+// Lead mode: how far (m) the player reaches to use something, and what he'd use first when two
+// things sit together (a man down before a crate beside him).
+const USE_REACH = 2.4;
+const USE_RANK = { downed: 0, objective: 1, crate: 2, terminal: 2, door: 3, fire: 3, ladder: 4, stairs: 4, doorctl: 6, vent: 6 };
+
 // Labels for the set pieces in the scene (interactables).
 const ODDITY = { turret: 'Hack the sentry', autodoc: 'Use the autodoc', eggs: 'Deal with the eggs', cryopod: 'Check the cryo pod' };
 
@@ -50,8 +55,12 @@ export class World {
    * @param params  URL/test flags (autoplay, god...)
    * @param squad   campaign troopers to deploy (meta/profile.js), else the default four
    * @param upgrades campaign upgrade tiers
+   * @param control 'squad': the four run themselves under the doctrine (the player gives orders);
+   *                'lead': the player steers one of them with a controller (world.pad, squad.js
+   *                steer) and the rest follow him; the doctrine still runs the followers.
+   * @param player  lead: which of `squad` the player is (index; default the first)
    */
-  constructor(level, { params = {}, events = new EventBus(), tuning = {}, squad = null, upgrades = {}, rewardMult = 1, doctrine = null } = {}) {
+  constructor(level, { params = {}, events = new EventBus(), tuning = {}, squad = null, upgrades = {}, rewardMult = 1, doctrine = null, control = 'squad', player = 0 } = {}) {
     resetIds();
     this.level = level;
     this.params = params;
@@ -87,6 +96,10 @@ export class World {
     this.uplink = null;
     this.stats = { kills: 0, critters: 0, shots: 0, loot: 0, rooms: 0, civilians: 0, rescued: 0 };
     this.commands = []; // player input, applied at the start of the next step (replayable)
+    this.control = control === 'lead' ? 'lead' : 'squad';
+    // Lead: the controller's state, read by the sim each step (sticks -1..1, buttons held).
+    this.pad = { moveX: 0, moveY: 0, aimX: 0, aimY: 0, fire: false, cover: false };
+    this.player = null;
     this.projectiles = []; // spitter acid in flight
     this.pools = [];       // acid on the deck
     this.nextGun = 1;
@@ -104,7 +117,12 @@ export class World {
     this.stamina = this.staminaMax; // the squad's breath = its most winded man (updateMeters)
     for (const m of this.marines) { m.staminaMax = this.staminaMax * m.mods.stamina; m.stamina = m.staminaMax; }
     for (const m of this.marines) this.physics.addHitbox(m, 0.8, m.height, G.MARINE);
-    this.squad = new Squad(this, this.marines);
+    if (this.lead) {
+      this.player = this.marines[player] ?? this.marines[0];
+      this.player.controlled = true;
+    }
+    // Lead: the player's marine takes point whichever of them he is.
+    this.squad = new Squad(this, this.player ? [this.player, ...this.marines.filter((m) => m !== this.player)] : this.marines);
 
     this.aliens = [];
     for (const s of level.spawns.aliens) {
@@ -158,6 +176,9 @@ export class World {
 
   emit(type, payload) { this.events.emit(type, payload); }
   on(type, fn) { return this.events.on(type, fn); }
+
+  /** Lead mode: the player steers one marine (world.pad); the squad follows him. */
+  get lead() { return this.control === 'lead'; }
 
   addAlien(a) {
     // Strength (meta/difficulty.js): tougher hide, harder claws.
@@ -589,6 +610,7 @@ export class World {
     }
     m.anim = 'idle_alert';
     this.squad.rejoin(m);
+    if (this.lead && m === this.player) this.squad.takeLead(m); // back on his feet, back on point
     if (by) practice(by, 'int', 1.5);
     this.emit('revived', { marine: m, by, stim });
     this.barks.later(0.6, m, 'revived');
@@ -641,6 +663,7 @@ export class World {
       else if (finished && this.squad.order[0]) this.barks.say(this.squad.order[0], 'finished', 1, { name: e.name });
       this.tactics.alertUntil = this.time + STANCE.ALERT_AFTER * 1.5;
       if (this.squad.order[0]) this.barks.say(this.squad.order[0], 'down', 1, { name: e.name });
+      if (this.lead && e === this.player) this.passControl();
     }
     this.emit('kill', { entity: e, source });
   }
@@ -824,6 +847,124 @@ export class World {
   /** The kit buttons: a grenade, a flare, the Defend guns (queued: applied on the next step). */
   useKit(item) { this.commands.push({ kind: 'kit', item }); }
 
+  // ------------------------------------------------------------------ lead mode (the controller)
+
+  /** The controller's sticks and held buttons, as of this frame (sim/squad.js steer, sim/combat.js). */
+  steer(pad) { Object.assign(this.pad, pad); }
+
+  /** A (use): whatever is within the player's reach - a crate, a terminal, a door, a man down... */
+  use() { this.commands.push({ kind: 'use' }); }
+
+  /** RB: change magazines. */
+  reloadWeapon() { this.commands.push({ kind: 'reload' }); }
+
+  /** B: the followers hold where they are / fall in behind again. */
+  toggleHold() { this.commands.push({ kind: 'hold' }); }
+
+  /** Lead: the player's marine died - the next man in the line is his now. */
+  passControl() {
+    const prev = this.player;
+    if (prev) prev.controlled = false;
+    const next = this.squad.order[0] ?? null;
+    this.player = next;
+    if (!next) return;
+    next.controlled = true;
+    this.squad.takeLead(next);
+    this.emit('control', { marine: next, from: prev });
+    this.barks.later(1.2, next, 'took_point', 1);
+  }
+
+  /**
+   * What the player's marine could use right now: the nearest interactable in his room within
+   * reach (the HUD prompts it, A does it). Barrels are shot, survivors reached; neither is "used".
+   */
+  useTarget() {
+    const p = this.player;
+    if (!this.lead || !p?.alive || p.down) return null;
+    const sq = this.squad;
+    if (sq.state !== 'advance' || sq.trav || sq.task) return null;
+    let best = null;
+    for (const t of this.interactables()) {
+      if (t.room !== p.room || t.kind === 'barrel' || t.kind === 'survivor' || t.kind === 'distress') continue;
+      if (t.kind === 'door' && this.level.portals[t.portal].open) continue;
+      const reach = t.kind === 'ladder' || t.kind === 'stairs' ? 0.7 : USE_REACH;
+      const d = Math.abs(t.x - p.x);
+      if (d > reach) continue;
+      const rank = USE_RANK[t.kind] ?? 5;
+      if (!best || rank < best.rank || (rank === best.rank && d < best.d)) best = { t, d, rank };
+    }
+    return best?.t ?? null;
+  }
+
+  /** Lead: do the thing within reach (world.use -> apply). Returns true if something started. */
+  useNearby() {
+    const t = this.useTarget();
+    if (!t) return false;
+    const L = this.level;
+    const sq = this.squad;
+    const p = this.player;
+    const room = L.rooms[t.room];
+    const prop = t.prop !== undefined ? room.props.find((q) => q.id === t.prop) : null;
+    switch (t.kind) {
+      case 'crate':
+        if (!prop || prop.searched) return false;
+        prop.ignored = false;
+        sq.startSearch(prop, `loot${prop.id}`);
+        return true;
+      case 'terminal':
+        if (!prop) return false;
+        if (prop.encounter === 'junction') prop.encounterDone = false;
+        if ((prop.encounter === 'turret' || prop.encounter === 'autodoc') && !prop.used && !prop.jammed) prop.encounterDone = false;
+        this.encounters.offer(prop.encounter, prop, { key: `enc${prop.id}`, type: 'encounter', x: prop.x, prop });
+        return true;
+      case 'objective': {
+        const console_ = room.props.find((q) => q.objective);
+        if (!console_ || this.uplink) return false;
+        sq.handled.add('objective');
+        sq.startUplink(console_);
+        return true;
+      }
+      case 'door': {
+        const d = L.portals[t.portal];
+        if (d.open) return false;
+        if (d.welded) { this.encounters.offer('doorctl', { x: t.x, room: t.room, door: d, id: `door${d.id}` }, { key: `doorctl${d.id}` }); return true; }
+        if (d.fire) { this.encounters.offer('fire', { x: t.x, room: t.room, fire: d, id: `fire${d.id}` }, { key: `fire${d.id}` }); return true; }
+        if (d.locked) { d.passed = false; this.encounters.offer('keydoor', { x: t.x, room: t.room, door: d, id: `key${d.id}` }, { key: `key${d.id}` }); return true; }
+        p.facing = Math.sign(d.x - p.x) || p.facing;
+        sq.heading = p.facing;
+        sq.startDoor(d);
+        return true;
+      }
+      case 'fire': {
+        const d = L.portals[t.portal];
+        this.encounters.offer('fire', { x: t.x, room: t.room, fire: d, id: `fire${d.id}` }, { key: `fire${d.id}` });
+        return true;
+      }
+      case 'doorctl': {
+        const d = L.portals[t.portal];
+        this.encounters.offer('doorctl', { x: t.x, room: t.room, door: d, id: `door${d.id}` }, { key: `doorctl${d.id}` });
+        return true;
+      }
+      case 'vent': {
+        const v = L.vents[t.vent];
+        this.encounters.offer('vent', { x: v.x, room: v.room, vent: v, id: `vent${v.id}` }, { key: `vent${v.id}` });
+        return true;
+      }
+      case 'downed': {
+        const m = this.marines.find((q) => q.id === t.marine);
+        if (!m?.alive || !m.down || m.dragged) return false;
+        const medic = sq.order.filter((o) => o !== p && o.room === m.room && o.mode === 'walk' && Math.abs(o.x - m.x) <= 14)
+          .sort((a, b) => (b.mods?.medic ?? 1) - (a.mods?.medic ?? 1) || Math.abs(a.x - m.x) - Math.abs(b.x - m.x))[0];
+        const by = medic && (medic.mods?.medic ?? 1) > (p.mods?.medic ?? 1) ? medic : p;
+        sq.startRevive(m, by, true);
+        return true;
+      }
+      case 'ladder': case 'stairs':
+        return sq.climb({ x: t.x, portal: L.portals[t.portal] });
+      default: return false;
+    }
+  }
+
   kitNow(item) {
     if (item === 'grenade') return this.gear.grenade();
     if (item === 'flare') return this.gear.flare();
@@ -949,6 +1090,11 @@ export class World {
       if (!m.alive || !m.down || !known(m.room)) continue;
       out.push({ id: `d${m.id}`, kind: 'downed', x: m.x, y: m.y + 0.5, room: m.room, marine: m.id, label: `Get ${m.name} up` });
     }
+    // Lead: the command deck's console is used by hand (the squad walks into it by itself).
+    if (this.lead && !this.uplink && known(L.objective.room)) {
+      const o = L.objective;
+      out.push({ id: 'objective', kind: 'objective', x: o.x, y: L.rooms[o.room].y0 + 1.1, room: o.room, label: 'Start the uplink' });
+    }
     for (const b of this.props) {
       if (!b.alive || !b.explosive || !b.visible) continue;
       out.push({ id: `b${b.id}`, kind: 'barrel', x: b.x, y: b.y + 0.7, room: b.room, barrel: b.id, label: 'Shoot the barrel' });
@@ -974,6 +1120,17 @@ export class World {
   }
 
   apply(c) {
+    // Lead: the player walks, uses and shoots for himself; there is nothing to send the squad to.
+    if (this.lead && (c.kind === 'nudge' || c.kind === 'move')) return;
+    if (c.kind === 'use') { if (!this.useNearby()) this.emit('use-refused', {}); return; }
+    if (c.kind === 'reload') { if (this.player?.alive) this.player.wantReload = true; return; }
+    if (c.kind === 'hold') {
+      this.squad.followersHold = !this.squad.followersHold;
+      this.emit('hold', { on: this.squad.followersHold });
+      const mate = this.squad.order.find((m) => m !== this.player);
+      if (mate) this.barks.say(mate, this.squad.followersHold ? 'hold_ack' : 'follow_ack', 0.9);
+      return;
+    }
     // A new order walks away from an encounter the player hadn't answered.
     const d = this.squad.decision;
     if ((c.kind === 'nudge' || c.kind === 'move') && this.squad.state === 'decision' && d?.encounter) this.choose('leave');
@@ -1023,6 +1180,8 @@ export class World {
     const lead = this.squad.leader;
     return {
       status: this.status,
+      control: this.control,
+      player: this.player?.name ?? null,
       time: +this.time.toFixed(2),
       room: lead?.room,
       roomType: lead ? this.level.rooms[lead.room].type : null,

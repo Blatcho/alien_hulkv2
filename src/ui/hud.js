@@ -2,26 +2,34 @@
 // bottom-centre - Cover, Turn back and the standing orders bar (the briefing's orders, changeable
 // mid-mission: the squad runs itself by them - sim/doctrine.js) - weapon bottom-left, objective
 // bottom-right. Reads sim state every frame.
+//
+// Lead mode (#hud.lead): the player's marine is marked YOU; the bar shows Cover (LT) and Hold /
+// Follow (B) with the kit on the pad's buttons, and only the followers' orders; the weapon panel
+// is his own gun and magazine; a reticle rides his line of aim, and a prompt sits on whatever
+// he could use (ui/interact.js).
 import { ENERGY, KIT, MELEE, ROE } from '../core/config.js';
 import { tierOf } from '../meta/ranks.js';
 import { BREAK_TAGS } from '../sim/breakdown.js';
-import { KNOBS, isManual, missionOptions } from '../sim/doctrine.js';
+import { KNOBS, LEAD_KNOBS, isManual, missionOptions } from '../sim/doctrine.js';
 import { ICONS, portrait } from './icons.js';
 import { RARITY, affixText } from '../sim/loot.js';
+import { bodyPoint } from '../vis/sight.js';
 import { Minimap } from './minimap.js';
 
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 
+// key: squad mode (keyboard); pad / lkey: lead mode (the controller / its keyboard fallback).
 const ACTIONS = [
-  { id: 'cover', icon: 'cover', label: 'Cover', key: 'C' },
+  { id: 'cover', icon: 'cover', label: 'Cover', key: 'C', pad: 'LT', lkey: 'SHIFT' },
   { id: 'turn', icon: 'turn', label: 'Turn back', key: 'T' },
+  { id: 'hold', icon: 'hold', label: 'Hold', key: 'T', pad: 'B', lkey: 'T', lead: true },
 ];
 
 // The kit (sim/kit.js): one slim button each, with what's left.
 const KIT_BUTTONS = [
-  { id: 'grenade', icon: 'grenade', label: 'Grenade', key: 'Q', kit: 'grenades', title: 'Frag grenade into the thick of them (never with one of ours near it)' },
-  { id: 'flare', icon: 'flare', label: 'Flare', key: 'E', kit: 'flares', title: 'Flare ahead of the point man: lights the room for good - creepers hate it' },
-  { id: 'defend', icon: 'defend', label: 'Defend', key: 'D', kit: 'defend', none: 'NO DEFEND KIT', title: 'Two sentry guns either side of the squad - the answer to a horde. They stay and keep firing after you move on. You carry one; more are found aboard' },
+  { id: 'grenade', icon: 'grenade', label: 'Grenade', key: 'Q', pad: 'X', lkey: 'Q', kit: 'grenades', title: 'Frag grenade into the thick of them (never with one of ours near it)' },
+  { id: 'flare', icon: 'flare', label: 'Flare', key: 'E', pad: 'Y', lkey: 'F', kit: 'flares', title: 'Flare ahead of the point man: lights the room for good - creepers hate it' },
+  { id: 'defend', icon: 'defend', label: 'Defend', key: 'D', pad: 'LB', lkey: 'G', kit: 'defend', none: 'NO DEFEND KIT', title: 'Two sentry guns either side of the squad - the answer to a horde. They stay and keep firing after you move on. You carry one; more are found aboard' },
 ];
 const REFUSED = { grenade: 'NO CLEAR THROW', flare: 'ROOM ALREADY LIT', defend: 'CAN\'T SET UP HERE' };
 
@@ -31,7 +39,7 @@ export const ORDER_TILES = [
   { knob: 'route', label: 'Route', key: 'R',
     short: { manual: 'Your call', direct: 'Direct', thorough: 'Sweep' },
     detail: { manual: 'They go where you click, then hold', direct: 'Straight for the command deck', thorough: 'Sweep the side rooms on the way' } },
-  { knob: 'roe', label: 'Fire', key: 'F',
+  { knob: 'roe', label: 'Fire', key: 'F', pad: '◀', lkey: 'X',
     short: { cautious: 'Cautious', normal: 'Normal', alert: 'High alert' },
     detail: { cautious: 'Only return fire', normal: 'Shoot anything that moves - vermin too', alert: 'Weapons up, fastest reactions - burns energy' } },
   { knob: 'pace', label: 'Pace', key: 'G',
@@ -40,13 +48,13 @@ export const ORDER_TILES = [
   { knob: 'loot', label: 'Loot', key: 'L',
     short: { leave: 'Leave it', way: 'On the way', all: 'Everything' },
     detail: { leave: 'Search nothing', way: 'Search what they pass, unless in a fight', all: 'Go out of the way for every container' } },
-  { knob: 'stims', label: 'Stims', key: 'H',
+  { knob: 'stims', label: 'Stims', key: 'H', pad: '▶', lkey: 'H',
     short: { early: 'Early', critical: 'Critical', hoard: 'Hoard' },
     detail: { early: 'Stim anyone under 60% health', critical: 'Stim anyone under 35%', hoard: 'Only under 15%' } },
-  { knob: 'light', label: 'Lights', key: 'V',
+  { knob: 'light', label: 'Lights', key: 'V', pad: '▲', lkey: 'V',
     short: { on: 'On', auto: 'Auto', off: 'Off' },
     detail: { on: 'Torches on', auto: 'Off in lit, quiet rooms', off: 'Dark - harder to spot them, harder to be spotted' } },
-  { knob: 'kit', label: 'Kit', key: 'K',
+  { knob: 'kit', label: 'Kit', key: 'K', pad: '▼', lkey: 'K',
     short: { use: 'Use it', save: 'Save it' },
     detail: { use: 'Grenades into packs, flares into dark rooms - by themselves', save: 'Grenades and flares only on your call' } },
 ];
@@ -86,7 +94,8 @@ export class Hud {
     this.menuEl = this.actionsEl.appendChild(h('<div class="ordmenu"></div>'));
     this.menuKnob = null;
     document.addEventListener('pointerdown', (e) => { if (this.menuKnob && !this.actionsEl.contains(e.target)) this.orderMenu(null); });
-    this.weaponEl = root.appendChild(h(`<div id="weapon"><div class="gun panel">${ICONS.rifle}</div><div class="ammo panel"><span>0</span><small>ROUNDS</small></div><div class="credits panel"><span>0</span><small>CREDITS</small></div></div>`));
+    this.weaponEl = root.appendChild(h(`<div id="weapon"><div class="gun panel">${ICONS.rifle}<small class="wname"></small></div><div class="ammo panel"><span>0</span><small>ROUNDS</small></div><div class="credits panel"><span>0</span><small>CREDITS</small></div></div>`));
+    this.reticleEl = root.appendChild(h('<div id="reticle"></div>'));
     this.objEl = root.appendChild(h('<div id="objective"><div class="obj"></div><div id="uplink"><i></i></div><div class="roe"></div></div>'));
     this.barksEl = root.appendChild(h('<div id="barks"></div>'));
     this.lootEl = root.appendChild(h('<div id="lootcard" class="panel"><div class="tier"></div><div class="name"></div><div class="info"></div></div>'));
@@ -124,6 +133,10 @@ export class Hud {
     this.world = world;
     this.view = view;
     this.minimap.bind(world);
+    const lead = !!world.lead;
+    this.root.classList.toggle('lead', lead);
+    const pad = () => lead && (this.game.input?.padSeen ?? false);
+    this.relabel();
     this.fitToScreen();
     this.squadEl.innerHTML = '';
     this.troopers = world.marines.map((m, i) => {
@@ -190,9 +203,37 @@ export class Hud {
     world.on('ship-clear', () => this.toast('SHIP CLEAR', 2.4));
     world.on('airlock-cycle', () => this.toast('LOCK CYCLED', 1.2));
     setTimeout(() => this.toast('KESTREL 21 DOCKED - BOARDING', 2.4), 300);
-    if (world.doctrine?.manual) setTimeout(() => this.toast('YOUR CALL: CLICK A SPOT OR AN OBJECT TO MOVE THE SQUAD', 4), 2900);
+    if (world.lead) {
+      setTimeout(() => this.toast(pad() ? 'YOU HAVE POINT · LEFT STICK WALKS · RIGHT STICK AIMS · RT FIRES · A USES' : 'YOU HAVE POINT · WASD WALKS · MOUSE AIMS · CLICK FIRES · E USES', 4.5), 2900);
+      world.on('control', ({ marine }) => this.toast(`${marine.name}: YOU HAVE POINT`, 2.4));
+      world.on('hold', ({ on }) => this.toast(on ? 'FOLLOWERS HOLD' : 'FOLLOWERS ON YOU', 1.2));
+      world.on('use-refused', () => this.toast('NOTHING TO USE HERE', 0.9));
+      world.on('downed', ({ marine }) => { if (marine === world.player) setTimeout(() => this.toast('YOU ARE DOWN - YOUR SQUAD IS COMING', 2.4), 1700); });
+    } else if (world.doctrine?.manual) setTimeout(() => this.toast('YOUR CALL: CLICK A SPOT OR AN OBJECT TO MOVE THE SQUAD', 4), 2900);
     world.on('won', (e) => { if (!this.campaign) this.showEnd(true, e); });
     world.on('lost', (e) => { if (!this.campaign) this.showEnd(false, e); });
+  }
+
+  /**
+   * The bar's buttons and their keys for this mode: the keyboard's in squad mode; in lead mode
+   * the keyboard fallback's, with the pad's buttons once a controller has spoken (update).
+   */
+  relabel() {
+    const lead = !!this.world?.lead;
+    const pad = lead && (this.game.input?.padSeen ?? false);
+    this.labelKey = `${lead}|${pad}`;
+    const keyOf = (a) => (lead ? (pad ? `${a.pad} · ${a.lkey}` : a.lkey) : a.key);
+    for (const a of ACTIONS) {
+      const b = this.buttons[a.id];
+      b.hidden = lead ? a.id === 'turn' : !!a.lead;
+      b.querySelector('.key').textContent = `[${keyOf(a)}]`;
+    }
+    for (const k of KIT_BUTTONS) this.kitButtons[k.id].el.querySelector('kbd').textContent = keyOf(k);
+    for (const t of ORDER_TILES) {
+      const tile = this.tiles[t.knob];
+      tile.el.hidden = lead && !LEAD_KNOBS.includes(t.knob);
+      tile.el.querySelector('kbd').textContent = keyOf(t);
+    }
   }
 
   /** Swap the SVG placeholders for portraits rendered from the 3D model. */
@@ -216,6 +257,7 @@ export class Hud {
     if (!w) return;
     this.pausedEl.classList.toggle('show', !!paused && w.status === 'playing');
     const sq = w.squad;
+    if (w.lead && this.labelKey !== `true|${this.game.input?.padSeen ?? false}`) this.relabel(); // a controller spoke up
 
     for (const t of this.troopers) {
       const m = t.m;
@@ -226,7 +268,7 @@ export class Hud {
       const broke = m.breakdown && BREAK_TAGS[m.breakdown.phase === 'hide' ? 'hide' : m.breakdown.mode];
       const status = !m.alive ? 'KIA' : m.down ? 'DOWN' : broke || (m.panicT > 0 ? 'PANIC' : m.reloadT > 0 ? 'RELOADING' : m.dry ? 'DRY' : '');
       const wound = m.alive && !m.down && m.wound ? `<span class="tag wound">${m.wound === 'leg' ? 'LEG WOUND' : 'ARM WOUND'}</span>` : '';
-      const key = `${m.alive}|${Math.round(m.hp)}|${m.mag}|${m.reserve}|${status}|${sq.leader === m}|${m.weapon.label}|${m.wound}`;
+      const key = `${m.alive}|${Math.round(m.hp)}|${m.mag}|${m.reserve}|${status}|${sq.leader === m}|${m.controlled}|${m.weapon.label}|${m.wound}`;
       if (key === t.key) continue;
       t.key = key;
       // (Power fists: no ammo. A power sword carried as well goes after the gun's name.)
@@ -238,7 +280,9 @@ export class Hud {
       t.bar.classList.toggle('low', pct < 35);
       t.el.classList.toggle('dead', !m.alive);
       t.el.classList.toggle('downed', !!m.down);
-      t.point.hidden = sq.leader !== m;
+      t.point.hidden = sq.leader !== m && !m.controlled;
+      t.point.textContent = m.controlled ? 'YOU' : 'POINT';
+      t.point.classList.toggle('you', !!m.controlled);
       // 20 pips show the magazine fill fraction for any weapon size.
       const pips = m.weapon.mag ? Math.ceil((m.mag / m.weapon.mag) * 20) : 0;
       t.mag.innerHTML = Array.from({ length: 20 }, (_, i) => `<span class="${i < pips ? '' : 'empty'}"></span>`).join('');
@@ -250,6 +294,8 @@ export class Hud {
     b.cover.classList.toggle('on', sq.cover);
     b.cover.querySelector('.lbl').textContent = sq.cover ? 'In cover' : 'Cover';
     b.turn.classList.toggle('warn', sq.turnPending || w.doctrine?.override?.verb === 'turn');
+    b.hold.classList.toggle('on', !!sq.followersHold);
+    b.hold.querySelector('.lbl').textContent = sq.followersHold ? 'Follow' : 'Hold';
     for (const k of Object.values(this.kitButtons)) {
       const n = w.kit[k.kit];
       if (n === k.last) continue;
@@ -265,8 +311,20 @@ export class Hud {
     this.hordeEl.classList.toggle('show', !!left);
     if (left && this.hordeEl.lastChild.textContent !== String(left)) this.hordeEl.lastChild.textContent = left;
 
-    const rounds = w.marines.reduce((s, m) => s + (m.alive ? m.mag + m.reserve : 0), 0);
-    this.weaponEl.querySelector('.ammo span').textContent = rounds;
+    const you = w.lead ? w.player : null;
+    if (you) {
+      // His own gun: the magazine, the reserve, and what he's carrying.
+      const melee = you.weapon.melee;
+      this.weaponEl.querySelector('.ammo span').textContent = melee ? '-' : you.mag;
+      this.weaponEl.querySelector('.ammo small').textContent = melee ? 'FISTS' : you.reloadT > 0 ? 'RELOADING' : `+${you.reserve} RESERVE`;
+      const wn = this.weaponEl.querySelector('.wname');
+      if (wn.textContent !== you.weapon.label) wn.textContent = you.weapon.label;
+      this.weaponEl.querySelector('.ammo').classList.toggle('low', !melee && you.mag <= you.weapon.mag * 0.25);
+    } else {
+      const rounds = w.marines.reduce((s, m) => s + (m.alive ? m.mag + m.reserve : 0), 0);
+      this.weaponEl.querySelector('.ammo span').textContent = rounds;
+    }
+    this.updateReticle(you);
     const salvage = w.salvage.reduce((s, t) => s + t.value, 0);
     this.weaponEl.querySelector('.credits span').textContent = w.credits;
     this.weaponEl.querySelector('.credits small').textContent = salvage ? `CREDITS · +${salvage} SALVAGE` : 'CREDITS';
@@ -287,7 +345,8 @@ export class Hud {
     // Standing orders (read-only: set in the briefing) and what the squad is doing about them.
     // The orders themselves are on the orders bar; here, what the squad is doing about them.
     const d = w.doctrine?.cfg;
-    const route = isManual(d) ? (sq.state === 'hold' && !w.doctrine.override ? '<b class="await">AWAITING ORDERS</b> · ' : 'MOVING ON YOUR ORDER · ') : '';
+    const route = w.lead ? (you?.down ? '<b class="await">YOU ARE DOWN</b> · ' : sq.followersHold ? '<b class="await">FOLLOWERS HOLDING</b> · ' : `${Math.max(0, sq.order.length - 1)} ON YOU · `)
+      : isManual(d) ? (sq.state === 'hold' && !w.doctrine.override ? '<b class="await">AWAITING ORDERS</b> · ' : 'MOVING ON YOUR ORDER · ') : '';
     const energy = `ENERGY <i class="energy ${w.energy < ENERGY.MAX * 0.25 ? 'low' : ''}" title="High alert burns it; kills, vermin, food and drinks refill it"><b style="width:${(w.energy / ENERGY.MAX) * 100}%"></b></i>`;
     const mor = w.morale.level.name;
     const status = `${route}${sq.pace === 'run' && sq.leader?.moving ? 'RUNNING · ' : ''}${energy} · MORALE <b class="morale ${mor}" title="Kills and comrades back on their feet lift it; men lost and screams in the dark wear it down">${mor.toUpperCase()}</b> · ${w.stims} STIMS · ${w.kit.charges} CHARGES${w.kit.keycards ? ' · KEYCARD' : ''}${w.sentries.some((s) => s.ammo > 0) ? ' · SENTRY' : ''}`;
@@ -307,6 +366,21 @@ export class Hud {
       el.style.top = `${y}px`;
     }
     this.minimap.update(dt);
+  }
+
+  /** Lead: the reticle on his line of aim - or on the hostile his aim is drawn to (sim/combat.js). */
+  updateReticle(you) {
+    const el = this.reticleEl;
+    const show = you?.alive && !you.down && (you.aiming || you.target);
+    el.classList.toggle('show', !!show);
+    if (!show) return;
+    const t = you.target?.alive ? you.target : null;
+    const reach = 7;
+    const at = t ? bodyPoint(t, 0.5) : { x: you.x + you.facing * Math.cos(you.aimAngle ?? 0) * reach, y: you.y + 1.45 * (you.scale ?? 1) + Math.sin(you.aimAngle ?? 0) * reach };
+    const p = this.view.toScreen(at.x, at.y, t ? t.z : you.z);
+    el.style.left = `${p.x}px`;
+    el.style.top = `${p.y}px`;
+    el.classList.toggle('lock', !!t);
   }
 
   /**
@@ -403,6 +477,12 @@ export class Hud {
         <kbd>R F G</kbd><span>route, fire discipline, pace</span><kbd>L H V</kbd><span>loot, stims, flashlights</span>
         <kbd>1-3</kbd><span>choose at an encounter</span><kbd>Space</kbd><span>pause</span>
         <kbd>P</kbd><span>pixel mode on/off</span><kbd>+ −</kbd><span>zoom (or wheel)</span>
+      </div>
+      <div class="keys pad"><b>Lead mode</b><span>pick it in the briefing: you walk one marine with a controller, up to three follow you</span>
+        <kbd>L stick</kbd><span>walk, run; up / down at a ladder</span><kbd>R stick · RT</kbd><span>aim, fire</span>
+        <kbd>A · B</kbd><span>use · followers hold / follow</span><kbd>LT · RB</kbd><span>cover · reload</span>
+        <kbd>X Y LB</kbd><span>grenade, flare, defend</span><kbd>D-pad</kbd><span>followers' orders; an encounter's options</span>
+        <kbd>keys</kbd><span>WASD walk · mouse aims · click fires · Shift cover · E use · R reload · T hold</span>
       </div>
       <div class="menu">
         ${hasCampaign ? '<button id="continue">CONTINUE CAMPAIGN</button>' : ''}

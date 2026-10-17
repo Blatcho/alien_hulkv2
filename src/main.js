@@ -41,7 +41,7 @@ class Game {
     this.hud = new Hud(document.getElementById('hud'), this);
     this.sfx = new Sfx({ synthOnly: params.synthSfx });
     this.paused = false;
-    this.input = new Input((a) => this.command(a));
+    this.input = new Input((a) => this.command(a), { stage: this.stage });
     this.interact = new Interact(this.stage, this.hud.root, this);
     this.stage.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -85,6 +85,7 @@ class Game {
       world: () => this.world,
       view: () => this.view,
       sfx: () => this.sfx,
+      input: () => this.input,
     };
   }
 
@@ -108,29 +109,29 @@ class Game {
       heading: 'QUICK PLAY · BRIEFING', pool, portraits: portraitMap(this.assets, pool),
       ship: { name: `Derelict ${seed}`, size: 'Unknown class', threat: 0, modifiers: [] },
       selected: pool.slice(0, 4).map((t) => t.id), doctrine: last?.doctrine ?? PRESETS.standard.doctrine,
-      difficulty: last?.difficulty,
+      difficulty: last?.difficulty, control: last?.control,
       backLabel: 'MAIN MENU',
       onBack: () => { location.search = ''; },
       onReroll: () => {
         const fresh = poolFor(++roll);
         return { pool: fresh, portraits: portraitMap(this.assets, fresh) };
       },
-      onDeploy: (ids, doctrine, difficulty) => {
-        try { localStorage.setItem('hullbreach.quick', JSON.stringify({ doctrine, difficulty })); } catch { /* private mode */ }
+      onDeploy: (ids, doctrine, difficulty, control) => {
+        try { localStorage.setItem('hullbreach.quick', JSON.stringify({ doctrine, difficulty, control })); } catch { /* private mode */ }
         const diff = isDefaultDifficulty(difficulty) ? '' : `&diff=${difficultyString(difficulty)}`;
-        location.search = `?seed=${seed}&go=1&squad=${ids.join(',')}${roll ? `&pool=${roll}` : ''}&doc=${doctrineString(doctrine)}${diff}`;
+        location.search = `?seed=${seed}&go=1&squad=${ids.join(',')}${roll ? `&pool=${roll}` : ''}&doc=${doctrineString(doctrine)}${diff}${control === 'lead' ? '&ctrl=lead' : ''}`;
       },
     });
   }
 
-  /** A quick-play run from the URL: ?seed=&go=1[&squad=c0,c3,c5,c6&pool=2&doc=...&diff=...]. */
+  /** A quick-play run from the URL: ?seed=&go=1[&squad=c0,c3,c5,c6&pool=2&doc=...&diff=...&ctrl=lead]. */
   startQuick(seed) {
     const pool = candidatePool(seed, 8, params.pool);
     const squad = (params.squad ?? []).map((id) => pool.find((t) => t.id === id)).filter(Boolean)
       .map((t) => ({ ...t, rank: rankFor(levelFor(t.xp)) }));
     // No squad in the URL (tools, old links): the standard four at baseline stats.
     const level = generateLevel(seed, { mods: withDifficulty({}, parseDifficulty(params.diff)) });
-    this.start(level, { squad: squad.length ? squad : null, doctrine: parseDoctrine(params.doc) });
+    this.start(level, { squad: squad.length ? squad : null, doctrine: parseDoctrine(params.doc), control: params.ctrl === 'lead' ? 'lead' : 'squad' });
   }
 
   // ------------------------------------------------------------------ campaign flow
@@ -149,9 +150,9 @@ class Game {
     this.commandScreen = new CommandScreen(this.hud.root, {
       profile: this.profile,
       assets: this.assets,
-      onDeploy: (offer, squad, doctrine, difficulty) => {
+      onDeploy: (offer, squad, doctrine, difficulty, control) => {
         // The difficulty rides in the ship's mods (meta/difficulty.js).
-        saveRun({ seed: offer.seed, threat: offer.threat, mods: withDifficulty(offer.mods, difficulty), reward: offer.reward, name: offer.name, squad, doctrine, difficulty });
+        saveRun({ seed: offer.seed, threat: offer.threat, mods: withDifficulty(offer.mods, difficulty), reward: offer.reward, name: offer.name, squad, doctrine, difficulty, control });
         this.profile.seedCounter++;
         saveProfile(this.profile);
         location.search = '?run=1';
@@ -166,7 +167,7 @@ class Game {
       .map((t) => ({ ...t, mods: trooperMods(t), rank: rankFor(levelFor(t.xp)) }));
     const level = generateLevel(run.seed, { threat: run.threat, mods: run.mods });
     this.campaignRun = run;
-    this.start(level, { squad, upgrades: p.upgrades, rewardMult: run.reward, shipName: run.name, doctrine: run.doctrine, campaign: true });
+    this.start(level, { squad, upgrades: p.upgrades, rewardMult: run.reward, shipName: run.name, doctrine: run.doctrine, campaign: true, control: run.control });
     const settle = () => setTimeout(() => this.debriefRun(), 1600);
     this.world.on('won', settle);
     this.world.on('lost', settle);
@@ -187,11 +188,12 @@ class Game {
 
   // ------------------------------------------------------------------ a run
 
-  start(level, { squad = null, upgrades = {}, rewardMult = 1, shipName = null, doctrine = null, campaign = false } = {}) {
+  start(level, { squad = null, upgrades = {}, rewardMult = 1, shipName = null, doctrine = null, campaign = false, control = 'squad' } = {}) {
     this.hud.hideStart();
     const seed = level.seed;
-    this.world = new World(level, { params, squad, upgrades, rewardMult, doctrine });
+    this.world = new World(level, { params, squad, upgrades, rewardMult, doctrine, control });
     this.world.shipName = shipName;
+    this.input.setMode(this.world.lead ? 'lead' : 'squad');
     this.hud.campaign = campaign;
     this.view = new GameView(this.stage, this.world, this.assets, {
       retro: params.retro ?? pixelMode(),
@@ -206,6 +208,12 @@ class Game {
       (dt) => this.world.step(dt),
       (alpha, dt) => {
         const t0 = performance.now();
+        if (this.world.lead) {
+          // The controller (or keys and mouse) steers the player's marine: read every frame.
+          const p = this.world.player;
+          const origin = p ? this.view.toScreen(p.x, p.y + 1.4 * (p.scale ?? 1), p.z) : null;
+          this.world.steer(this.input.poll(origin));
+        }
         this.view.render(alpha, dt);
         this.hud.update(dt, this.loop.paused);
         this.interact.update();
@@ -255,8 +263,20 @@ class Game {
         break;
       }
       case 'pause': this.loop.paused = !this.loop.paused; break;
-      case 'cover': w.toggleCover(); this.sfx.ui(); break;
-      case 'turn': w.turnAround(); this.sfx.ui(); break;
+      case 'cover': if (w.lead) this.input.toggleCover(); else w.toggleCover(); this.sfx.ui(); break;
+      case 'turn': if (!w.lead) { w.turnAround(); this.sfx.ui(); } break;
+      // Lead mode: A, RB, B - and the D-pad, which walks an encounter's options when a card is up.
+      case 'use': if (w.lead) { if (this.interact.encounterOpen()) this.interact.pickHighlighted(); else w.use(); this.sfx.ui(); } break;
+      case 'reload': if (w.lead) w.reloadWeapon(); break;
+      case 'hold': if (w.lead) { if (this.interact.encounterOpen()) this.interact.pickLast(); else { w.toggleHold(); this.sfx.ui(); } } break;
+      case 'pad:up': case 'pad:down': case 'pad:left': case 'pad:right': {
+        const dir = action.slice(4);
+        if (this.interact.encounterOpen() && (dir === 'up' || dir === 'down')) { this.interact.moveHighlight(dir === 'up' ? -1 : 1); this.sfx.ui(); break; }
+        const knob = { left: 'roe', right: 'stims', up: 'light', down: 'kit' }[dir];
+        const value = w.doctrine && nextOrder(w.doctrine.cfg, knob);
+        if (value) { w.setOrder(knob, value); this.sfx.ui(); }
+        break;
+      }
       case 'grenade': case 'flare': case 'defend': w.useKit(action); this.sfx.ui(); break;
       case 'nudge': w.nudge(arg); this.sfx.ui(); break;
       case 'move': w.moveTo(arg.room, arg.x); this.sfx.ui(); break;

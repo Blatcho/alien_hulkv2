@@ -13,6 +13,13 @@
 //
 // Jobs go to whoever is best at them: for a search, a lock or the uplink the specialist steps
 // out of the line, walks up to do it while the rest cover, then falls back in (this.task).
+//
+// Lead mode (world.control 'lead'): the point man is the player's, steered with a controller
+// (world.pad - steer below); the others follow him exactly as above, except that on the flat
+// each walks straight to his slot and waits to be passed when the player turns back through
+// the line (stepFlat), instead of retracing every fold. Doors, obstacles, ladders and stairs
+// work off the same features and traversals (triggerLead, climb); crates, terminals, the
+// console and a man down are used by hand (world.useNearby).
 import { ABILITY, AWARE, DOWN, PACE, SQUAD } from '../core/config.js';
 import { walkLimits } from '../gen/layout.js';
 import { portalEnds } from '../gen/level.js';
@@ -29,6 +36,13 @@ const climbK = (mode, m) => (mode === 'climb' || mode === 'stairs' ? m.mods?.cli
 
 /** Ease a speed toward `want` (quicker to slow down than to get going). */
 const approach = (v, want, dt) => v + Math.max(-AWARE.DECEL * dt, Math.min(AWARE.ACCEL * dt, want - v));
+
+// Lead mode: the player's marine gets going and stops far quicker than the drill's easing, and
+// only a sealed door, a bulkhead or something to vault or duck under stops him on his way.
+const LEAD_ACCEL = 14;
+const LEAD_DECEL = 26;
+const LEAD_STOPS = new Set(['door', 'wall', 'jump', 'crouch']);
+const onFoot = (m) => m.mode === 'walk' || m.mode === 'crouch';
 
 export class Squad {
   constructor(world, marines) {
@@ -51,6 +65,8 @@ export class Squad {
     this.gaps = [SQUAD.SPACING, SQUAD.SPACING, SQUAD.SPACING]; // trail distance between consecutive marines (tactics adjusts)
     this.ladder = null;       // ladder/stairs in use: {portal, kind, sa, sb, up} trail arclengths of its start/end
     this.task = null;         // specialist stepped out of line for a job: {m, x, phase: go | work | back}
+    this.lead = world.control === 'lead'; // the point man is the player's marine (steer)
+    this.followersHold = false;           // lead: the others hold where they are (B)
 
     const lead = this.order[0];
     const room = this.level.rooms[lead.room];
@@ -68,13 +84,16 @@ export class Squad {
 
   speed() {
     if (this.cover) return SQUAD.CROUCH;
-    return PACE.SPEED[this.pace] * this.slowest();
+    return PACE.SPEED[this.pace] * (this.lead ? this.paceOf(this.leader) : this.slowest());
   }
 
-  /** The squad walks at the pace of its slowest man (Speed stat, a leg wound, a minigun to carry). */
+  /** A man's own pace: his Speed stat, a leg wound, a minigun to carry. */
+  paceOf(m) { return statPace(m.stats) * (m.wound === 'leg' ? DOWN.WOUNDS.leg.pace : 1) * (m.weapon?.pace ?? 1); }
+
+  /** The squad walks at the pace of its slowest man (lead: the player's own - the others keep up). */
   slowest() {
     let f = Infinity;
-    for (const m of this.order) f = Math.min(f, statPace(m.stats) * (m.wound === 'leg' ? DOWN.WOUNDS.leg.pace : 1) * (m.weapon?.pace ?? 1));
+    for (const m of this.order) f = Math.min(f, this.paceOf(m));
     return f === Infinity ? 1 : f;
   }
 
@@ -145,6 +164,8 @@ export class Squad {
       if (lead.s >= this.trail.length - 1e-3) this.offerUnderfoot();
     } else if (this.trav) {
       this.stepTraversal(dt);
+    } else if (this.lead) {
+      this.steer(dt);
     } else if (this.turnPending) {
       if (this.settled()) this.reverse();
     } else if (this.canAdvance()) {
@@ -301,6 +322,7 @@ export class Squad {
    * a top landing hard against a bulkhead would leave the men behind hanging on the climb.
    */
   stepOffSide() {
+    if (this.lead) return; // the stick says which way
     const lead = this.leader;
     const [wl, wr] = walkLimits(this.level.rooms[lead.room]);
     const need = this.offset(this.order.length - 1) + 0.5;
@@ -588,10 +610,177 @@ export class Squad {
     if (T.phase === 'back' && Math.abs(m.offX) < 0.02) { m.offX = 0; m.x = trailX; this.task = null; }
   }
 
+  // ------------------------------------------------------------------ lead mode (the player's marine)
+
+  /**
+   * The point man goes where the left stick says (world.pad): a walk or a run by how far it's
+   * pushed, a crouch with the trigger held (everyone takes cover with him); up or down at a
+   * ladder or stairwell takes it. He walks through open doors, vaults and ducks obstacles as the
+   * drill does, cycles the outer lock and opens plain sealed doors on contact, and stops at a
+   * bulkhead or a door that needs dealing with (A: world.useNearby, as for crates, terminals,
+   * the console and a man down). Nothing moves him while a job is on or a card is up.
+   */
+  steer(dt) {
+    const w = this.world;
+    const lead = this.leader;
+    const pad = w.pad;
+    lead.moving = false;
+    const can = lead.controlled && !lead.down && this.state === 'advance' && (!this.task || this.task.phase === 'back') && !brokenDown(lead);
+    this.cover = can && !!pad.cover;
+    if (this.cover && this.pace === 'run') this.pace = 'normal';
+    if (!can) { lead.v = 0; return; }
+    const room = this.level.rooms[lead.room];
+    if (Math.abs(pad.moveY) > 0.5) {
+      const f = this.features(lead.room).find((q) => (q.type === 'ladder' || q.type === 'stairs') && q.up === pad.moveY > 0 && Math.abs(q.x - lead.x) < 0.7);
+      if (f && this.climb(f)) return;
+    }
+    const mag = Math.min(1, Math.abs(pad.moveX));
+    if (mag >= 0.2) {
+      const H = pad.moveX > 0 ? 1 : -1;
+      if (H !== this.heading) this.turnLead(H);
+    }
+    const wantPace = mag > 0.85 && !this.cover ? 'run' : 'normal';
+    if (this.pace !== wantPace) w.setPace(wantPace); // (a run is refused while he's winded)
+    const top = this.cover ? SQUAD.CROUCH : PACE.SPEED[this.pace] * this.paceOf(lead);
+    const want = mag < 0.2 ? 0 : top * Math.min(1, mag / 0.85);
+    lead.v = (lead.v ?? 0) + Math.max(-LEAD_DECEL * dt, Math.min(LEAD_ACCEL * dt, want - (lead.v ?? 0)));
+    const step = lead.v * dt;
+    if (step <= 1e-6) return;
+    const f = this.nextStop(lead);
+    if (!f) { lead.v = 0; return; } // nothing ahead but the bulkhead he's against
+    const face = lead.facing;
+    const d = (f.x - lead.x) * this.heading;
+    if (d <= step + 2e-3) {
+      if (d > 0) this.moveLeader(f.x, room.y0, 0, 'walk'); // (past it already - in a doorway: no stepping back)
+      this.triggerLead(f);
+    } else this.moveLeader(lead.x + this.heading * step, room.y0, 0, 'walk');
+    if (lead.aiming) lead.facing = face; // the right stick has his gun (sim/combat.js)
+  }
+
+  /** Lead: the next thing ahead the point man can't just walk past. */
+  nextStop(lead) {
+    let best = null;
+    let bestD = Infinity;
+    for (const f of this.features(lead.room)) {
+      if (!LEAD_STOPS.has(f.type) || this.handled.has(f.key) || (f.dir && f.dir !== this.heading)) continue;
+      const d = (f.x - lead.x) * this.heading;
+      // Standing at it counts - and for a door, standing in its doorway (where a new point man
+      // may find himself): walking on takes him through.
+      if (d > (f.type === 'door' ? -2.5 : -0.02) && d < bestD) { best = f; bestD = d; }
+    }
+    return best;
+  }
+
+  /** Lead: he has walked up to a feature (nextStop). */
+  triggerLead(f) {
+    const w = this.world;
+    const lead = this.leader;
+    const room = this.level.rooms[lead.room];
+    switch (f.type) {
+      case 'jump':
+        this.startTraversal({ ...jumpPath(lead.x, room.y0, this.heading, PROPS[f.prop.kind].w), featureKey: f.key });
+        return;
+      case 'crouch':
+        this.startTraversal({ ...crouchPath(lead.x, room.y0, this.heading, PROPS[f.prop.kind].w), featureKey: f.key });
+        return;
+      case 'door': {
+        const p = f.portal;
+        // Burning (from a side not braved yet), welded or locked: his call, by hand (A).
+        if ((p.fire && p.braved !== lead.room) || p.welded || (p.locked && !p.open)) { lead.v = 0; return; }
+        if (p.open) { this.startTraversal(portalPath(this.level, p, lead.room)); return; }
+        if (p.outer) w.emit('bark', { marine: lead, text: 'Kestrel, we are boarding. Cycling the lock.' });
+        this.startDoor(p);
+        return;
+      }
+      default: lead.v = 0; // a bulkhead
+    }
+  }
+
+  /**
+   * Lead: the stick went the other way. With everyone on the flat beside him the line inverts
+   * (the rear man is nearest now), so nobody has to walk through anyone to find his place.
+   */
+  turnLead(H) {
+    this.heading = H;
+    const lead = this.leader;
+    if (this.order.length < 3 || this.ladder || this.trav || this.task) return;
+    if (!this.order.every((m) => m === lead || (m.room === lead.room && onFoot(m) && !m.breakdown))) return;
+    this.order = [lead, ...this.order.slice(1).reverse()];
+  }
+
+  /** Lead: up or down the ladder or stairs at his feet (the others follow, one at a time). */
+  climb(f) {
+    const lead = this.leader;
+    if (this.trav || this.state !== 'advance' || this.task || (this.ladder && !this.allUp()) || !onFoot(lead)) return false;
+    this.moveLeader(f.x, this.level.rooms[lead.room].y0, 0, 'walk');
+    this.startTraversal(portalPath(this.level, f.portal, lead.room));
+    return true;
+  }
+
+  /**
+   * Lead: `m` is the player's marine from now on - the next man in the line when his own is
+   * dead (he's at the front already: the trail is cut at him), or his own back on his feet
+   * (rejoined at the rear: he moves to the front of the trail, standing where he lay - his
+   * first step bridges the gap). Nobody is moved; the others keep their places behind him.
+   */
+  takeLead(m) {
+    if (this.task?.m === m) { m.offX = 0; this.task = null; }
+    const i = this.order.indexOf(m);
+    if (i > 0) this.order.splice(i, 1);
+    if (i !== 0) this.order.unshift(m);
+    this.turnPending = false;
+    this.trav = null;
+    this.ladder = null;
+    this.handled.clear();
+    if (this.action?.type === 'door') { this.action = null; this.state = 'advance'; }
+    m.v = 0;
+    m.offX = 0;
+    m.moving = false;
+    if (i === 0) {
+      // Mid-climb or mid-vault he finishes it along the trail first (update's catch-up); on his
+      // feet, where he stands is the trail's end now (his first step bridges the gap to it).
+      this.trail.truncateAfter(Math.max(m.s, this.trail.nextWalkable(m.s)));
+      if (onFoot(m)) m.s = this.trail.length;
+    } else {
+      m.s = this.trail.length;
+      m.mode = 'walk';
+      this.heading = m.facing || this.heading;
+    }
+  }
+
+  /**
+   * Lead, on the flat: the trail from his place to his slot is a straight line on this floor,
+   * so he walks straight to the slot rather than retrace a fold the player doubled back on -
+   * unless he or the slot is still ahead of the point man, who has turned and is walking back
+   * through the line: then he holds, and falls in once he's been passed.
+   */
+  stepFlat(m, i, target, dt) {
+    const lead = this.leader;
+    const slot = this.trail.sample(target);
+    const physX = m.x;
+    const H = this.heading;
+    const wait = this.followersHold || (physX - lead.x) * H > 0.05 || (slot.x - lead.x) * H > -0.05;
+    const d = wait ? 0 : slot.x - physX;
+    const err = Math.abs(d);
+    let want = 0;
+    if (err > 0.03) {
+      const base = this.cover ? SQUAD.CROUCH : PACE.SPEED[this.pace] * this.paceOf(m);
+      want = Math.min(base * m.pace * (err > 2.2 ? AWARE.CATCH_UP : err > 0.8 ? 1.25 : 1), 0.35 + err * 2);
+    }
+    m.v = approach(m.v, want, dt);
+    const step = Math.min(err, m.v * dt);
+    const nx = physX + Math.sign(d) * step;
+    m.moving = step > 0.25 * dt;
+    if (!wait) m.s = target;
+    this.applySample(m, i);
+    m.offX = nx - m.x;
+    m.x = nx;
+  }
+
   // ------------------------------------------------------------------ turning
 
   turnAround(reason) {
-    if (this.turnPending) return;
+    if (this.turnPending || this.lead) return; // (lead: the player just walks the other way)
     this.turnPending = true;
     this.world.emit('squad-turn', { reason });
   }
@@ -632,7 +821,7 @@ export class Squad {
    */
   offerUnderfoot() {
     const lead = this.leader;
-    if (this.state !== 'advance' || this.trav || lead.mode !== 'walk') return;
+    if (this.lead || this.state !== 'advance' || this.trav || lead.mode !== 'walk') return;
     const f = this.features(lead.room).find((q) => (q.type === 'ladder' || q.type === 'stairs')
       && Math.abs(q.x - lead.x) < 0.3 && !this.handled.has(q.key));
     if (f) this.trigger(f);
@@ -640,6 +829,7 @@ export class Squad {
 
   /** Player "turn around" order. */
   orderTurn() {
+    if (this.lead) return;
     if (this.state === 'decision') { this.choose('back'); return; }
     if (this.trav || this.action) return;
     this.turnAround('order');
@@ -669,6 +859,7 @@ export class Squad {
       if (loose) target -= (this.gaps[i - 1] ?? SQUAD.SPACING) * m.slack;
       if (pack !== null) target = Math.max(target, lead.s - i * pack);
       target = Math.min(target, ahead.s - AWARE.MIN_GAP);
+      if (this.lead && this.followersHold) target = Math.min(target, m.s); // told to hold (B)
       // Staggered climbs: wait at the foot (queueing back from it) while the man ahead is on
       // the ladder - or, on stairs, still in the lower half - so someone is always covering.
       if (L && m.s <= L.sa + 0.01 && target > L.sa - waiting * 1.2) {
@@ -676,6 +867,15 @@ export class Squad {
         const busy = this.order.some((o, j) => j < i && o.s > L.sa + 0.01 && o.s < end - 0.01);
         if (busy) target = Math.max(m.s, L.sa - waiting * 1.2);
         if (busy) waiting++;
+      }
+      // Lead: the point man may well stand at the hatch; a man on the climb comes up and steps
+      // off beside him rather than hang there until he moves on.
+      if (this.lead && L?.sb !== undefined && m.s > L.sa + 0.01 && m.s < L.sb + 0.02) target = Math.max(target, Math.min(L.sb + 0.02, lead.s));
+      // Lead, on the flat: straight to his slot (stepFlat) - or to his own place on the trail
+      // first, when the stretch beyond it isn't flat; everything else is replayed off the trail.
+      if (this.lead && this.task?.m !== m && onFoot(m)) {
+        if (target > m.s + 1e-4 && this.trail.flat(m.s, target)) { this.stepFlat(m, i, target, dt); continue; }
+        if (target <= m.s + 1e-4 || Math.abs(m.offX) > 0.05) { this.stepFlat(m, i, m.s, dt); continue; }
       }
       const before = m.s;
       const here = this.trail.sample(m.s);

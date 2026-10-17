@@ -82,6 +82,25 @@ export class Trail {
     if (i > 0) this.pts.splice(0, i);
   }
 
+  /**
+   * Is the stretch s0..s1 plain walking on one room's floor? Then it's a straight line, and a
+   * follower may walk straight to any point on it (lead mode, sim/squad.js stepFlat) rather than
+   * retrace a fold in it. Doors (a room change), climbs, vaults and crouch-passes are never flat.
+   */
+  flat(s0, s1) {
+    const p = this.pts;
+    if (!p.length || s1 < s0) return false;
+    let room;
+    for (let k = 1; k < p.length; k++) {
+      if (p[k].s <= s0) continue;        // ends before the stretch starts
+      if (p[k - 1].s >= s1) break;       // starts after it ends
+      if (p[k].mode !== 'walk') return false;
+      if (room === undefined) room = p[k].room;
+      else if (p[k].room !== room) return false;
+    }
+    return true;
+  }
+
   /** Smallest arclength >= s whose segment is plain walking (end of any traversal). */
   nextWalkable(s) {
     for (const p of this.pts) if (p.s >= s && (p.mode === 'walk' || p.mode === 'crouch')) return p.s;

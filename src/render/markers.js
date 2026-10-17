@@ -16,6 +16,7 @@ const KIND = {
   vent: { color: 0xa8cce0, size: 0.75, k: 0.55 },
   crate: { color: 0xffc463, size: 1.0, k: 1 },
   terminal: { color: 0x7dffa8, size: 0.95, k: 1 },
+  objective: { color: 0x7dffa8, size: 1.1, k: 1 },
   distress: { color: 0xffd060, size: 1.3, k: 1.2 },
   survivor: { color: 0xffe6a0, size: 1.3, k: 1 },
   downed: { color: 0xff5a40, size: 1.4, k: 1.2 },
