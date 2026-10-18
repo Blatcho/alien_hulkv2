@@ -1,24 +1,78 @@
 // generateLevel(seed) -> plain-data Level (no three.js, no Rapier): rooms, portals, props,
 // vents, spawns, plus `solids` - axis-aligned boxes that physics and line-of-sight share.
+//
+// The seed may carry its hull class ('STN-A1B2C3' - gen/classes.js); a bare seed rolls one.
+// The ship is generated dock side on the left, then mirrored for a starboard dock: everything
+// in it is in world x, so the sim, navigation and render never need to know - except the
+// squad's starting heading (level.heading) and the render's dock pieces (level.mirror).
 import { Rng } from '../core/rng.js';
 import { WORLD } from '../core/config.js';
-import { buildLayout } from './layout.js';
+import { HULL_CLASSES, classFor, parseSeed, seedCode, shipSize } from './classes.js';
+import { buildLayout, layoutScore } from './layout.js';
 import { populate } from './populate.js';
 
-const { DECK_H, SLAB, WALL, HULL, DOOR_H, DOOR_W, SHAFT_W } = WORLD;
+const { DECK_H, SLAB, WALL, HULL, DOOR_H, DOOR_W, SHAFT_W, CELL_W } = WORLD;
+const CANDIDATES = 5; // valid layouts tried per seed; the best (layoutScore) is the ship
 
 export function generateLevel(seed, opts = {}) {
-  let layout = null;
-  let attempt = 0;
-  const size = { cols: opts.mods?.cols ?? opts.cols, decks: opts.mods?.decks ?? opts.decks };
-  for (; attempt < 200 && !layout; attempt++) layout = buildLayout(new Rng(seed, `layout-${attempt}`), size);
-  if (!layout) throw new Error(`no valid layout for seed ${seed}`);
+  const code = parseSeed(seed);
+  const bare = code.seed;
+  const mods = opts.mods ?? {};
+  const cls = classFor(bare, mods.cls ?? opts.cls ?? code.cls);
+  const size = shipSize(cls, new Rng(bare, 'size'), { cols: mods.cols ?? opts.cols, decks: mods.decks ?? opts.decks, shipSize: mods.shipSize });
+  let best = null;
+  let found = 0;
+  for (let attempt = 0; attempt < 200 && found < CANDIDATES; attempt++) {
+    const L = buildLayout(new Rng(bare, `layout-${attempt}`), { ...size, cls });
+    if (!L) continue;
+    found++;
+    const score = layoutScore(L);
+    if (!best || score > best.score) best = { L, score, attempt };
+  }
+  if (!best) throw new Error(`no valid layout for seed ${seed}`);
   // threat = campaign difficulty tier; mods = ship modifiers (see meta/ships.js)
-  const level = { seed: String(seed), attempt, threat: opts.threat ?? 0, mods: opts.mods ?? {}, ...layout };
-  populate(level, (name) => new Rng(seed, name));
+  const level = { seed: seedCode(cls, bare), bare, attempt: best.attempt, threat: opts.threat ?? 0, mods, heading: 1, mirror: false, ...best.L };
+  populate(level, (name) => new Rng(bare, name));
   addDock(level);
+  if (HULL_CLASSES[cls].dockSide === 'either' && new Rng(bare, 'mirror').chance(0.5)) mirrorLevel(level);
   level.solids = buildSolids(level);
   return level;
+}
+
+/**
+ * Flip the ship about its length (dock on the right). Doors keep room `a` on their left; stairs
+ * run the other way; everything with an x moves. The squad then starts out heading left.
+ */
+function mirrorLevel(level) {
+  const X = level.cols * CELL_W;
+  const mx = (x) => X - x;
+  for (const r of level.rooms) {
+    [r.x0, r.x1] = [mx(r.x1), mx(r.x0)];
+    [r.c0, r.c1] = [level.cols - 1 - r.c1, level.cols - 1 - r.c0];
+    if (r.collar !== undefined) r.collar = mx(r.collar);
+    for (const p of r.props) {
+      p.x = mx(p.x);
+      if (p.obstacle) [p.x0, p.x1] = [mx(p.x1), mx(p.x0)];
+    }
+  }
+  for (const p of level.portals) {
+    if (p.kind === 'door') { p.x = mx(p.x); [p.a, p.b] = [p.b, p.a]; } else if (p.kind === 'ladder') { p.x = mx(p.x); p.span = [mx(p.span[1]), mx(p.span[0])]; } else { [p.xb, p.xt] = [mx(p.xb), mx(p.xt)]; p.dir = -p.dir; p.span = [mx(p.span[1]), mx(p.span[0])]; }
+  }
+  for (const v of level.vents ?? []) v.x = mx(v.x);
+  const sp = level.spawns;
+  sp.squad.x = mx(sp.squad.x);
+  for (const list of [sp.aliens, sp.critters, sp.survivors]) {
+    for (const a of list ?? []) {
+      a.x = mx(a.x);
+      if (a.side) { a.side = -a.side; a.x = wallFace(level.rooms[a.room], a.side); } // a sleeper on a bulkhead: the other wall now, exactly
+    }
+  }
+  if (level.objective) level.objective.x = mx(level.objective.x);
+  for (const e of level.events ?? []) if (e.x !== undefined) e.x = mx(e.x);
+  level.spans = level.spans.map(([c0, c1]) => [level.cols - 1 - c1, level.cols - 1 - c0]);
+  level.bounds = { ...level.bounds, x0: mx(level.bounds.x1), x1: mx(level.bounds.x0) };
+  level.heading = -1;
+  level.mirror = true;
 }
 
 export const DOCK = { TUBE: 4, BAY: 12.4, NOSE: 19, CEIL: 4.2 };
@@ -32,7 +86,7 @@ function addDock(level) {
   const x1 = air.x0 - HULL;                 // tube meets the hull
   const collar = x1 - DOCK.TUBE;            // dropship's open collar
   const dock = {
-    id: level.rooms.length, deck: 0, c0: -1, c1: -1, x0: collar - DOCK.BAY, x1, y0: air.y0, y1: air.y0 + DOCK.CEIL,
+    id: level.rooms.length, deck: air.deck, c0: -1, c1: -1, x0: collar - DOCK.BAY, x1, y0: air.y0, y1: air.y0 + DOCK.CEIL,
     portals: [], type: 'dock', exterior: true, dist: -1, props: [], vents: [], light: 'normal', explored: true, seen: true, seed: 1, collar,
   };
   level.rooms.push(dock);
@@ -113,13 +167,17 @@ export function buildSolids(level) {
     const rooms = level.rooms.filter((r) => r.deck === d && !r.exterior).sort((a, b) => a.x0 - b.x0);
     const y0 = d * DECK_H;
     const y1 = y0 + DECK_H - SLAB;
-    const outer = level.portals.find((p) => p.outer && p.b === rooms[0].id);
-    if (outer) {
-      // Outer airlock door through the hull, into the boarding tube.
-      solids.push({ kind: 'hull', x0: rooms[0].x0 - HULL, x1: rooms[0].x0, y0: y0 + DOOR_H, y1 });
-      solids.push({ kind: 'door', portal: outer.id, x0: outer.x - DOOR_W / 2, x1: outer.x + DOOR_W / 2, y0, y1: y0 + DOOR_H });
-    } else solids.push({ kind: 'hull', x0: rooms[0].x0 - HULL, x1: rooms[0].x0, y0, y1 });
-    solids.push({ kind: 'hull', x0: rooms[rooms.length - 1].x1, x1: rooms[rooms.length - 1].x1 + HULL, y0, y1 });
+    const left = rooms[0];
+    const right = rooms[rooms.length - 1];
+    // The hull at each end of the deck - with the outer airlock door cut through it where the
+    // boarding tube meets it (either end: the dock may be to starboard).
+    const outerAt = (room, x) => level.portals.find((p) => p.outer && (p.a === room.id || p.b === room.id) && Math.abs(p.x - x) < 0.01);
+    for (const [x0, x1, outer] of [[left.x0 - HULL, left.x0, outerAt(left, left.x0 - HULL / 2)], [right.x1, right.x1 + HULL, outerAt(right, right.x1 + HULL / 2)]]) {
+      if (outer) {
+        solids.push({ kind: 'hull', x0, x1, y0: y0 + DOOR_H, y1 });
+        solids.push({ kind: 'door', portal: outer.id, x0: outer.x - DOOR_W / 2, x1: outer.x + DOOR_W / 2, y0, y1: y0 + DOOR_H });
+      } else solids.push({ kind: 'hull', x0, x1, y0, y1 });
+    }
     for (let i = 0; i + 1 < rooms.length; i++) {
       const xb = rooms[i].x1;
       const door = level.portals.find((p) => p.kind === 'door' && p.a === rooms[i].id && p.b === rooms[i + 1].id);
@@ -127,12 +185,16 @@ export function buildSolids(level) {
       if (door) solids.push({ kind: 'door', portal: door.id, x0: xb - DOOR_W / 2, x1: xb + DOOR_W / 2, y0, y1: y0 + DOOR_H });
     }
   }
-  // Boarding ship + tube: floor, ceiling and back wall (the art covers them visually).
+  // Boarding ship + tube: floor, ceiling and back wall (the art covers them visually). The bay
+  // is beyond the collar, away from the hull; the tube between the collar and the hull.
   for (const r of level.rooms.filter((q) => q.exterior)) {
-    solids.push({ kind: 'dock', x0: r.x0 - 1, x1: r.x1, y0: r.y0 - SLAB, y1: r.y0 });
-    solids.push({ kind: 'dock', x0: r.x0 - 1, x1: r.collar, y0: r.y1, y1: r.y1 + SLAB });
-    solids.push({ kind: 'dock', x0: r.collar, x1: r.x1, y0: r.y0 + 3.2, y1: r.y0 + 3.2 + SLAB });
-    solids.push({ kind: 'dock', x0: r.x0 - 1, x1: r.x0, y0: r.y0, y1: r.y1 });
+    const m = level.mirror;
+    const [bay0, bay1] = m ? [r.collar, r.x1 + 1] : [r.x0 - 1, r.collar];
+    const [tube0, tube1] = m ? [r.x0, r.collar] : [r.collar, r.x1];
+    solids.push({ kind: 'dock', x0: Math.min(bay0, tube0), x1: Math.max(bay1, tube1), y0: r.y0 - SLAB, y1: r.y0 });
+    solids.push({ kind: 'dock', x0: bay0, x1: bay1, y0: r.y1, y1: r.y1 + SLAB });
+    solids.push({ kind: 'dock', x0: tube0, x1: tube1, y0: r.y0 + 3.2, y1: r.y0 + 3.2 + SLAB });
+    solids.push(m ? { kind: 'dock', x0: r.x1, x1: r.x1 + 1, y0: r.y0, y1: r.y1 } : { kind: 'dock', x0: r.x0 - 1, x1: r.x0, y0: r.y0, y1: r.y1 });
   }
   return solids;
 }

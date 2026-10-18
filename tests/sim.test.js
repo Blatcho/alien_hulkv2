@@ -118,7 +118,8 @@ describe('simulation', () => {
   });
 
   it('climbs ladders one at a time, with the next man covering the shaft', () => {
-    const world = new World(generateLevel('A1'), { params: { autoplay: true, god: true } });
+    // A corvette with ladders on the way to the bridge (docked to starboard, too).
+    const world = new World(generateLevel('CRV-L1'), { params: { autoplay: true, god: true } });
     let maxClimbing = 0;
     let covered = false;
     let ladders = 0;
@@ -264,6 +265,12 @@ describe('simulation', () => {
   it('turning around makes the rear marine the new point man, and the squad keeps that way', () => {
     const world = new World(generateLevel('TURN'), { params: {} });
     run(world, 20);
+    // On their feet and under way (an order to turn is ignored mid-climb or mid-job).
+    for (let i = 0; i < 60 * 120; i++) {
+      const sq = world.squad;
+      if (sq.state === 'advance' && !sq.trav && !sq.action && !sq.ladder && sq.order.every((m) => m.mode === 'walk' && m.room === sq.leader.room)) break;
+      world.step(STEP);
+    }
     const rear = world.squad.order[world.squad.order.length - 1];
     const H = world.squad.heading;
     world.turnAround();

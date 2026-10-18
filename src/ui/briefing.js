@@ -7,6 +7,7 @@ import { STATS } from '../core/config.js';
 import { DIFFICULTY, fitDifficulty } from '../meta/difficulty.js';
 import { tierOf } from '../meta/ranks.js';
 import { MODIFIERS } from '../meta/ships.js';
+import { HULL_CLASSES } from '../gen/classes.js';
 import { KNOBS, LEAD_KNOBS, PRESETS, disabledOptions, fitOrders, isManual } from '../sim/doctrine.js';
 import { RARITY } from '../sim/loot.js';
 import { portrait } from './icons.js';
@@ -38,7 +39,6 @@ const HINTS = {
   infested: ['acc', 'nrv'], blackout: ['per'], treasure: ['int', 'lck'], armory: ['lck'],
   refugees: ['spd', 'nrv'], hive: ['per', 'nrv'], restless: ['per', 'sta'], volatile: ['acc'],
 };
-const SIZE_HINTS = { Cruiser: ['sta', 'spd'] };
 
 export class BriefingScreen {
   /**
@@ -89,10 +89,13 @@ export class BriefingScreen {
         ${t ? `<button data-up="${i}" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button><button data-down="${i}" ${i === chosen.length - 1 ? 'disabled' : ''} title="Move down">▼</button>` : ''}</div>`;
     }).join('');
     const ship = o.ship;
-    const hintKeys = new Set([...(ship?.modifiers ?? []).flatMap((k) => HINTS[k] ?? []), ...(SIZE_HINTS[ship?.size] ?? [])]);
+    const hintKeys = new Set([...(ship?.modifiers ?? []).flatMap((k) => HINTS[k] ?? []), ...(HULL_CLASSES[ship?.cls]?.hints ?? [])]);
+    // Quick play: the hull is the player's to pick (or the seed's to roll).
+    const hulls = o.onHull ? `<div class="hulls"><button data-hull="" class="${!o.hull ? 'on' : ''}" title="Whatever the seed makes of it">AUTO</button>${Object.entries(HULL_CLASSES).map(([k, c]) => `<button data-hull="${k}" class="${o.hull === k ? 'on' : ''}" title="${esc(c.blurb)}">${esc(c.label)}</button>`).join('')}</div>` : '';
     const intel = ship ? `<div class="intel">
         <div class="sn">${esc(ship.name)}</div>
         <div class="sz">${esc(ship.size ?? '')} · threat ${ship.threat ?? 0}${ship.reward ? ` · pay ×${ship.reward}` : ''}</div>
+        ${ship.blurb ? `<div class="bl">${esc(ship.blurb)}</div>` : ''}
         <div class="mods">${(ship.modifiers ?? []).map((k) => `<span title="${esc(MODIFIERS[k].text)}">${MODIFIERS[k].label}</span>`).join('') || '<span class="plain">No known anomalies</span>'}</div>
         ${hintKeys.size ? `<div class="hint">Matters here: ${[...hintKeys].map((k) => `<b>${STATS.LABEL[k]}</b>`).join(', ')}</div>` : ''}
       </div>` : '';
@@ -135,7 +138,7 @@ export class BriefingScreen {
           <div class="knobs diff">${diff}</div>
         </div>
         <div class="col">
-          ${intel ? `<h2>INTEL</h2>${intel}` : ''}
+          ${intel ? `<h2>INTEL${o.onHull ? ' <small>the hull: auto rolls it from the seed</small>' : ''}</h2>${hulls}${intel}` : ''}
           <h2>LINE-UP${lead ? ' <small>you, then who follows in what order</small>' : ''}</h2>
           <div class="lineup">${lineup}</div>
           ${this.summary(chosen)}
@@ -153,6 +156,7 @@ export class BriefingScreen {
 
     this.el.querySelectorAll('.pick').forEach((el) => el.addEventListener('click', () => this.toggle(el.dataset.id)));
     this.el.querySelectorAll('[data-control]').forEach((el) => el.addEventListener('click', () => { this.control = el.dataset.control; this.render(); }));
+    this.el.querySelectorAll('[data-hull]').forEach((el) => el.addEventListener('click', () => this.o.onHull?.(el.dataset.hull || null)));
     this.el.querySelectorAll('[data-up]').forEach((el) => el.addEventListener('click', () => this.move(+el.dataset.up, -1)));
     this.el.querySelectorAll('[data-down]').forEach((el) => el.addEventListener('click', () => this.move(+el.dataset.down, 1)));
     this.el.querySelectorAll('[data-preset]').forEach((el) => el.addEventListener('click', () => {

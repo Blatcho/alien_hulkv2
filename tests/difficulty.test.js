@@ -59,18 +59,20 @@ describe('difficulty', () => {
     const small = level({ ship: 'small' });
     const large = level({ ship: 'large' });
     const med = level({});
+    expect(small.cls).toBe(med.cls); // the class is the seed's; the size scales within it
     expect(small.cols).toBeLessThan(med.cols);
     expect(large.cols).toBeGreaterThan(med.cols);
     expect(large.decks).toBe(med.decks + 1);
     expect(large.rooms.length).toBeGreaterThan(med.rooms.length);
     expect(large.hostiles.total).toBeGreaterThan(med.hostiles.total); // not an emptier ship
-    // The campaign's ships within limits too.
-    for (const [cols, decks] of [[20, 3], [24, 3], [28, 4]]) {
+    // The campaign's ships within limits too, whatever their class.
+    for (const cls of ['corvette', 'freighter', 'liner', 'research', 'station']) {
       for (const ship of ['small', 'large']) {
-        const L = level({ ship }, { cols, decks }, 'B2');
-        expect(L.cols).toBeGreaterThanOrEqual(18);
+        const L = level({ ship }, { cls }, 'B2');
+        expect(L.cls).toBe(cls);
+        expect(L.cols).toBeGreaterThanOrEqual(12);
         expect(L.cols).toBeLessThanOrEqual(36);
-        expect(L.decks).toBeLessThanOrEqual(4);
+        expect(L.decks).toBeLessThanOrEqual(6);
       }
     }
   });

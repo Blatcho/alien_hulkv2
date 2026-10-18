@@ -2,6 +2,7 @@
 // Difficulty scales with a room's BFS distance from the airlock (0 near spawn -> 1 at the bow).
 import { ALIEN_TYPES, BROOD, CRAWL, DEFEND, HORDE, HOSTILES, POD, SHIP, WORLD } from '../core/config.js';
 import { LOOT, PROPS, ROOM_TYPES } from './templates.js';
+import { HULL_CLASSES, sectionOf, zoneWeight } from './classes.js';
 import { walkLimits } from './layout.js';
 import { ceilingSpans, doorInWall, portalEnds, wallFace } from './level.js';
 import { pickAlienType } from '../sim/entities.js';
@@ -10,12 +11,24 @@ import { NavGraph } from '../nav/graph.js';
 
 function cells(room) { return room.c1 - room.c0 + 1; }
 
+// At most this many of a type per ship unless the hull class says otherwise (gen/classes.js quotas).
+const DEFAULT_QUOTAS = { medbay: 2, armory: 2 };
+
+/**
+ * What each room is: its hull class's rooms, weighted by where in the ship it sits (zones:
+ * engineering aft, cargo low, crew high...), capped by quotas (one medbay, one reactor), and
+ * with dead ends favouring armouries and storerooms.
+ */
 function assignTypes(level, rng) {
-  const { rooms, portals, airlock, cockpit } = level;
+  const { rooms, portals, airlock, cockpit, cls } = level;
+  const C = HULL_CLASSES[cls] ?? {};
+  const quota = { ...DEFAULT_QUOTAS, ...(C.quotas ?? {}) };
+  const counts = {};
   const degree = (r) => r.portals.length;
-  // Reactor: a big room on the main path, away from both ends.
-  const reactorPick = rng.shuffle(level.mainPath.slice(3, -3).filter((id) => cells(rooms[id]) >= 3))[0];
-  const pool = Object.entries(ROOM_TYPES).filter(([, t]) => t.weight > 0);
+  // Reactor: a big room on the main path, away from both ends - aft, for preference.
+  const mids = level.mainPath.slice(3, -3).filter((id) => cells(rooms[id]) >= 3);
+  const reactorPick = mids.length ? rng.weighted(mids.map((id) => [id, zoneWeight(cls, sectionOf(level, rooms[id]), 'reactor')])) : undefined;
+  const pool = Object.entries(ROOM_TYPES).filter(([, t]) => t.weight > 0 && (!t.only || t.only.includes(cls)));
   for (const room of rooms) {
     room.seed = rng.int(0, 2 ** 30);
     if (room.id === airlock) room.type = 'airlock';
@@ -23,11 +36,13 @@ function assignTypes(level, rng) {
     else if (room.id === reactorPick) room.type = 'reactor';
     else {
       const deadEnd = degree(room) === 1;
+      const sec = sectionOf(level, room);
       const options = pool
-        .filter(([, t]) => !t.minCells || cells(room) >= t.minCells)
-        .map(([k, t]) => [k, t.weight * (deadEnd && (k === 'armory' || k === 'storage') ? 3 : 1)]);
-      room.type = rng.weighted(options);
+        .filter(([k, t]) => (!t.minCells || cells(room) >= t.minCells) && (quota[k] === undefined || (counts[k] ?? 0) < quota[k]))
+        .map(([k, t]) => [k, t.weight * (C.types?.[k] ?? 1) * zoneWeight(cls, sec, k) * (deadEnd && (k === 'armory' || k === 'storage') ? 3 : 1)]);
+      room.type = options.length ? rng.weighted(options) : 'corridor';
     }
+    counts[room.type] = (counts[room.type] ?? 0) + 1;
     room.light = ROOM_TYPES[room.type].light;
     room.onMainPath = level.mainPath.includes(room.id);
     room.nest = room.type !== 'airlock' && room.type !== 'cockpit' && degree(room) === 1 && room.dist >= 3 && rng.chance(Math.min(0.95, 0.55 * (level.mods?.nests ?? 1)));
@@ -301,7 +316,7 @@ function placeOddities(level, rng) {
   const pick = (rooms) => (rooms.length ? rng.pick(rooms) : null);
   // A sentry gun on standby.
   if (rng.chance(0.55)) {
-    const room = pick(inside.filter((r) => r.dist >= 2 && !r.nest && ['armory', 'engineering', 'storage', 'cargo', 'corridor'].includes(r.type)));
+    const room = pick(inside.filter((r) => r.dist >= 2 && !r.nest && ['armory', 'engineering', 'storage', 'cargo', 'corridor', 'barracks', 'magazine', 'promenade'].includes(r.type)));
     if (room) add(room, 'turret', { encounter: 'turret' });
   }
   // Every medbay's first bed is an autodoc.
@@ -313,7 +328,7 @@ function placeOddities(level, rng) {
   for (const r of inside.filter((q) => q.nest)) if (rng.chance(0.7)) add(r, 'eggs', { encounter: 'eggs' });
   // A cryo pod: someone (or something) put on ice.
   if (rng.chance(0.45)) {
-    const room = pick(inside.filter((r) => r.dist >= 2 && !r.nest && ['medbay', 'quarters', 'storage'].includes(r.type)));
+    const room = pick(inside.filter((r) => r.dist >= 2 && !r.nest && ['medbay', 'quarters', 'storage', 'lab', 'specimens', 'barracks'].includes(r.type)));
     const pod = rng.weighted(Object.entries(POD));
     if (room) add(room, 'cryopod', { encounter: 'cryopod', pod, ...(pod === 'cache' ? { loot: { type: 'treasure', item: rollTreasure(rng, threat) } } : {}) });
   }

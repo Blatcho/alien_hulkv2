@@ -50,7 +50,7 @@ export class GameView {
     this.precompile();
 
     const lead = world.squad.leader;
-    this.camera.teleport(lead.x + 3, lead.y + 2.3);
+    this.camera.teleport(lead.x + 3 * (world.level.heading ?? 1), lead.y + 2.3);
     this.subscribe();
     this.tmp = new THREE.Vector3();
   }

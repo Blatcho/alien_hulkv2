@@ -120,7 +120,9 @@ describe('Standard orders (point and click)', () => {
       expect(w.squad.state).toBe('decision');
       w.choose('leave');
       run(w, 3);
-      expect(w.squad.state).toBe('hold');
+      // Holding again - unless something else right there put its card up (which also waits).
+      const next = w.squad.decision;
+      expect(w.squad.state === 'hold' || (w.squad.state === 'decision' && next?.encounter && next !== d)).toBe(true);
     }
     expect(tested).toBe(1);
   });

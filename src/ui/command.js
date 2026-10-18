@@ -70,6 +70,7 @@ export class CommandScreen {
     const ships = this.offers.map((o, i) => `<button class="ship ${this.pick === i ? 'on' : ''}" data-ship="${i}">
       <div class="sn">${esc(o.name)}</div>
       <div class="sz">${o.size} · threat ${o.threat}</div>
+      ${o.blurb ? `<div class="bl">${esc(o.blurb)}</div>` : ''}
       <div class="mods">${o.modifiers.map((k) => `<span title="${esc(MODIFIERS[k].text)}">${MODIFIERS[k].label}</span>`).join('') || '<span class="plain">No known anomalies</span>'}</div>
       <div class="risk">DANGER ${'▮'.repeat(1 + o.danger)}${'▯'.repeat(Math.max(0, 4 - o.danger))} · PAY ×${o.reward}</div>
     </button>`).join('');

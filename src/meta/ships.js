@@ -1,7 +1,9 @@
-// Derelict offers: before each run the player picks one of three ships. Each has a size,
-// 0-2 modifiers (risk/reward twists) and a reward multiplier - a small, meaningful choice
-// every run. Modifiers are plain generator/sim knobs (level.mods).
+// Derelict offers: before each run the player picks one of three ships. Each has a hull class
+// (gen/classes.js: its shape, dock, rooms and look), a size within the class, 0-2 modifiers
+// (risk/reward twists) and a reward multiplier - a small, meaningful choice every run.
+// Modifiers are plain generator/sim knobs (level.mods). The seed code names the class.
 import { Rng } from '../core/rng.js';
+import { CLASS_KEYS, HULL_CLASSES, seedCode } from '../gen/classes.js';
 
 export const MODIFIERS = {
   infested: { label: 'Infested', text: '+40% hostiles, +35% contract pay', mods: { hostiles: 1.4 }, reward: 0.35, danger: 2 },
@@ -14,33 +16,47 @@ export const MODIFIERS = {
   volatile: { label: 'Fuel leak', text: 'Fuel drums everywhere', mods: { barrels: 2.2 }, reward: 0.1, danger: 1 },
 };
 
-const SIZES = [
-  { key: 'small', label: 'Corvette', cols: 20, decks: 3, reward: -0.15 },
-  { key: 'medium', label: 'Freighter', cols: 24, decks: 3, reward: 0 },
-  { key: 'large', label: 'Cruiser', cols: 28, decks: 4, reward: 0.3 },
-];
+const PREFIX = { corvette: ['UMS', 'CSS', 'FTR'], freighter: ['MCV', 'ISV', 'FTR'], liner: ['ISV', 'CSS', 'MCV'], research: ['ISV', 'UMS', 'RSV'], station: ['OSP', 'ISV', 'CSS'] };
+const NAMES = ["Morrow's Lament", 'Quiet Meridian', 'Cold Harvest', 'Saint Adair', 'Long Dark', 'Veritas Drift', 'Iron Orison', 'Pale Lantern', 'Hollow Crown', 'Kepler Widow', 'Ninth Ember', 'Grace Under Ice',
+  'Anselm Reach', 'Tollan Spire', 'Deep Furrow', 'Caldera Station', 'Hesper Ring', 'Brightwater', 'Second Dawn', 'Nocturne'];
 
-const PREFIX = ['ISV', 'MCV', 'FTR', 'CSS', 'UMS'];
-const NAMES = ["Morrow's Lament", 'Quiet Meridian', 'Cold Harvest', 'Saint Adair', 'Long Dark', 'Veritas Drift', 'Iron Orison', 'Pale Lantern', 'Hollow Crown', 'Kepler Widow', 'Ninth Ember', 'Grace Under Ice'];
+/** Weighted picks without replacement. */
+function draw(rng, entries, n) {
+  const pool = entries.filter(([, w]) => w > 0);
+  const out = [];
+  while (out.length < n && pool.length) {
+    const k = rng.weighted(pool);
+    out.push(k);
+    pool.splice(pool.findIndex(([q]) => q === k), 1);
+  }
+  return out;
+}
 
-/** Three offers for the profile's next run (stable until one is taken). */
+/**
+ * Three offers for the profile's next run (stable until one is taken): three different hull
+ * classes, each sized within its class and twisted by the modifiers that suit it.
+ */
 export function shipOffers(profile) {
   const rng = new Rng(`${profile.seed}/${profile.seedCounter}`, 'ships');
-  return [0, 1, 2].map((i) => {
-    const size = i === 0 ? SIZES[0] : rng.pick(SIZES);
-    const keys = rng.shuffle(Object.keys(MODIFIERS)).slice(0, rng.weighted([[0, 2], [1, 5], [2, 3]]));
-    const mods = { cols: size.cols, decks: size.decks };
-    let reward = 1 + size.reward;
-    let danger = size.key === 'large' ? 1 : 0;
+  const classes = draw(rng, CLASS_KEYS.map((k) => [k, HULL_CLASSES[k].weight ?? 1]), 3);
+  return classes.map((cls, i) => {
+    const C = HULL_CLASSES[cls];
+    const cols = rng.int(C.cols[0], C.cols[1]);
+    const decks = rng.int(C.decks[0], C.decks[1]);
+    const n = rng.weighted([[0, 2], [1, 5], [2, 3]]);
+    const keys = draw(rng, Object.keys(MODIFIERS).filter((k) => !C.modifiers?.never?.includes(k)).map((k) => [k, C.modifiers?.bias?.[k] ?? 1]), n);
+    const mods = { cls, cols, decks };
+    let reward = 1 + C.reward;
+    let danger = C.danger;
     for (const k of keys) {
       for (const [m, v] of Object.entries(MODIFIERS[k].mods)) mods[m] = typeof v === 'number' && typeof mods[m] === 'number' ? mods[m] * v : v;
       reward += MODIFIERS[k].reward;
       danger += MODIFIERS[k].danger;
     }
     return {
-      seed: `${profile.seed.slice(0, 3).toUpperCase()}${profile.seedCounter}${'ABC'[i]}${rng.int(100, 999)}`,
-      name: `${rng.pick(PREFIX)} ${rng.pick(NAMES)}`,
-      size: size.label, modifiers: keys, mods, reward: +reward.toFixed(2), danger,
+      seed: seedCode(cls, `${profile.seed.slice(0, 3).toUpperCase()}${profile.seedCounter}${'ABC'[i]}${rng.int(100, 999)}`),
+      name: `${rng.pick(PREFIX[cls])} ${rng.pick(NAMES)}`,
+      cls, size: C.label, blurb: C.blurb, modifiers: keys, mods, reward: +reward.toFixed(2), danger,
       threat: profile.threat,
     };
   });

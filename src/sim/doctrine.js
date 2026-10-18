@@ -426,6 +426,11 @@ export class Doctrine {
       o.goal = { kind: 'nudge', room: s.room, x: s.x }; // follow them
       return false;
     }
+    if (t?.kind === 'distress') {
+      // The beacon: done once the caller is found (or lost), or the point man stands at it.
+      const s = w.survivors.find((q) => q.distress);
+      return !s?.alive || s.identified || (lead.room === o.goal.room && Math.abs(lead.x - o.goal.x) < 1.2);
+    }
     return !!o.goal && lead.room === o.goal.room;
   }
 
@@ -497,7 +502,7 @@ export class Doctrine {
   /** Where the point man should stop in this room for a move order (squad.explore), or null. */
   stopX(lead) {
     const o = this.override;
-    return ['move', 'downed', 'doorctl', 'vent'].includes(o?.verb) && !o.arrived && o.goal.room === lead.room ? o.goal.x : null;
+    return ['move', 'downed', 'doorctl', 'vent', 'distress'].includes(o?.verb) && !o.arrived && o.goal.room === lead.room ? o.goal.x : null;
   }
 
   arrived() {

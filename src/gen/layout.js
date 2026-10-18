@@ -1,8 +1,9 @@
 // Ship layout: decks -> rooms -> connections (doors, ladders, stairs).
 //
-// 1. Each deck spans a column range (a stepped hull silhouette, rear-left to bow-right).
-// 2. Decks are partitioned into rooms of 2-5 cells; the airlock is forced at the bottom-left,
-//    the cockpit at the top-right.
+// 1. Each deck spans a column range: the hull class's silhouette (gen/classes.js deckSpans),
+//    dock side on the left (the level is mirrored afterwards for a starboard dock).
+// 2. Decks are partitioned into rooms of 2-5 cells; the airlock is forced at the left end of the
+//    docking deck, the cockpit at the far end of the bridge deck (or, on a station, in its core).
 // 3. Candidate connections: a door between neighbours on a deck, a vertical link wherever
 //    rooms on adjacent decks overlap by at least one cell.
 // 4. A random spanning tree of the candidates guarantees every room is reachable; a fraction
@@ -11,21 +12,18 @@
 // 5. Vertical links become ladders or stairs and get non-overlapping positions.
 // Returns null when the result is too linear/short so the caller can retry with a new stream.
 import { SHIP, WORLD } from '../core/config.js';
+import { HULL_CLASSES, bridgeFor, deckSpans, dockDeckFor } from './classes.js';
 
 const { CELL_W, DECK_H, SLAB, WALL, STAIRS_RUN } = WORLD;
 
-function deckSpans(rng, cols, decks) {
-  const spans = [];
-  for (let d = 0; d < decks; d++) {
-    const t = decks === 1 ? 0 : d / (decks - 1);
-    const c0 = Math.round(t * 4) + rng.int(0, 1);
-    const c1 = cols - 1 - Math.round((1 - t) * 4) + (d === decks - 1 ? 0 : rng.int(-1, 0));
-    spans.push([c0, c1]);
+/** Room widths along a deck. first/last: fixed-width rooms at its ends; core: one in its middle. */
+function partition(rng, c0, c1, { first = 0, last = 0, core = 0 } = {}) {
+  if (core) {
+    // A core room of `core` cells about the deck's centre; the halves partitioned on their own.
+    const n = c1 - c0 + 1;
+    const mid = Math.max(2, Math.floor(n / 2) - 1);
+    return [...partition(rng, c0, c0 + mid - 1, { first }), core, ...partition(rng, c0 + mid + core, c1, { last })];
   }
-  return spans;
-}
-
-function partition(rng, c0, c1, { first = 0, last = 0 } = {}) {
   const widths = [];
   let remaining = c1 - c0 + 1;
   if (first) { widths.push(first); remaining -= first; }
@@ -78,15 +76,23 @@ export function walkLimits(room) {
   return [room.x0 + WALL / 2 + 0.45, room.x1 - WALL / 2 - 0.45];
 }
 
-export function buildLayout(rng, { cols, decks } = {}) {
+export function buildLayout(rng, { cols, decks, cls = 'freighter' } = {}) {
   cols ??= SHIP.COLS;
   decks ??= SHIP.DECKS;
-  const spans = deckSpans(rng, cols, decks);
+  const C = HULL_CLASSES[cls] ?? HULL_CLASSES.freighter;
+  const dockDeck = dockDeckFor(cls, decks);
+  const bridge = bridgeFor(cls, rng, decks, dockDeck);
+  const spans = deckSpans(cls, rng, cols, decks, dockDeck);
   const rooms = [];
   const byDeck = [];
   for (let d = 0; d < decks; d++) {
     const [c0, c1] = spans[d];
-    const widths = partition(rng, c0, c1, { first: d === 0 ? 2 : 0, last: d === decks - 1 ? 2 : 0 });
+    if (c1 - c0 + 1 < 4) return null; // a deck too short for two rooms
+    const widths = partition(rng, c0, c1, {
+      first: d === dockDeck ? 2 : 0,
+      last: d === bridge.deck && bridge.at === 'far' ? 2 : 0,
+      core: d === bridge.deck && bridge.at === 'core' ? 2 : 0,
+    });
     let c = c0;
     byDeck[d] = [];
     for (const w of widths) {
@@ -96,8 +102,11 @@ export function buildLayout(rng, { cols, decks } = {}) {
       c += w;
     }
   }
-  const airlock = byDeck[0][0].id;
-  const cockpit = byDeck[decks - 1][byDeck[decks - 1].length - 1].id;
+  const airlock = byDeck[dockDeck][0].id;
+  const bridgeRow = byDeck[bridge.deck];
+  const centre = Math.floor((spans[bridge.deck][0] + spans[bridge.deck][1]) / 2);
+  const cockpit = bridge.at === 'core' ? bridgeRow.find((r) => r.c0 <= centre && centre <= r.c1).id : bridgeRow[bridgeRow.length - 1].id;
+  if (cockpit === airlock) return null;
 
   // Candidate connections.
   const cands = [];
@@ -108,9 +117,9 @@ export function buildLayout(rng, { cols, decks } = {}) {
     }
     if (d + 1 >= decks) continue;
     for (const lo of row) {
-      if (lo.id === airlock) continue;
+      if (lo.id === airlock || lo.id === cockpit) continue; // the airlock and the bridge are reached by their doors
       for (const hi of byDeck[d + 1]) {
-        if (hi.id === cockpit) continue;
+        if (hi.id === cockpit || hi.id === airlock) continue;
         const ov0 = Math.max(lo.x0, hi.x0);
         const ov1 = Math.min(lo.x1, hi.x1);
         if (ov1 - ov0 >= CELL_W) cands.push({ kind: 'vertical', a: lo.id, b: hi.id, ov0, ov1, w: rng.next() * 2.2 });
@@ -172,13 +181,30 @@ export function buildLayout(rng, { cols, decks } = {}) {
   const { dist, prev } = bfs(rooms, portals, airlock);
   const mainPath = [];
   for (let r = cockpit; r !== -1; r = prev[r]) mainPath.unshift(r);
-  if (mainPath.length < SHIP.MIN_MAIN_PATH) return null;
+  if (mainPath.length < (C.minPath ?? SHIP.MIN_MAIN_PATH)) return null;
   rooms.forEach((r) => { r.dist = dist[r.id]; });
 
   const x0 = Math.min(...rooms.map((r) => r.x0));
   const x1 = Math.max(...rooms.map((r) => r.x1));
   return {
-    cols, decks, spans, rooms, portals, airlock, cockpit, mainPath,
+    cols, decks, cls, dockDeck, bridgeDeck: bridge.deck, spans, rooms, portals, airlock, cockpit, mainPath,
     bounds: { x0: x0 - WORLD.HULL - 2, x1: x1 + WORLD.HULL + 6, y0: -WORLD.SLAB - 1, y1: decks * DECK_H + 1 },
   };
+}
+
+/**
+ * How good a layout is to play (gen/level.js keeps the best of several): a long way through,
+ * some loops to double back by, dead ends for nests and storerooms, climbs and stairs on the way.
+ */
+export function layoutScore(L) {
+  const loops = L.portals.length - (L.rooms.length - 1);
+  const deadEnds = L.rooms.filter((r) => r.portals.length === 1).length;
+  const at = new Map(L.mainPath.map((id, i) => [id, i]));
+  let climbs = 0;
+  let stairs = 0;
+  for (const p of L.portals) {
+    if (p.kind === 'stairs') stairs++;
+    if (p.kind !== 'door' && at.has(p.a) && at.has(p.b) && Math.abs(at.get(p.a) - at.get(p.b)) === 1) climbs++;
+  }
+  return L.mainPath.length + Math.min(loops, 4) * 0.6 + Math.min(deadEnds, 5) * 0.35 + climbs * 0.5 + Math.min(stairs, 3) * 0.2;
 }

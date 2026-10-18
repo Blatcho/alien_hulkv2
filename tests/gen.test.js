@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { generateLevel, roomAt } from '../src/gen/level.js';
 import { bfs, walkLimits } from '../src/gen/layout.js';
+import { CLASS_KEYS, HULL_CLASSES, parseSeed, seedCode } from '../src/gen/classes.js';
 import { clearZones } from '../src/gen/populate.js';
 import { NavGraph } from '../src/nav/graph.js';
 import { Rng } from '../src/core/rng.js';
 
-const SEEDS = Array.from({ length: 400 }, (_, i) => `T${i}`);
+// Bare seeds roll their hull class; the rest name one, so every class gets its share.
+const SEEDS = [...Array.from({ length: 150 }, (_, i) => `T${i}`), ...CLASS_KEYS.flatMap((cls) => Array.from({ length: 60 }, (_, i) => seedCode(cls, `C${i}`)))];
 
 describe('rng', () => {
   it('is deterministic per seed and stream', () => {
@@ -27,15 +29,28 @@ describe('level generation', () => {
 
   it.each(SEEDS)('seed %s: connected, long enough, well-formed', (seed) => {
     const L = generateLevel(seed);
+    const C = HULL_CLASSES[L.cls];
+    expect(C).toBeTruthy();
+    if (parseSeed(seed).cls) expect(L.cls).toBe(parseSeed(seed).cls);
+    expect(L.seed).toBe(seedCode(L.cls, parseSeed(seed).seed));
     // every room reachable from the airlock
     const { dist } = bfs(L.rooms, L.portals, L.airlock);
     expect(dist.every(Number.isFinite)).toBe(true);
     expect(L.mainPath[0]).toBe(L.airlock);
     expect(L.mainPath[L.mainPath.length - 1]).toBe(L.cockpit);
-    expect(L.mainPath.length).toBeGreaterThanOrEqual(9);
-    expect(L.rooms[L.airlock].deck).toBe(0);
-    expect(L.rooms[L.cockpit].deck).toBe(L.decks - 1);
+    expect(L.mainPath.length).toBeGreaterThanOrEqual(C.minPath ?? 9);
+    expect(L.rooms[L.airlock].deck).toBe(L.dockDeck);
+    expect(L.rooms[L.cockpit].deck).toBe(L.bridgeDeck);
+    expect(L.decks).toBeGreaterThanOrEqual(C.decks[0]);
+    expect(L.decks).toBeLessThanOrEqual(C.decks[1]);
     expect(L.objective).toBeTruthy();
+    // The dock meets the hull with nothing in the way: no other room reaches the airlock's outer wall.
+    const air = L.rooms[L.airlock];
+    for (const r of L.rooms) {
+      if (r.exterior || r.id === air.id) continue;
+      if (L.heading > 0) expect(r.x0).toBeGreaterThan(air.x0); else expect(r.x1).toBeLessThan(air.x1);
+    }
+    expect(L.heading).toBe(L.mirror ? -1 : 1);
 
     for (const r of L.rooms.filter((q) => !q.exterior)) {
       expect(r.c1 - r.c0 + 1).toBeGreaterThanOrEqual(2);
@@ -51,8 +66,11 @@ describe('level generation', () => {
     }
     for (const p of L.portals) {
       if (p.outer) continue;
-      if (p.kind === 'door') expect(L.rooms[p.a].deck).toBe(L.rooms[p.b].deck);
-      else {
+      if (p.kind === 'door') {
+        expect(L.rooms[p.a].deck).toBe(L.rooms[p.b].deck);
+        expect(L.rooms[p.a].x1).toBeCloseTo(p.x, 5); // room a on the door's left, mirrored or not
+        expect(L.rooms[p.b].x0).toBeCloseTo(p.x, 5);
+      } else {
         expect(L.rooms[p.b].deck).toBe(L.rooms[p.a].deck + 1);
         const xs = p.kind === 'ladder' ? [p.x] : [p.xb, p.xt];
         for (const x of xs) {

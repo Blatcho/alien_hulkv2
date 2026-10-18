@@ -115,7 +115,7 @@ export class World {
     this.stims += this.upgrades.stims;
     this.staminaMax = PACE.STAMINA_MAX * (1 + 0.2 * this.upgrades.cooling);
     this.stamina = this.staminaMax; // the squad's breath = its most winded man (updateMeters)
-    for (const m of this.marines) { m.staminaMax = this.staminaMax * m.mods.stamina; m.stamina = m.staminaMax; }
+    for (const m of this.marines) { m.staminaMax = this.staminaMax * m.mods.stamina; m.stamina = m.staminaMax; m.facing = level.heading ?? 1; }
     for (const m of this.marines) this.physics.addHitbox(m, 0.8, m.height, G.MARINE);
     if (this.lead) {
       this.player = this.marines[player] ?? this.marines[0];
@@ -416,7 +416,9 @@ export class World {
     const outer = this.level.portals.find((p) => p.outer);
     if (!outer?.open) return;
     const order = this.squad.order;
-    if (order.length && order.every((m) => m.room === this.level.airlock && m.mode === 'walk' && m.x > this.level.rooms[this.level.airlock].x0 + 0.6)) {
+    const air = this.level.rooms[this.level.airlock];
+    const inside = (m) => ((this.level.heading ?? 1) > 0 ? m.x > air.x0 + 0.6 : m.x < air.x1 - 0.6);
+    if (order.length && order.every((m) => m.room === this.level.airlock && m.mode === 'walk' && inside(m))) {
       this.lockCycled = true;
       this.setDoor(outer, false);
       this.emit('airlock-cycle', {});

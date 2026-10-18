@@ -375,6 +375,8 @@ describe('specialists', () => {
   it('a scout picks out something shadowing the squad', () => {
     const w = calm({}, { squad: squadOf('veteran', 'heavy', 'tech', 'scout') });
     roomAhead(w, 9);
+    // The scout started at the rear; a turn on the way (a dead end) would have put him on point.
+    if (w.squad.order[w.squad.order.length - 1].role !== 'scout') { w.turnAround(); run(w, 6); roomAhead(w, 9); }
     const rear = w.squad.order[w.squad.order.length - 1];
     expect(rear.role).toBe('scout');
     const [wl, wr] = walkLimits(w.level.rooms[rear.room]);

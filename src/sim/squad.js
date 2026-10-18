@@ -51,7 +51,7 @@ export class Squad {
     this.marines = marines;
     this.order = [...marines];
     this.trail = new Trail();
-    this.heading = 1;
+    this.heading = world.level.heading ?? 1; // into the ship (left, when the dock is to starboard)
     this.state = 'advance';   // advance | hold | decision | action
     this.decision = null;
     this.action = null;       // {type: 'door'|'search'|'uplink', t, dur, ...}
@@ -70,7 +70,7 @@ export class Squad {
 
     const lead = this.order[0];
     const room = this.level.rooms[lead.room];
-    this.trail.push(lead.x - (this.order.length) * SQUAD.SPACING, room.y0, 0, 'walk', lead.room);
+    this.trail.push(lead.x - this.heading * this.order.length * SQUAD.SPACING, room.y0, 0, 'walk', lead.room);
     this.trail.push(lead.x, room.y0, 0, 'walk', lead.room);
     this.order.forEach((m, i) => { m.s = this.trail.length - i * SQUAD.SPACING; });
     this.placeFollowers();
