@@ -86,11 +86,13 @@ describe('pack habits', () => {
 
   it('stalking: one that woke unseen shadows the rear man - and closes when a man near it reloads', () => {
     const w = calm();
+    w.settings.flashlight = false; // in the dark: the rear man's torch would otherwise hold it off (torch-shy)
     roomBehind(w, 8);
     const order = w.squad.order;
     const rear = order[order.length - 1];
     const h = w.squad.heading;
     const a = spawn(w, 'runner', rear.x - h * 7, rear.room, 'dormant');
+    a.climbs = 0; // (on the floor: with every roll coming up, one near a bulkhead would take the high road instead)
     expect(Math.abs(a.x - rear.x)).toBeGreaterThan(3);
     w.hive = sure();
     wake(w, a, 'steps');

@@ -10,13 +10,17 @@ beforeAll(async () => { await initPhysics(); });
 
 const propsOf = (L, kind) => L.rooms.flatMap((r) => r.props).filter((p) => p.encounter === kind);
 
-/** A seed whose ship has an encounter of this kind. */
+/** A seed whose ship has an encounter of this kind - its first one on the way to the bridge, if any ship has that. */
 function shipWith(kind, prefix = 'ENC') {
+  let any = null;
   for (let i = 0; i < 80; i++) {
     const L = generateLevel(`${prefix}${i}`);
-    if (propsOf(L, kind).length) return L;
+    const props = propsOf(L, kind);
+    if (!props.length) continue;
+    if (L.mainPath.includes(props[0].room)) return L;
+    any ??= L;
   }
-  return null;
+  return any;
 }
 
 /** Step until the squad is offered an encounter (returns the decision) or time runs out. */

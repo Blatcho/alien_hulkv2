@@ -37,6 +37,8 @@ export const PROPS = {
 
 // backdrop: weights for back-wall panel variants the renderer tiles along the room.
 // props: [kind, weight]; density: expected props per 10 m of floor.
+// only: the hull classes (gen/classes.js) that have the room at all; the classes also weight the
+// types they have (types) and cap them (quotas).
 export const ROOM_TYPES = {
   airlock:     { weight: 0, label: 'Airlock', backdrop: { plain: 2, hazard: 3 }, props: [], density: 0, light: 'red' },
   cockpit:     { weight: 0, label: 'Command deck', backdrop: { screen: 3, window: 4 }, props: [['console', 1]], density: 0, light: 'normal' },
@@ -48,6 +50,14 @@ export const ROOM_TYPES = {
   armory:      { weight: 1, label: 'Armory', backdrop: { plain: 2, shelves: 2 }, props: [['ammo_rack', 3], ['weapon_case', 2.5], ['locker', 2], ['crate', 1]], density: 3.0, light: 'red' },
   engineering: { weight: 2, label: 'Engineering', backdrop: { pipes: 4, vent: 2, screen: 1 }, props: [['console', 3], ['barrel', 2], ['barrel_explosive', 0.9], ['crate', 1], ['weapon_case', 0.4], ['debris', 0.6]], density: 2.4, light: 'flicker' },
   reactor:     { weight: 0, minCells: 3, label: 'Reactor', backdrop: { pipes: 4, hazard: 2 }, props: [['console', 2], ['barrel', 1], ['barrel_explosive', 1.2]], density: 1.8, light: 'red' },
+  // Class rooms.
+  magazine:    { weight: 1.5, minCells: 3, only: ['corvette'], label: 'Missile magazine', backdrop: { hazard: 3, plain: 1, pipes: 1 }, props: [['barrel_explosive', 3], ['bigcrate', 2], ['ammo_rack', 1.5], ['crate', 1]], density: 2.8, light: 'red' },
+  barracks:    { weight: 2, only: ['corvette'], label: 'Barracks', backdrop: { plain: 3, shelves: 1, screen: 0.5 }, props: [['bunk', 4], ['locker', 3], ['ammo_rack', 1], ['chest', 1.5]], density: 3.4, light: 'dim' },
+  galley:      { weight: 1.5, only: ['liner', 'station', 'corvette'], label: 'Galley', backdrop: { plain: 2, shelves: 2, screen: 1 }, props: [['table', 3], ['shelf', 2], ['cabinet', 1], ['crate', 1], ['barrel', 1]], density: 3.0, light: 'normal' },
+  hydroponics: { weight: 1.5, minCells: 3, only: ['liner', 'research', 'station'], label: 'Hydroponics', backdrop: { window: 3, plain: 1, pipes: 1 }, props: [['shelf', 4], ['barrel', 2], ['table', 1], ['crate', 1]], density: 3.0, light: 'normal' },
+  lab:         { weight: 2, only: ['research'], label: 'Laboratory', backdrop: { screen: 3, plain: 1, window: 1 }, props: [['console', 2], ['cabinet', 2], ['table', 2], ['medbed', 1], ['safe', 0.4]], density: 3.0, light: 'normal' },
+  specimens:   { weight: 1.5, minCells: 3, only: ['research'], label: 'Specimen bay', backdrop: { hazard: 2, screen: 1, plain: 1 }, props: [['medbed', 2], ['cabinet', 1], ['barrel', 1], ['console', 1], ['barrel_explosive', 0.4]], density: 2.6, light: 'flicker' },
+  promenade:   { weight: 2, minCells: 3, only: ['station'], label: 'Promenade', backdrop: { window: 4, plain: 2, screen: 1 }, props: [['table', 2], ['shelf', 1], ['crate', 1], ['debris', 1], ['barrel', 1]], density: 2.2, light: 'dim' },
 };
 
 // Loot tables: [outcome, weight]. Containers roll once.

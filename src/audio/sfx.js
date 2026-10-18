@@ -38,6 +38,7 @@ export class Sfx {
     this.shotBudget = {}; // weapon -> recent shots: each gun has its own, so none drowns the others out
     this.tails = new Map(); // shooter -> the burst tail queued behind their last shot
     this.loops = new Map(); // shooter -> their gun's fire loop while they're firing (FIRE_LOOP)
+    this.loopsStarted = 0;  // (tools/dev/lead-e2e.mjs checks the loop ran at all)
     this.ambT = 4;
     this.lastPlay = {};
     this.fires = new Map(); // burning doorways: portal id -> x (crackle while they burn)
@@ -300,6 +301,7 @@ export class Sfx {
     const src = this.samples.play(L.key, g, { loop: true, jitter: 0.03 });
     if (!src) return;
     this.place(g, x, MIX[L.key] ?? 1);
+    this.loopsStarted++;
     this.loops.set(shooter, { key: L.key, tail: L.tail, src, g, x, until, vol: MIX[L.key] ?? 1 });
   }
 

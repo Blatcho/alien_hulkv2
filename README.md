@@ -41,7 +41,7 @@ Useful URL parameters:
 
 | Parameter | Effect |
 |---|---|
-| `?brief=AB12CD` | Quick play: the briefing for ship AB12CD (pick 4 of its 8 candidates, set orders and difficulty). |
+| `?brief=AB12CD` | Quick play: the briefing for ship AB12CD (pick 4 of its 8 candidates, set orders and difficulty). A bare seed rolls the hull class; `?brief=STN-AB12CD` names it (see [Hulls](#hulls-the-derelicts)), and the briefing's hull picker rewrites the code. |
 | `?seed=AB12CD&go=1` | Quick play straight in. `&squad=c0,c3,c5,c6&doc=direct.normal.steady.way.critical.on` choose the squad and orders (`&pool=2` picks from the second rerolled set of candidates), and `&diff=many.tough.large.often` the difficulty (enemies, strength, ship size, hordes). With no `squad`, the four have baseline stats. |
 | `&autoplay=1` | No player input: encounters resolve at once (tests and attract mode). |
 | `&retro=0` | Full-resolution rendering instead of pixel mode (`&retro=1` forces pixel mode). Without it, the game uses the player's last choice (`P`), and pixel mode the first time. |
@@ -110,9 +110,9 @@ Open doors, obstacles to vault or duck under and the outer lock are taken in you
   - **Difficulty** (remembered for next time):
     - **Enemies:** few, normal, many or swarm (0.6x to 1.9x the hostiles aboard).
     - **Strength:** weak, normal, tough or brutal (0.7x to 1.8x their health, 0.7x to 1.5x their damage).
-    - **Ship size:** small, medium or large. Large ships are longer, have an extra deck and carry more hostiles to fill them.
+    - **Ship size:** small, medium or large, within the hull class's own range. Large ships are longer, have an extra deck and carry more hostiles to fill them.
     - **Hordes:** off, rare, normal or often. Off means no horde aboard; Often means less noise brings it, and it nearly always comes. The Enemies setting scales the horde too.
-- **Choose a derelict:** one of three offers, each with a size, modifiers and a pay multiplier. Modifiers include *Infested*, *Blackout*, *Treasure hauler*, *Armoury ship*, *Distress call*, *Hive ship*, *Restless* and *Fuel leak*.
+- **Choose a derelict:** one of three offers of three different hull classes, each with a size, modifiers and a pay multiplier. Modifiers include *Infested*, *Blackout*, *Treasure hauler*, *Armoury ship*, *Distress call*, *Hive ship*, *Restless* and *Fuel leak*; each class favours some and never carries others (no *Treasure hauler* corvettes).
 - **Board:** the squad walks from the docked Kestrel through the boarding tube into the airlock. The lock cycles behind them.
 - **Debrief:**
   - **Payout:** recovered credits, sold salvage, contract pay and rescue bounties. A wipe keeps only 25% insurance.
@@ -121,6 +121,24 @@ Open doors, obstacles to vault or duck under and the outer lock are taken in you
   - **Threat:** every extraction raises the threat level, which brings more hostiles, better loot and better pay.
 - **Saving:** the campaign is saved in the browser. Reloading mid-run abandons the operation; there is no save-scumming.
 
+## Hulls (the derelicts)
+
+Every seed is a **hull class** and a number: `CRV-7F2A9B` is corvette 7F2A9B. A bare seed rolls its class (so old seeds still work; they now name the class they rolled). The class sets the ship's shape, where the Kestrel docks, where the command deck is, which rooms it has and where they sit:
+
+| Class | Code | Shape | Dock | Command deck | Rooms of its own |
+|---|---|---|---|---|---|
+| Corvette | `CRV` | 2 long decks, a wedge | the lower deck, aft | forward, upper deck | missile magazine, barracks, a galley |
+| Freighter | `FRT` | 3 decks, stepped | the lower deck, aft | forward, upper deck | holds and stores amidships |
+| Liner | `LNR` | 3-4 decks, a block | the lower deck, aft | forward, upper deck | cabins, galleys, hydroponics, medbays |
+| Research vessel | `RSV` | 3-4 decks on a long spine | at the waist, a middle deck | forward, on another deck | laboratories, specimen bays, hydroponics |
+| Station | `STN` | 5-6 short decks round a core | the ring, a middle deck | in the core, up top | promenades, galleys, hydroponics |
+
+- **Port or starboard:** the Kestrel docks on either side. A starboard dock mirrors the whole ship: the squad boards heading left and the bow is to the left.
+- **Zones:** rooms are placed by section - engineering and the reactor aft, the holds amidships, quarters and the medbay forward (on a station, by ring) - and each class caps its rarer rooms (one magazine on a corvette, three labs on a research vessel).
+- **The best of five:** the generator lays out five ships for a seed and keeps the one that plays best: the longest way through, with loops to double back by, dead ends for nests, and climbs and stairs on the way.
+- **Briefing:** ship intel names the class and what it is like; the hull picker (AUTO, or any class) rewrites the seed code, and the deploy link carries it.
+
+---
 ## Troopers: stats and archetypes
 
 Every trooper has eight stats rated 1–10. A 5 is the baseline.
@@ -267,7 +285,7 @@ You can adjust each order yourself:
 ```
 src/
   core/      loop (fixed 60 Hz step + interpolation), seeded RNG streams, config, events, input, asset loader
-  gen/       procedural ship: layout (spanning tree + loops), room templates, props/loot/vents/actors
+  gen/       procedural ship: hull classes (shape, dock, bridge, zones), layout (spanning tree + loops, best of five), room templates, props/loot/vents/actors, mirroring
   nav/       portal-graph route planner, breadcrumb trail
   sim/       world (step order, commands), squad, tactics (stances/drills), awareness (looking around),
              doctrine (standing orders, goals, nudges), encounters, stats (1-10 -> modifiers, practice), aliens (breeds, pack habits),
@@ -284,7 +302,7 @@ tools/
   run-blender.mjs · check-glb.mjs · shot.mjs (headless-Chrome screenshots)
   dev/balance.mjs (autoplay stats) · dev/threat.mjs (difficulty ladder) · dev/campaign-e2e.mjs (full loop) · dev/flicker.mjs (single-frame visual glitches) · dev/nanhunt.mjs (NaN/Inf pixels) · dev/sfx-levels.mjs (loudness of every sound) · dev/sfx-audit.mjs (every sound in a real run: fired, dropped, level)
   audio/     fetch-sfx.mjs (download + licence-check sources) · analyze-sfx.mjs (find the events in each) · build-sfx.mjs (cut, level, encode)
-tests/       vitest: generation (400 seeds), navigation, visibility, simulation
+tests/       vitest: generation (450 seeds across the five classes), navigation, visibility, simulation
 ```
 
 Key design decisions:

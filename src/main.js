@@ -20,6 +20,7 @@ import {
   applyRun, clearProfile, levelFor, loadProfile, loadRun, newProfile, rankFor, saveProfile, saveRun, trooperMods,
 } from './meta/profile.js';
 import { candidatePool } from './meta/candidates.js';
+import { HULL_CLASSES, classFor, parseSeed, seedCode } from './gen/classes.js';
 import { difficultyString, isDefaultDifficulty, parseDifficulty, withDifficulty } from './meta/difficulty.js';
 import { portraitMap } from './render/portraits.js';
 import { PRESETS, doctrineString, nextOrder, parseDoctrine } from './sim/doctrine.js';
@@ -94,10 +95,15 @@ class Game {
 
   // ------------------------------------------------------------------ quick play
 
-  /** Pick 4 of the ship's 8 candidates, the standing orders and the difficulty, then board (reload). */
-  showQuickBriefing(seed) {
+  /**
+   * Pick 4 of the ship's 8 candidates, the standing orders and the difficulty, then board
+   * (reload). The seed may name its hull ('STN-A1B2C3'); the briefing lets the player pick one.
+   */
+  showQuickBriefing(code) {
     this.hud.hideStart();
     this.hud.root.classList.add('menu');
+    const { cls: hull, seed } = parseSeed(code);
+    const cls = classFor(seed, hull);
     // The ship's candidates - or a fresh set each time the player rerolls (carried as &pool=).
     let roll = 0;
     const poolFor = (r) => candidatePool(seed, 8, r).map((t) => ({ ...t, rank: rankFor(levelFor(t.xp)) }));
@@ -107,7 +113,8 @@ class Game {
     this.briefing?.dispose();
     this.briefing = new BriefingScreen(this.hud.root, {
       heading: 'QUICK PLAY · BRIEFING', pool, portraits: portraitMap(this.assets, pool),
-      ship: { name: `Derelict ${seed}`, size: 'Unknown class', threat: 0, modifiers: [] },
+      ship: { name: `Derelict ${seedCode(cls, seed)}`, size: HULL_CLASSES[cls].label, cls, blurb: HULL_CLASSES[cls].blurb, threat: 0, modifiers: [] },
+      hull, onHull: (k) => this.showQuickBriefing(k ? seedCode(k, seed) : seed),
       selected: pool.slice(0, 4).map((t) => t.id), doctrine: last?.doctrine ?? PRESETS.standard.doctrine,
       difficulty: last?.difficulty, control: last?.control,
       backLabel: 'MAIN MENU',
@@ -119,18 +126,19 @@ class Game {
       onDeploy: (ids, doctrine, difficulty, control) => {
         try { localStorage.setItem('hullbreach.quick', JSON.stringify({ doctrine, difficulty, control })); } catch { /* private mode */ }
         const diff = isDefaultDifficulty(difficulty) ? '' : `&diff=${difficultyString(difficulty)}`;
-        location.search = `?seed=${seed}&go=1&squad=${ids.join(',')}${roll ? `&pool=${roll}` : ''}&doc=${doctrineString(doctrine)}${diff}${control === 'lead' ? '&ctrl=lead' : ''}`;
+        location.search = `?seed=${hull ? seedCode(hull, seed) : seed}&go=1&squad=${ids.join(',')}${roll ? `&pool=${roll}` : ''}&doc=${doctrineString(doctrine)}${diff}${control === 'lead' ? '&ctrl=lead' : ''}`;
       },
     });
   }
 
   /** A quick-play run from the URL: ?seed=&go=1[&squad=c0,c3,c5,c6&pool=2&doc=...&diff=...&ctrl=lead]. */
-  startQuick(seed) {
+  startQuick(code) {
+    const seed = parseSeed(code).seed;
     const pool = candidatePool(seed, 8, params.pool);
     const squad = (params.squad ?? []).map((id) => pool.find((t) => t.id === id)).filter(Boolean)
       .map((t) => ({ ...t, rank: rankFor(levelFor(t.xp)) }));
     // No squad in the URL (tools, old links): the standard four at baseline stats.
-    const level = generateLevel(seed, { mods: withDifficulty({}, parseDifficulty(params.diff)) });
+    const level = generateLevel(code, { mods: withDifficulty({}, parseDifficulty(params.diff)) });
     this.start(level, { squad: squad.length ? squad : null, doctrine: parseDoctrine(params.doc), control: params.ctrl === 'lead' ? 'lead' : 'squad' });
   }
 

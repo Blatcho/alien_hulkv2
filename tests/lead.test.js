@@ -14,6 +14,7 @@ function until(w, pred, s) {
   return false;
 }
 const lead = (seed = 'A1', params = { god: true }, opts = {}) => new World(generateLevel(seed), { params, control: 'lead', ...opts });
+const H = (w) => w.level.heading ?? 1; // into the ship
 /** Hold the stick toward x until the player is there (or `s` seconds pass). */
 function walkTo(w, x, s = 30) {
   const ok = until(w, () => { const p = w.player; w.steer({ moveX: Math.abs(x - p.x) < 0.08 ? 0 : Math.sign(x - p.x) * 0.6 }); return Math.abs(p.x - w.player.x) < 0.08 && Math.abs(x - w.player.x) < 0.08; }, s);
@@ -22,16 +23,16 @@ function walkTo(w, x, s = 30) {
 }
 /** Board the derelict: walk into the outer lock; it cycles and he steps through. */
 function board(w) {
-  w.steer({ moveX: 1 });
+  w.steer({ moveX: H(w) });
   const ok = until(w, () => w.player.room === w.level.airlock && w.squad.state === 'advance' && !w.squad.trav, 60);
   w.steer({ moveX: 0 });
   return ok;
 }
 const behind = (w) => w.squad.order.slice(1).every((m) => (w.player.x - m.x) * w.squad.heading > 0.5);
 /** Through the door ahead (a sealed one opens on contact) into the next room. */
-function throughDoor(w, H = 1) {
+function throughDoor(w, dir = H(w)) {
   const from = w.player.room;
-  w.steer({ moveX: H });
+  w.steer({ moveX: dir });
   const ok = until(w, () => w.player.room !== from && !w.squad.trav && w.squad.state === 'advance', 60);
   w.steer({ moveX: 0 });
   return ok;
@@ -72,20 +73,21 @@ describe('lead mode', () => {
     const w = lead();
     expect(board(w)).toBe(true);
     const [wl, wr] = walkLimits(w.level.rooms[w.level.airlock]);
-    expect(walkTo(w, wl + 1)).toBe(true);
+    const [near, far] = H(w) > 0 ? [wl + 1, wr] : [wr - 1, wl];
+    expect(walkTo(w, near)).toBe(true);
     // Half stick: a walk. Full stick: a run.
-    w.steer({ moveX: 0.5 });
+    w.steer({ moveX: 0.5 * H(w) });
     run(w, 0.8);
     expect(w.squad.pace).toBe('normal');
     expect(w.player.v).toBeGreaterThan(1);
     expect(w.player.v).toBeLessThan(3);
-    w.steer({ moveX: 1 });
+    w.steer({ moveX: H(w) });
     run(w, 0.5);
     expect(w.squad.pace).toBe('run');
     expect(w.player.v).toBeGreaterThan(3.5);
     w.steer({ moveX: 0 });
     run(w, 3);
-    expect(w.player.x).toBeLessThan(wr);
+    if (H(w) > 0) expect(w.player.x).toBeLessThan(far); else expect(w.player.x).toBeGreaterThan(far);
     expect(behind(w)).toBe(true);
     for (let i = 1; i < w.squad.order.length; i++) expect(Math.abs(w.squad.order[i].x - w.squad.order[i - 1].x)).toBeLessThan(3);
   });
@@ -94,13 +96,14 @@ describe('lead mode', () => {
     const w = lead();
     expect(board(w)).toBe(true);
     const [wl, wr] = walkLimits(w.level.rooms[w.level.airlock]);
-    expect(walkTo(w, wr - 1)).toBe(true);
+    const [near, far] = H(w) > 0 ? [wl + 1, wr - 1] : [wr - 1, wl + 1];
+    expect(walkTo(w, far)).toBe(true);
     run(w, 2);
     expect(behind(w)).toBe(true);
     const was = [...w.squad.order];
-    expect(walkTo(w, wl + 1)).toBe(true);
+    expect(walkTo(w, near)).toBe(true);
     run(w, 3);
-    expect(w.squad.heading).toBe(-1);
+    expect(w.squad.heading).toBe(-H(w));
     expect(behind(w)).toBe(true);
     // The line inverted: the old rear man is nearest him now, and nobody crossed anyone.
     expect(w.squad.order[1]).toBe(was[was.length - 1]);
@@ -111,13 +114,14 @@ describe('lead mode', () => {
     const w = lead();
     expect(board(w)).toBe(true);
     const [wl, wr] = walkLimits(w.level.rooms[w.level.airlock]);
-    expect(walkTo(w, wl + 1)).toBe(true);
+    const [near, far] = H(w) > 0 ? [wl + 1, wr - 1] : [wr - 1, wl + 1];
+    expect(walkTo(w, near)).toBe(true);
     run(w, 2);
     w.toggleHold();
     w.step(STEP);
     expect(w.squad.followersHold).toBe(true);
     const held = w.squad.order.slice(1).map((m) => m.x);
-    expect(walkTo(w, wr - 1)).toBe(true);
+    expect(walkTo(w, far)).toBe(true);
     w.squad.order.slice(1).forEach((m, i) => expect(Math.abs(m.x - held[i])).toBeLessThan(0.3));
     w.toggleHold();
     expect(until(w, () => behind(w) && Math.abs(w.squad.order[1].x - w.player.x) < 3, 15)).toBe(true);
@@ -130,7 +134,7 @@ describe('lead mode', () => {
     run(w, 1);
     const p = w.player;
     const room = w.level.rooms[p.room];
-    const a = makeAlien(w.rng, p.x + 5, room.y0, p.room, 'hunt');
+    const a = makeAlien(w.rng, p.x + 5 * H(w), room.y0, p.room, 'hunt');
     w.addAlien(a);
     w.physics.addHitbox(a, 0.8, a.height);
     a.visible = true;
@@ -138,7 +142,7 @@ describe('lead mode', () => {
     run(w, 1);
     expect(p.shots).toBe(0); // nothing fires by itself
     expect(a.alive).toBe(true);
-    w.steer({ aimX: 1, aimY: 0, fire: true });
+    w.steer({ aimX: H(w), aimY: 0, fire: true });
     expect(until(w, () => !a.alive, 6)).toBe(true);
     expect(p.shots).toBeGreaterThan(0);
     expect(p.kills).toBeGreaterThan(0);
@@ -213,13 +217,13 @@ describe('lead mode', () => {
     expect(until(w, () => !p.down, 40)).toBe(true);
     expect(w.squad.order[0]).toBe(p);
     expect(p.controlled).toBe(true);
-    // He can walk again.
+    // He can walk again (back toward the lock).
     run(w, 2);
     const x0 = p.x;
-    w.steer({ moveX: -1 });
+    w.steer({ moveX: -H(w) });
     run(w, 1);
     w.steer({ moveX: 0 });
-    expect(p.x).toBeLessThan(x0 - 1);
+    expect((x0 - p.x) * H(w)).toBeGreaterThan(1);
     // Finished off: control passes down the line.
     w.damage(p, 9999, null);
     expect(p.down).toBe(true);
@@ -231,9 +235,9 @@ describe('lead mode', () => {
     expect(p.controlled).toBe(false);
     const n = w.player;
     const nx = n.x;
-    w.steer({ moveX: 1 });
+    w.steer({ moveX: H(w) });
     run(w, 1.5);
-    expect(n.x).toBeGreaterThan(nx + 1);
+    expect((n.x - nx) * H(w)).toBeGreaterThan(1);
   });
 
   it('the goldens: squad mode is untouched by all of this', () => {

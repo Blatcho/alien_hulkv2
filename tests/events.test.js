@@ -129,10 +129,14 @@ describe('ship events', () => {
   });
 
   it('a distress call puts a survivor deep in the ship and a beacon on the tracker; a sweep answers it', () => {
-    const { L, e } = withEvent('distress');
+    // A caller on or beside the way to the bridge: a sweep of a big ship can otherwise reach the
+    // bridge (and win) before it gets round to a far corner.
+    const nearRoute = (L, e) => L.mainPath.includes(e.room) || L.rooms[e.room].portals.some((pid) => { const p = L.portals[pid]; return L.mainPath.includes(p.a === e.room ? p.b : p.a); });
+    const { L, e } = withEvent('distress', 0, nearRoute);
     const w = new World(L, { params: { god: true }, doctrine: PRESETS.salvage.doctrine });
-    // Nothing hunting: the caller lives long enough to be found (here, to test the call itself).
-    for (const a of w.aliens) { a.alive = false; w.physics.removeHitbox(a); }
+    // Nothing hunting, and no vermin to draw fire past a hiding caller: he lives long enough to be
+    // found (here, to test the call itself).
+    for (const a of [...w.aliens, ...w.critters]) { a.alive = false; w.physics.removeHitbox(a); }
     w.reserve = 0;
     let call = null;
     let answered = null;
@@ -143,7 +147,14 @@ describe('ship events', () => {
     expect(w.survivors.some((s) => s.distress && s.room === e.room)).toBe(true);
     expect(w.interactables().some((t) => t.kind === 'distress')).toBe(true);
     const credits = w.credits;
-    expect(until(w, () => answered, 900)).toBe(true);
+    // Answering it: point at the beacon (as the card says) - the sweep goes to the caller.
+    let ok = false;
+    for (let k = 0; k < 12 && !ok; k++) {
+      const beacon = w.interactables().find((t) => t.kind === 'distress');
+      if (beacon) w.nudge(beacon.id);
+      ok = until(w, () => answered, 75);
+    }
+    expect(ok).toBe(true);
     expect(w.credits).toBeGreaterThanOrEqual(credits + DISTRESS_BONUS);
   }, 120000);
 });

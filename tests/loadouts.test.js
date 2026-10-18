@@ -24,13 +24,24 @@ function squadOf(archetypes, opts = {}) {
   for (const a of w.aliens) { a.alive = false; w.physics.removeHitbox(a); }
   w.reserve = 0;
   w.director.hordeSize = 0;
+  w.kit.grenades = 0; // (a tough foe is "worth a frag" - here they shoot)
   run(w, 25);
-  for (let i = 0; i < 60 * 120; i++) {
-    const lead = w.squad.leader;
-    const [wl, wr] = walkLimits(w.level.rooms[lead.room]);
-    const ahead = w.squad.heading > 0 ? wr - lead.x : lead.x - wl;
-    if (ahead > 9 && w.squad.order.every((m) => m.room === lead.room && m.mode === 'walk')) break;
-    w.step(STEP);
+  const settle = () => {
+    for (let i = 0; i < 60 * 120; i++) {
+      const lead = w.squad.leader;
+      const [wl, wr] = walkLimits(w.level.rooms[lead.room]);
+      const ahead = w.squad.heading > 0 ? wr - lead.x : lead.x - wl;
+      if (ahead > 9 && w.squad.order.every((m) => m.room === lead.room && m.mode === 'walk')) return;
+      w.step(STEP);
+    }
+  };
+  settle();
+  // The first trooper walks point - unless a dead end on the way turned the line round.
+  for (let tries = 0; tries < 3 && w.squad.leader !== w.marines[0]; tries++) {
+    for (let i = 0; i < 60 * 60 && (w.squad.trav || w.squad.action || w.squad.state !== 'advance'); i++) w.step(STEP);
+    w.turnAround();
+    run(w, 8);
+    settle();
   }
   return w;
 }

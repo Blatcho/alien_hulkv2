@@ -399,3 +399,9 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color:
 .controls div { display: grid; grid-template-columns: 90px 1fr; gap: 8px; padding: 3px 8px; border: 1px solid var(--edge); background: rgba(10,14,14,.7); }
 .controls kbd { font-family: inherit; color: var(--warn); }
 .controls span { color: var(--ink-dim); }
+
+/* ---------- hull classes (gen/classes.js): the briefing's hull picker, the blurbs */
+.hulls { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+.hulls button { font: inherit; font-size: 11px; padding: 4px 8px; cursor: pointer; background: #1d2624; color: var(--ink); border: 1px solid var(--edge); }
+.hulls button.on { border-color: var(--accent); color: #fff; box-shadow: 0 0 10px var(--glow); background: #243029; }
+.intel .bl, .ship .bl { font-size: 12px; color: var(--ink-dim); margin: 4px 0 2px; text-transform: none; }

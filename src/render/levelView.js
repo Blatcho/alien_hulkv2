@@ -38,20 +38,28 @@ export class LevelView {
     return e ? e.gltf.scene.getObjectByName(name) ?? null : null;
   }
 
-  /** Boarding ship + tube sections between its collar and the derelict's hull. */
+  /**
+   * Boarding ship + tube sections between its collar and the derelict's hull. Modelled docked
+   * on the port side; for a starboard dock (level.mirror) the pieces are placed in the mirrored
+   * frame and flipped (the batcher rights their winding).
+   */
   buildDock(room) {
     const b = new Batch();
-    const M = new THREE.Matrix4();
+    const L = this.level;
+    const X = L.cols * WORLD.CELL_W;
+    const flip = L.mirror ? new THREE.Matrix4().makeScale(-1, 1, 1).setPosition(X, 0, 0) : new THREE.Matrix4();
+    const u = L.mirror ? { x0: X - room.x1, x1: X - room.x0, collar: X - room.collar } : room;
+    const at = (x, y, z = 0) => new THREE.Matrix4().multiplyMatrices(flip, new THREE.Matrix4().makeTranslation(x, y, z));
     const ship = this.dockPiece('dropship');
-    if (ship) b.addObject(ship, M.makeTranslation(room.collar, room.y0, 0));
-    else b.add(boxGeo(room.collar - room.x0 + 6, 5.2, 3.6, 0x3a4436), M.makeTranslation(room.x0 + (room.collar - room.x0) / 2 - 2, room.y0 + 2.1, -0.6), this.fallbackMat);
+    if (ship) b.addObject(ship, at(u.collar, room.y0, 0));
+    else b.add(boxGeo(u.collar - u.x0 + 6, 5.2, 3.6, 0x3a4436), at(u.x0 + (u.collar - u.x0) / 2 - 2, room.y0 + 2.1, -0.6), this.fallbackMat);
     const tube = this.dockPiece('dock_tube');
-    for (let x = room.collar; x < room.x1 - 0.01; x += 2) {
-      if (tube) b.addObject(tube, M.makeTranslation(x, room.y0, 0));
-      else b.add(boxGeo(2, 0.3, 3, 0x2a2e30), M.makeTranslation(x + 1, room.y0 + 3.35, -0.5), this.fallbackMat);
+    for (let x = u.collar; x < u.x1 - 0.01; x += 2) {
+      if (tube) b.addObject(tube, at(x, room.y0, 0));
+      else b.add(boxGeo(2, 0.3, 3, 0x2a2e30), at(x + 1, room.y0 + 3.35, -0.5), this.fallbackMat);
     }
-    for (const lx of [room.collar - 3, room.collar - 7, room.collar - 11]) {
-      this.lamps.push({ x: lx, y: room.y0 + 3.6, z: 0.4, color: 0xdfeaff, room: room.id, flicker: 0, dim: 1 });
+    for (const lx of [u.collar - 3, u.collar - 7, u.collar - 11]) {
+      this.lamps.push({ x: L.mirror ? X - lx : lx, y: room.y0 + 3.6, z: 0.4, color: 0xdfeaff, room: room.id, flicker: 0, dim: 1 });
     }
     return b.build('dock');
   }
@@ -193,9 +201,16 @@ export class LevelView {
         if (trim) for (let x = s.x0 + 1; x <= s.x1 - 1; x += 2) b.addObject(trim, M.makeTranslation(x, s.y1, 0));
       } else if (s.kind === 'hull') {
         const air = this.isAirlockHull(s);
-        if (air === 'upper') continue; // part of the docking hull piece below
-        const piece = air === 'dock' ? (this.dockPiece('hull_dock') ?? this.kit('hull_airlock')) : this.kit(air ? 'hull_airlock' : 'hull_end');
-        if (piece) b.addObject(piece, M.makeTranslation(cx, air === 'dock' ? this.level.rooms[this.level.airlock].y0 : s.y0, 0));
+        if (air === 'dock') {
+          // The docking hull: one full-height piece with the lock cut through it, facing the tube.
+          const piece = this.dockPiece('hull_dock') ?? this.kit('hull_airlock');
+          const H = this.level.heading ?? 1;
+          if (piece) b.addObject(piece, M.makeScale(H, 1, 1).setPosition(cx, this.level.rooms[this.level.airlock].y0, 0));
+          else b.add(boxGeo(w, DECK_H - SLAB, depth, COL.hull), M.makeTranslation(cx, this.level.rooms[this.level.airlock].y0 + (DECK_H - SLAB) / 2, zc), this.fallbackMat);
+          continue;
+        }
+        const piece = this.kit('hull_end');
+        if (piece) b.addObject(piece, M.makeTranslation(cx, s.y0, 0));
         else b.add(boxGeo(w, h, depth, COL.hull), M.makeTranslation(cx, cy, zc), this.fallbackMat);
       }
     }
@@ -234,12 +249,13 @@ export class LevelView {
     return b.build('structure');
   }
 
-  /** 'dock' / 'upper' for the docking hull (door cut through it), true for a plain airlock hull. */
+  /** 'dock' for the hull the boarding tube meets (the lock is cut through it), else false. */
   isAirlockHull(s) {
     const air = this.level.rooms[this.level.airlock];
-    if (Math.abs(s.x1 - air.x0) > 0.01) return false;
-    if (this.level.dock === undefined) return Math.abs(s.y0 - air.y0) < 0.01;
-    return Math.abs(s.y0 - air.y0) < 0.01 ? 'dock' : 'upper';
+    const H = this.level.heading ?? 1;
+    const atWall = H > 0 ? Math.abs(s.x1 - air.x0) < 0.01 : Math.abs(s.x0 - air.x1) < 0.01;
+    const onDeck = s.y0 >= air.y0 - 0.01 && s.y0 < air.y0 + DECK_H - 0.01;
+    return atWall && onDeck ? 'dock' : false;
   }
 
   // ------------------------------------------------------------------ doors & props
