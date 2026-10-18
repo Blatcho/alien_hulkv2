@@ -1,13 +1,17 @@
 // Builds the ship's 3D scenery from level data + the Blender room kit (roomkit.glb, props.glb).
 // Static pieces are batched per room; doors, props with hinged lids and lamps stay separate
 // so they can animate. Every kit piece has a box fallback, so the game runs without art.
+// The hull class's look (gen/classes.js) casts its tint over the kit, wears the wall tiles, picks
+// the lamp colour and the wall variants, and puts its silhouette outside the hull (exterior.js).
 import * as THREE from 'three';
 import { WORLD } from '../core/config.js';
 import { Rng } from '../core/rng.js';
+import { HULL_CLASSES } from '../gen/classes.js';
 import { PROPS, ROOM_TYPES } from '../gen/templates.js';
 import { RARITY } from '../sim/loot.js';
 import { shaftOpening } from '../gen/level.js';
 import { Batch, boxGeo } from './batch.js';
+import { exteriorPieces } from './exterior.js';
 
 const { DECK_H, SLAB, WALL, BACK_Z, FRONT_Z, DOOR_H } = WORLD;
 const INNER_H = DECK_H - SLAB;
@@ -30,7 +34,43 @@ export class LevelView {
     this.loose = [];          // objects added to the group outside the per-room batches
     this.welds = new Map();   // key -> {mesh, t}: fresh welds (doors, vents), glowing and cooling
     this.fallbackMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0.25 });
-    this.glowMats = [];
+    this.glowMats = new Map();   // emissive colour -> material (exterior lights)
+    // Outside the hull only the fill light reaches: the silhouette keeps a floor of its own light.
+    this.exteriorMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0.2, emissive: 0x2a3038, emissiveIntensity: 0.55 });
+    this.look = HULL_CLASSES[level.cls]?.look ?? null;
+  }
+
+  // ------------------------------------------------------------------ the class's look
+
+  /** The class's cast over the kit ([r, g, b] multipliers), or null for none. */
+  classTint() { return this.look?.tint ?? null; }
+
+  /** The cast for one room: on a station a little different per room (a patchwork of refits). */
+  roomTint(rng) {
+    const L = this.look;
+    if (!L) return null;
+    if (!L.jitter) return L.tint;
+    const j = rng.float(-L.jitter, L.jitter);
+    const w = rng.float(-L.jitter, L.jitter);
+    return [L.tint[0] * (1 + j + w), L.tint[1] * (1 + j), L.tint[2] * (1 + j - w)];
+  }
+
+  /** One wall tile's share of the wear: darker here and there, rusting where the class rusts. */
+  tileTint(base, rng) {
+    const L = this.look;
+    if (!L) return null;
+    const k = 1 - L.wear * rng.float(0, 0.3);
+    const r = rng.chance(L.rust * 0.3) ? [1.12, 0.92, 0.78] : [1, 1, 1];
+    return [base[0] * k * r[0], base[1] * k * r[1], base[2] * k * r[2]];
+  }
+
+  glowMat(color) {
+    let m = this.glowMats.get(color);
+    if (!m) {
+      m = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: color, emissiveIntensity: 1.25, roughness: 0.6 });
+      this.glowMats.set(color, m);
+    }
+    return m;
   }
 
   dockPiece(name) {
@@ -78,6 +118,7 @@ export class LevelView {
     const L = this.level;
     for (const room of L.rooms) this.group.add(room.exterior ? this.buildDock(room) : this.buildRoom(room));
     this.group.add(this.buildStructure());
+    this.group.add(this.buildExterior());
     for (const p of L.portals) {
       if (p.kind === 'door') this.addDoor(p);
     }
@@ -91,25 +132,28 @@ export class LevelView {
   buildRoom(room) {
     const b = new Batch();
     const rng = new Rng(room.seed ?? room.id, 'dress');
+    const wear = new Rng(room.seed ?? room.id, 'wear'); // its own stream: the wear adds to the dressing, never reshuffles it
     const tpl = ROOM_TYPES[room.type];
     const M = new THREE.Matrix4();
     const at = (x, y, z = 0, sx = 1, sy = 1) => M.makeScale(sx, sy, 1).setPosition(x, y, z);
+    const tint = this.roomTint(wear);
 
-    // Back wall panels, 2 m modules.
-    const variants = Object.entries(tpl.backdrop);
+    // Back wall panels, 2 m modules - the room type's variants, or the class's own for that type.
+    const variants = Object.entries(this.look?.backdrops?.[room.type] ?? tpl.backdrop);
     let lastWindow = -99;
     for (let x = room.x0 + 1, i = 0; x < room.x1; x += 2, i++) {
       let v = rng.weighted(variants);
       if (v === 'window' && i - lastWindow < 3) v = 'plain';
       if (v === 'window') lastWindow = i;
       const piece = this.kit(`wall_${v}`) ?? this.kit('wall_plain');
-      if (piece) b.addObject(piece, at(x, room.y0));
-      else b.add(boxGeo(2, INNER_H, 0.3, v === 'window' ? 0x1a2a3a : COL.wall), at(x, room.y0 + INNER_H / 2, BACK_Z - 0.15), this.fallbackMat);
+      const t = this.tileTint(tint, wear);
+      if (piece) b.addObject(piece, at(x, room.y0), t);
+      else b.add(boxGeo(2, INNER_H, 0.3, v === 'window' ? 0x1a2a3a : COL.wall), at(x, room.y0 + INNER_H / 2, BACK_Z - 0.15), this.fallbackMat, t);
     }
 
     // Lamps along the back wall. On a deck whose power can fail (ship events) the fixtures stay
     // separate objects, so they can go dark with the deck.
-    const lampColor = room.light === 'red' ? 0xff2a1a : 0xcfe8ff;
+    const lampColor = room.light === 'red' ? 0xff2a1a : (this.look?.lamp ?? 0xcfe8ff);
     const lampPiece = this.kit(room.light === 'red' ? 'lamp_red' : 'lamp_white');
     const canFail = this.level.events?.some((e) => e.kind === 'power' && e.rooms.includes(room.id));
     for (let x = room.x0 + 3; x < room.x1 - 1; x += 6) {
@@ -121,7 +165,7 @@ export class LevelView {
         o.traverse((n) => { if (n.isMesh) { n.material = n.material.clone(); mats.push({ m: n.material, e: n.material.emissiveIntensity ?? 1 }); } });
         this.loose.push(o);
         this.lampObjs.push({ room: room.id, mats, k: 1 });
-      } else if (lampPiece) b.addObject(lampPiece, at(lx, room.y0));
+      } else if (lampPiece) b.addObject(lampPiece, at(lx, room.y0), tint);
       this.lamps.push({ x: lx, y: room.y0 + 3.5, z: BACK_Z + 0.6, color: lampColor, room: room.id,
         flicker: room.light === 'flicker' ? rng.float(0.5, 3) : 0, dim: (room.light === 'dim' ? 0.5 : 1) * (this.level.mods?.blackout ? 0.2 : 1) });
     }
@@ -130,7 +174,7 @@ export class LevelView {
     for (let x = room.x0 + 1; x < room.x1; x += 2) {
       if (rng.chance(0.35)) {
         const piece = this.kit(rng.chance(0.6) || canFail ? 'ceiling_pipes' : 'ceiling_lamp');
-        if (piece) b.addObject(piece, at(x, room.y0));
+        if (piece) b.addObject(piece, at(x, room.y0), tint);
       }
     }
     // Organic dressing is modelled in place (puddles/mounds at the wall base); cobwebs are
@@ -147,8 +191,8 @@ export class LevelView {
     for (const vid of room.vents ?? []) {
       const v = this.level.vents[vid];
       const piece = this.kit(v.ceiling ? 'vent_ceiling' : 'vent_wall');
-      if (piece) b.addObject(piece, at(v.x, room.y0));
-      else b.add(boxGeo(1, v.ceiling ? 0.1 : 0.6, 0.1, 0x111416), at(v.x, v.ceiling ? room.y1 - 0.05 : room.y0 + 0.45, BACK_Z + 0.1), this.fallbackMat);
+      if (piece) b.addObject(piece, at(v.x, room.y0), tint);
+      else b.add(boxGeo(1, v.ceiling ? 0.1 : 0.6, 0.1, 0x111416), at(v.x, v.ceiling ? room.y1 - 0.05 : room.y0 + 0.45, BACK_Z + 0.1), this.fallbackMat, tint);
     }
 
     // Ladders & stairs whose lower end is in this room.
@@ -157,7 +201,7 @@ export class LevelView {
       if (p.a !== room.id || p.kind === 'door') continue;
       if (p.kind === 'ladder') {
         const piece = this.kit('ladder');
-        if (piece) b.addObject(piece, at(p.x, p.yLow));
+        if (piece) b.addObject(piece, at(p.x, p.yLow), tint);
         else {
           for (const dx of [-0.35, 0.35]) b.add(boxGeo(0.08, 6, 0.08, COL.ladder), at(p.x + dx, p.yLow + 3, WORLD.LADDER_Z), this.fallbackMat);
           for (let y = 0.3; y < 6; y += 0.35) b.add(boxGeo(0.7, 0.05, 0.05, COL.ladder), at(p.x, p.yLow + y, WORLD.LADDER_Z), this.fallbackMat);
@@ -165,7 +209,7 @@ export class LevelView {
       } else {
         const x0 = Math.min(p.xb, p.xt);
         const piece = this.kit('stairs');
-        if (piece) b.addObject(piece, at(p.dir > 0 ? x0 : x0 + WORLD.STAIRS_RUN, p.yLow, 0, p.dir));
+        if (piece) b.addObject(piece, at(p.dir > 0 ? x0 : x0 + WORLD.STAIRS_RUN, p.yLow, 0, p.dir), tint);
         else {
           for (let k = 0; k < 14; k++) {
             const t = (k + 0.5) / 14;
@@ -191,27 +235,28 @@ export class LevelView {
     const depth = front - BACK_Z + 0.4;
     const zc = (front + BACK_Z - 0.4) / 2;
     const trim = this.kit('floor_trim');
+    const T = this.classTint();
     for (const s of L.solids) {
       const w = s.x1 - s.x0;
       const h = s.y1 - s.y0;
       const cx = (s.x0 + s.x1) / 2;
       const cy = (s.y0 + s.y1) / 2;
       if (s.kind === 'slab') {
-        b.add(boxGeo(w, h, depth, COL.slab), M.makeTranslation(cx, cy, zc), this.fallbackMat);
-        if (trim) for (let x = s.x0 + 1; x <= s.x1 - 1; x += 2) b.addObject(trim, M.makeTranslation(x, s.y1, 0));
+        b.add(boxGeo(w, h, depth, COL.slab), M.makeTranslation(cx, cy, zc), this.fallbackMat, T);
+        if (trim) for (let x = s.x0 + 1; x <= s.x1 - 1; x += 2) b.addObject(trim, M.makeTranslation(x, s.y1, 0), T);
       } else if (s.kind === 'hull') {
         const air = this.isAirlockHull(s);
         if (air === 'dock') {
           // The docking hull: one full-height piece with the lock cut through it, facing the tube.
           const piece = this.dockPiece('hull_dock') ?? this.kit('hull_airlock');
           const H = this.level.heading ?? 1;
-          if (piece) b.addObject(piece, M.makeScale(H, 1, 1).setPosition(cx, this.level.rooms[this.level.airlock].y0, 0));
-          else b.add(boxGeo(w, DECK_H - SLAB, depth, COL.hull), M.makeTranslation(cx, this.level.rooms[this.level.airlock].y0 + (DECK_H - SLAB) / 2, zc), this.fallbackMat);
+          if (piece) b.addObject(piece, M.makeScale(H, 1, 1).setPosition(cx, this.level.rooms[this.level.airlock].y0, 0), T);
+          else b.add(boxGeo(w, DECK_H - SLAB, depth, COL.hull), M.makeTranslation(cx, this.level.rooms[this.level.airlock].y0 + (DECK_H - SLAB) / 2, zc), this.fallbackMat, T);
           continue;
         }
         const piece = this.kit('hull_end');
-        if (piece) b.addObject(piece, M.makeTranslation(cx, s.y0, 0));
-        else b.add(boxGeo(w, h, depth, COL.hull), M.makeTranslation(cx, cy, zc), this.fallbackMat);
+        if (piece) b.addObject(piece, M.makeTranslation(cx, s.y0, 0), T);
+        else b.add(boxGeo(w, h, depth, COL.hull), M.makeTranslation(cx, cy, zc), this.fallbackMat, T);
       }
     }
     // Walkways over shaft openings (the opening is behind the walkway in depth).
@@ -219,10 +264,10 @@ export class LevelView {
       if (p.kind === 'door') continue;
       const [h0, h1] = shaftOpening(p);
       const back = -0.55;
-      b.add(boxGeo(h1 - h0, SLAB, front - back, COL.slab), M.makeTranslation((h0 + h1) / 2, p.yHigh - SLAB / 2, (front + back) / 2), this.fallbackMat);
+      b.add(boxGeo(h1 - h0, SLAB, front - back, COL.slab), M.makeTranslation((h0 + h1) / 2, p.yHigh - SLAB / 2, (front + back) / 2), this.fallbackMat, T);
       if (p.kind === 'ladder') {
         const rim = this.kit('shaft_rim');
-        if (rim) b.addObject(rim, M.makeTranslation(p.x, p.yHigh, 0));
+        if (rim) b.addObject(rim, M.makeTranslation(p.x, p.yHigh, 0), T);
       }
     }
     // Bulkheads between neighbouring rooms.
@@ -232,21 +277,32 @@ export class LevelView {
         const xb = rooms[i].x1;
         const door = L.portals.find((p) => p.kind === 'door' && p.a === rooms[i].id);
         const piece = this.kit(door ? 'bulkhead_door' : 'bulkhead_solid');
-        if (piece) b.addObject(piece, M.makeTranslation(xb, rooms[i].y0, 0));
+        if (piece) b.addObject(piece, M.makeTranslation(xb, rooms[i].y0, 0), T);
         else {
           const y0 = rooms[i].y0 + (door ? DOOR_H : 0);
           const y1 = rooms[i].y0 + INNER_H;
-          b.add(boxGeo(WALL, y1 - y0, depth, COL.bulk), M.makeTranslation(xb, (y0 + y1) / 2, zc), this.fallbackMat);
-          if (door) b.add(boxGeo(WALL, DOOR_H, 0.4, COL.bulk), M.makeTranslation(xb, rooms[i].y0 + DOOR_H / 2, BACK_Z + 0.2), this.fallbackMat);
+          b.add(boxGeo(WALL, y1 - y0, depth, COL.bulk), M.makeTranslation(xb, (y0 + y1) / 2, zc), this.fallbackMat, T);
+          if (door) b.add(boxGeo(WALL, DOOR_H, 0.4, COL.bulk), M.makeTranslation(xb, rooms[i].y0 + DOOR_H / 2, BACK_Z + 0.2), this.fallbackMat, T);
         }
       }
     }
     // Outer plating above the roof and below the keel gives the ship a silhouette against space.
     for (const s of L.solids.filter((q) => q.kind === 'slab')) {
-      if (Math.abs(s.y1 - L.decks * DECK_H) < 0.01) b.add(boxGeo(s.x1 - s.x0, 1.4, depth, COL.plating), M.makeTranslation((s.x0 + s.x1) / 2, s.y1 + 0.7, zc - 0.4), this.fallbackMat);
-      if (Math.abs(s.y1) < 0.01) b.add(boxGeo(s.x1 - s.x0, 1.6, depth, COL.plating), M.makeTranslation((s.x0 + s.x1) / 2, s.y0 - 0.8, zc - 0.4), this.fallbackMat);
+      if (Math.abs(s.y1 - L.decks * DECK_H) < 0.01) b.add(boxGeo(s.x1 - s.x0, 1.4, depth, COL.plating), M.makeTranslation((s.x0 + s.x1) / 2, s.y1 + 0.7, zc - 0.4), this.fallbackMat, T);
+      if (Math.abs(s.y1) < 0.01) b.add(boxGeo(s.x1 - s.x0, 1.6, depth, COL.plating), M.makeTranslation((s.x0 + s.x1) / 2, s.y0 - 0.8, zc - 0.4), this.fallbackMat, T);
     }
     return b.build('structure');
+  }
+
+  /** The class's silhouette beyond the hull (exterior.js): drives, pods, masts, running lights. */
+  buildExterior() {
+    const b = new Batch();
+    const M = new THREE.Matrix4();
+    for (const p of exteriorPieces(this.level)) {
+      const geo = p.glow ? boxGeo(p.x1 - p.x0, p.y1 - p.y0, p.z1 - p.z0, 0x000000, { shadeTop: 1, shadeBottom: 1 }) : boxGeo(p.x1 - p.x0, p.y1 - p.y0, p.z1 - p.z0, p.color);
+      b.add(geo, M.makeTranslation((p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2, (p.z0 + p.z1) / 2), p.glow ? this.glowMat(p.glow) : this.exteriorMat);
+    }
+    return b.build('exterior');
   }
 
   /** 'dock' for the hull the boarding tube meets (the lock is cut through it), else false. */
@@ -280,7 +336,7 @@ export class LevelView {
     let obj;
     if (node) obj = node.clone(true);
     else {
-      const h = prop.kind === 'locker' ? 2.2 : prop.kind === 'reactor' ? 4 : prop.kind === 'beam' ? 0.35 : 1.0;
+      const h = def.h ?? (prop.kind === 'locker' ? 2.2 : prop.kind === 'reactor' ? 4 : prop.kind === 'beam' ? 0.35 : 1.0);
       const g = boxGeo(def.w, h, 0.8, prop.loot ? 0x6a5a3a : prop.objective ? 0x3a6a5a : COL.prop);
       g.translate(0, h / 2 + (prop.kind === 'beam' ? 1.5 : 0), 0);
       obj = new THREE.Mesh(g, this.fallbackMat);

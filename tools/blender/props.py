@@ -32,6 +32,7 @@ WIDTH = {
     "control_panel": 2.4, "debris": 1.5, "beam": 1.8, "airlock_hatch": 1.0,
     "barrel_explosive": 0.9, "barrel_wreck": 1.0, "console_broken": 1.8, "weapon_case": 1.4, "safe": 1.0, "scorch": 2.0,
     "barricade": 1.2, "turret": 1.0, "eggs": 1.6, "cryopod": 1.3, "body": 2.0,
+    "missile": 2.6, "planter": 2.0, "specimen_tank": 1.3, "lab_bench": 2.2, "galley_counter": 2.2, "kiosk": 1.4,
 }
 BUDGET = {"reactor": 3000, "control_panel": 3000}
 
@@ -1225,10 +1226,204 @@ def body():
     return g.build("body", grime=prop_grime(301, h=0.4))
 
 
+def seam(g, x0, x1, z0, z1, y):
+    """A dark slot in a front face at y (a coin slot, a hatch gap)."""
+    g.add(quad(x0, x1, z0, z1, y), C["void"], jitter=0.0)
+
+
+# ================================================================ class props (gen/classes.js rooms)
+
+def missile():
+    """A ship-killer on its cradle in a corvette's magazine (~2.6 m along X): a grey body with a
+    hazard band, tail fins, a red-tipped seeker and the loading stencils."""
+    g = Geo(seed=311)
+    body, body_dk = "#5f666c", "#4a5056"
+    for x in (-0.62, 0.62):   # cradle: stands with a vee
+        g.add(bx(x - 0.16, x + 0.16, -0.3, 0.3, 0.0, 0.1, bevel=0.01), C["dark"])
+        g.add(bx(x - 0.06, x + 0.06, -0.08, 0.08, 0.1, 0.42), C["rib"])
+        g.add(bx(x - 0.3, x + 0.3, -0.05, 0.05, 0.42, 0.5), C["steel"], top=0.4)
+    g.add(cyl(0.27, 2.0, (0.0, 0.0, 0.78), rot=(0, 90, 0), verts=14), body, jitter=0.03)
+    g.add(cyl(0.27, 0.32, (1.16, 0.0, 0.78), rot=(0, 90, 0), verts=14, r2=0.05), body_dk)   # nose
+    g.glow(cyl(0.05, 0.04, (1.33, 0.0, 0.78), rot=(0, 90, 0), verts=8), "red")           # seeker
+    for a in (0, 90, 180, 270):   # tail fins
+        f = bx(-1.3, -0.95, -0.02, 0.02, 0.78, 1.16)
+        rotate(f, a, "X", (0, 0, 0.78))
+        g.add(f, body_dk, jitter=0.04)
+    g.add(cyl(0.275, 0.12, (-0.55, 0.0, 0.78), rot=(0, 90, 0), verts=14), C["haz"], jitter=0.06)
+    g.add(cyl(0.275, 0.05, (-0.46, 0.0, 0.78), rot=(0, 90, 0), verts=14), C["haz_dk"], jitter=0.0)
+    g.add(cyl(0.275, 0.05, (-0.64, 0.0, 0.78), rot=(0, 90, 0), verts=14), C["haz_dk"], jitter=0.0)
+    g.add(cyl(0.285, 0.04, (0.6, 0.0, 0.78), rot=(0, 90, 0), verts=14), C["rib"])        # a joint ring
+    g.add(stencil("AGM-9  INERT", -0.3, 0.84, -0.275, px=0.016), C["stencil"], jitter=0.0)
+    g.add(stencil("LIFT HERE", -0.2, 0.62, -0.275, px=0.011), C["stencil_y"], jitter=0.0)
+    g.add(tube([(-0.9, -0.1, 0.52), (-0.6, -0.14, 0.4), (-0.3, -0.12, 0.5)], 0.014, verts=4), C["cable"])  # a loose cable
+    return g.build("missile", grime=prop_grime(311, h=1.2))
+
+
+def planter():
+    """A hydroponics trough on legs (~2 m): soil and whatever still grows in it, a drip line, and
+    the grow lamp over it still lit pink."""
+    g = Geo(seed=321)
+    green, green_lt, green_dk = "#3f6a2a", "#5a8a3a", "#2c4a1f"
+    for x in (-0.9, 0.9):
+        for y in (-0.28, 0.28):
+            g.add(bx(x - 0.03, x + 0.03, y - 0.03, y + 0.03, 0.0, 0.55), C["rib"])
+    g.add(bx(-1.0, 1.0, -0.36, 0.36, 0.55, 0.95, bevel=0.012), C["panel"], jitter=0.03)
+    g.add(bx(-1.02, 1.02, -0.38, 0.38, 0.9, 0.95), C["steel"], top=0.4)
+    g.add(bx(-0.96, 0.96, -0.32, 0.32, 0.93, 0.96), "#2a2219", jitter=0.08)   # soil
+    g.add(stripes(-0.9, -0.3, 0.6, 0.72, -0.365, width=0.07, slant=0.8), C["haz"], jitter=0.1)
+    g.add(stencil("BED 7  LEAF", -0.1, 0.62, -0.365, px=0.014), C["stencil"], jitter=0.0)
+    rnd = random.Random(321)
+    for i in range(9):   # plants: a stalk and a tuft of leaves, a few gone brown
+        x = -0.85 + i * 0.21 + rnd.uniform(-0.04, 0.04)
+        y = rnd.uniform(-0.18, 0.18)
+        h = rnd.uniform(0.25, 0.55)
+        dead = rnd.random() < 0.3
+        g.add(tube([(x, y, 0.95), (x + rnd.uniform(-0.05, 0.05), y, 0.95 + h)], 0.012, verts=4),
+              "#5a4a2a" if dead else green_dk)
+        g.add(lump((x, y, 0.95 + h), 0.11, seed=30 + i, seg=6, rings=4, rough=0.35, scale=(1.3, 1.0, 0.7)),
+              "#6a5230" if dead else rnd.choice((green, green_lt)), jitter=0.08)
+    g.add(tube([(-1.0, 0.3, 0.9), (-1.0, 0.3, 1.5), (1.0, 0.3, 1.5), (1.0, 0.3, 0.9)], 0.016, verts=5), C["pipe_g"])  # drip line
+    for x in (-0.95, 0.95):   # uprights and the lamp bar
+        g.add(bx(x - 0.025, x + 0.025, 0.2, 0.25, 0.95, 1.6), C["rib"])
+    g.add(bx(-1.0, 1.0, 0.1, 0.3, 1.6, 1.7, bevel=0.01), C["dark"])
+    g.glow(bx(-0.95, 0.95, 0.12, 0.28, 1.595, 1.6), "pink")
+    return g.build("planter", grime=prop_grime(321, h=1.0))
+
+
+def specimen_tank():
+    """A specimen tank (~1.3 m wide, 2.3 m tall): a plinth with its readout, a cylinder of murky
+    fluid lit from below with its front open to the camera, something suspended in it, feed lines
+    and the cap ring."""
+    g = Geo(seed=331)
+    g.add(bx(-0.62, 0.62, -0.5, 0.5, 0.0, 0.36, bevel=0.015), C["dark"])
+    g.add(bx(-0.58, 0.58, -0.46, 0.46, 0.36, 0.42), C["steel"], top=0.4)
+    screen_content(g, -0.42, 0.0, 0.1, 0.3, -0.505, 31, "bars")
+    g.glow(bx(0.2, 0.26, -0.505, -0.5, 0.16, 0.22), "amber")
+    g.add(cyl(0.5, 0.08, (0, 0, 0.46), verts=16), C["rib"])
+    g.glow(cyl(0.47, 0.05, (0, 0, 0.5), verts=16), "glow")                              # the lit floor of the tank
+    front = [(math.sin(math.radians(a)), -math.cos(math.radians(a)), 0.0) for a in [-82.5 + 15 * i for i in range(12)]]
+    g.add(cyl(0.5, 1.5, (0, 0, 1.27), verts=16, cap=False), "#0e2a2c", cull=front, jitter=0.0)   # the back half of the glass
+    g.add(lump((0.0, 0.0, 1.2), 0.3, seed=7, seg=8, rings=6, rough=0.2, scale=(0.6, 0.6, 1.5)), "#1c2a2c")   # the specimen
+    g.add(lump((0.05, -0.05, 1.5), 0.14, seed=8, seg=6, rings=4, rough=0.3), "#223436")
+    for i, (x, z) in enumerate(((-0.2, 0.7), (0.25, 0.95), (-0.1, 1.6), (0.3, 1.8), (-0.3, 1.3))):   # bubbles
+        g.glow(cyl(0.015 + 0.004 * i, 0.02, (x, -0.2, z), verts=5), "glow")
+    g.add(cyl(0.52, 0.12, (0, 0, 2.08), verts=16), C["steel"], top=0.35)
+    g.add(cyl(0.3, 0.2, (0, 0, 2.2), verts=12), C["rib"])
+    for side in (-1, 1):
+        g.add(tube([(side * 0.3, 0.3, 2.25), (side * 0.45, 0.42, 1.6), (side * 0.5, 0.42, 0.5)], 0.028, verts=5), C["pipe_g"])
+    g.glow(bx(-0.08, 0.08, -0.31, -0.3, 2.12, 2.16), "red")
+    g.add(stencil("SPEC 11", -0.42, 2.03, -0.525, px=0.014), C["stencil"], jitter=0.0)
+    return g.build("specimen_tank", grime=prop_grime(331, h=2.0))
+
+
+def lab_bench():
+    """A laboratory bench (~2.2 m): drawers below, a steel top with glassware in a rack, a flask
+    with something still glowing in it, a microscope, a centrifuge and a readout."""
+    g = Geo(seed=341)
+    g.add(bx(-1.05, 1.05, -0.38, 0.38, 0.08, 0.86, bevel=0.01), C["panel"], jitter=0.02)
+    g.add(bx(-1.05, 1.05, -0.39, 0.39, 0.0, 0.08), C["kick"])
+    for i in range(3):   # drawer fronts with handles
+        x0 = -0.98 + i * 0.66
+        g.add(plate(x0, x0 + 0.6, 0.14, 0.78, -0.4, -0.38, steps=[(0.02, -0.006)], bevel=0.006), C["panel2"], jitter=0.02)
+        g.add(bx(x0 + 0.2, x0 + 0.4, -0.43, -0.4, 0.44, 0.47), C["steel_lt"])
+    g.add(bx(-1.1, 1.1, -0.42, 0.42, 0.86, 0.94, bevel=0.012), "#5f676e", top=0.4)
+    g.add(bx(-0.98, -0.5, -0.2, 0.2, 0.94, 0.97), C["dark"])   # the rack
+    for x, r, h, rgb in ((-0.9, 0.04, 0.22, "#3f5a4a"), (-0.78, 0.035, 0.18, "#6b5a30"), (-0.66, 0.045, 0.26, "#2f4a44"),
+                         (-0.56, 0.03, 0.16, "#5a2a22")):
+        g.add(cyl(r, h, (x, 0.0, 0.97 + h / 2), verts=7), rgb)
+        g.add(cyl(r * 0.5, 0.08, (x, 0.0, 0.97 + h + 0.04), verts=6), rgb)
+    g.add(cyl(0.09, 0.14, (-0.35, 0.05, 1.01), verts=8, r2=0.04), "#2f4a44")   # the flask
+    g.glow(cyl(0.07, 0.04, (-0.35, 0.05, 0.96), verts=8), "glow")
+    # microscope: base, column, arm, eyepiece, stage
+    g.add(bx(0.0, 0.3, -0.14, 0.14, 0.94, 0.99, bevel=0.008), C["dark"])
+    g.add(bx(0.2, 0.28, -0.04, 0.04, 0.99, 1.34), C["steel"])
+    g.add(tube([(0.24, 0.0, 1.3), (0.1, 0.0, 1.36), (0.04, 0.0, 1.46)], 0.03, verts=6), C["steel"])
+    g.add(cyl(0.025, 0.14, (0.08, 0.0, 1.18), verts=6), C["dark"])
+    g.add(cyl(0.05, 0.015, (0.1, 0.0, 1.0), verts=8), C["steel_lt"])
+    # centrifuge and the readout
+    g.add(cyl(0.16, 0.2, (0.62, 0.0, 1.04), verts=10, bevel=0.01), C["med"])
+    g.add(cyl(0.12, 0.02, (0.62, 0.0, 1.15), verts=10), C["dark"])
+    g.glow(bx(0.52, 0.56, -0.165, -0.16, 1.0, 1.03), "amber")
+    g.add(bx(0.78, 1.04, -0.08, 0.02, 0.94, 1.22), C["panel3"])
+    screen_content(g, 0.8, 1.02, 1.0, 1.18, -0.085, 34, "ecg")
+    g.add(stencil("BENCH 2", -0.98, 0.3, -0.4, px=0.012), C["stencil"], jitter=0.0)
+    return g.build("lab_bench", grime=prop_grime(341, h=0.9))
+
+
+def galley_counter():
+    """A galley counter (~2.2 m): the hob with its rings and a pot still on one, a tray of bowls,
+    the order-ticket rail, and a rail of utensils hung above."""
+    g = Geo(seed=351)
+    g.add(bx(-1.05, 1.05, -0.4, 0.4, 0.08, 0.86, bevel=0.01), C["panel"], jitter=0.02)
+    g.add(bx(-1.05, 1.05, -0.41, 0.41, 0.0, 0.08), C["kick"])
+    for i in range(2):   # cupboard doors
+        x0 = -0.98 + i * 1.0
+        g.add(plate(x0, x0 + 0.94, 0.14, 0.78, -0.42, -0.4, steps=[(0.02, -0.006)], bevel=0.006), C["panel2"], jitter=0.02)
+        g.add(bx(x0 + 0.84 - i * 0.74, x0 + 0.88 - i * 0.74, -0.45, -0.42, 0.4, 0.56), C["steel_lt"])
+    g.add(bx(-1.1, 1.1, -0.44, 0.44, 0.86, 0.94, bevel=0.012), C["steel"], top=0.4)
+    g.add(bx(-0.95, -0.15, -0.36, 0.36, 0.94, 0.97), C["dark"])   # the hob
+    for x in (-0.75, -0.35):
+        g.add(cyl(0.14, 0.02, (x, 0.0, 0.98), verts=12), C["rib"])
+        g.add(cyl(0.11, 0.01, (x, 0.0, 0.995), verts=12), C["dark"])
+    g.add(cyl(0.15, 0.2, (-0.75, 0.0, 1.09), verts=12), C["steel"], jitter=0.03)   # the pot
+    g.add(cyl(0.16, 0.025, (-0.75, 0.0, 1.2), verts=12), C["steel_lt"])
+    g.add(tube([(-0.9, 0.0, 1.17), (-0.95, 0.0, 1.26), (-0.9, 0.0, 1.3)], 0.012, verts=4), C["dark"])   # its handle
+    g.add(bx(0.1, 0.7, -0.3, 0.3, 0.94, 0.965, bevel=0.006), "#4a4e44")   # a tray of bowls
+    for x in (0.22, 0.42, 0.6):
+        g.add(cyl(0.07, 0.05, (x, 0.08, 0.99), verts=8, r2=0.05), C["med"])
+    g.add(tube([(0.8, -0.4, 0.94), (0.8, -0.4, 1.12), (1.04, -0.4, 1.12)], 0.01, verts=4), C["steel_lt"])   # ticket rail
+    for k in range(3):
+        g.add(bx(0.84 + k * 0.07, 0.88 + k * 0.07, -0.405, -0.395, 1.0, 1.1), "#c8b89a", jitter=0.02)
+    for x in (-0.95, 0.95):   # the utensil rail on two uprights
+        g.add(bx(x - 0.02, x + 0.02, 0.3, 0.34, 0.94, 1.5), C["rib"])
+    g.add(pipe((-0.97, 0.32, 1.5), (0.97, 0.32, 1.5), 0.016, verts=6), C["steel_lt"])
+    for x, h, rgb in ((-0.6, 0.3, C["steel"]), (-0.3, 0.36, C["dark"]), (0.05, 0.28, C["steel_lt"]), (0.4, 0.34, C["steel"])):
+        g.add(tube([(x, 0.3, 1.5), (x, 0.3, 1.5 - h)], 0.012, verts=4), rgb)
+        g.add(bx(x - 0.04, x + 0.04, 0.27, 0.33, 1.5 - h - 0.08, 1.5 - h), rgb)
+    g.add(stencil("GALLEY", -0.98, 0.3, -0.42, px=0.014), C["stencil"], jitter=0.0)
+    return g.build("galley_counter", grime=prop_grime(351, h=0.9))
+
+
+def kiosk():
+    """A vending kiosk (~1.4 m, 2.2 m tall) on a station concourse: the advert panel still lit,
+    product rows behind glass, a keypad, the hatch, and a dent where somebody kicked it."""
+    g = Geo(seed=361)
+    g.add(bx(-0.7, 0.7, -0.45, 0.45, 0.0, 0.12), C["kick"])
+    g.add(plate(-0.68, 0.68, 0.12, 2.2, -0.46, 0.45, steps=[(0.04, -0.012)], bevel=0.025), C["panel3"], jitter=0.02)
+    g.add(bx(-0.5, 0.5, -0.475, -0.46, 1.0, 1.9), "#0b151a", jitter=0.0)   # the product window
+    rnd = random.Random(361)
+    for j in range(3):
+        zs = 1.08 + j * 0.28
+        g.add(bx(-0.48, 0.48, -0.47, -0.42, zs - 0.02, zs), C["steel"], top=0.3)
+        for i in range(5):
+            x = -0.42 + i * 0.2
+            rgb = rnd.choice((C["orange"], C["olive"], "#2f4a6a", "#6a2a22", "#4a4a3a"))
+            if rnd.random() < 0.75:
+                g.add(cyl(0.05, 0.16, (x, -0.455, zs + 0.08), verts=7), rgb, jitter=0.05)
+    g.add(bx(-0.52, 0.52, -0.475, -0.46, 1.95, 2.12), C["dark"], jitter=0.0)   # the advert panel
+    g.glow(bx(-0.48, 0.48, -0.478, -0.475, 1.98, 2.09), "amber")
+    g.glow(bx(-0.4, -0.1, -0.481, -0.478, 2.01, 2.06), "red")
+    g.add(bx(0.25, 0.45, -0.475, -0.46, 0.7, 0.9), C["dark"])   # slot and keypad
+    seam(g, 0.28, 0.42, 0.74, 0.78, -0.476)
+    for k in range(6):
+        b = bx(0.27 + (k % 3) * 0.06, 0.31 + (k % 3) * 0.06, -0.48, -0.475, 0.8 + (k // 3) * 0.045, 0.83 + (k // 3) * 0.045)
+        if k == 4:
+            g.glow(b, "amber")
+        else:
+            g.add(b, C["steel_lt"])
+    g.add(bx(-0.45, 0.1, -0.475, -0.46, 0.3, 0.6), C["dark"])   # the hatch
+    g.add(bx(-0.43, 0.08, -0.47, -0.465, 0.32, 0.58), C["panel2"], jitter=0.02)
+    g.add(lump((-0.2, -0.46, 0.45), 0.08, seed=3, seg=6, rings=4, rough=0.3, scale=(1.4, 0.3, 1.0)), C["panel3"])   # the dent
+    g.add(stencil("VEND-O-MAT", -0.45, 0.68, -0.465, px=0.013), C["stencil"], jitter=0.0)
+    rust(g, 0.5, 0.25, 0.12, 0.1, -0.465, 361)
+    return g.build("kiosk", grime=prop_grime(361, h=1.8))
+
+
 PROPS = [crate, locker, chest, cabinet, ammo_rack, barrel, bigcrate, console, bunk, medbed, shelf, table,
          reactor, pilot_seat, control_panel, debris, beam, airlock_hatch,
          barrel_explosive, barrel_wreck, console_broken, weapon_case, safe, scorch,
-         barricade, turret, eggs, cryopod, body]
+         barricade, turret, eggs, cryopod, body,
+         missile, planter, specimen_tank, lab_bench, galley_counter, kiosk]
 
 
 def build():

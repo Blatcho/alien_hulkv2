@@ -9,6 +9,11 @@
     "wall_screen",
     "wall_shelves",
     "wall_hazard",
+    "wall_cabin",
+    "wall_lab",
+    "wall_cargo",
+    "wall_rack",
+    "wall_promenade",
     "floor_trim",
     "ceiling_pipes",
     "ceiling_lamp",
@@ -63,6 +68,31 @@
       "w": 2.0,
       "h": 4.5,
       "tris": 1499
+    },
+    "wall_cabin": {
+      "w": 2.0,
+      "h": 4.5,
+      "tris": 1427
+    },
+    "wall_lab": {
+      "w": 2.0,
+      "h": 4.5,
+      "tris": 1173
+    },
+    "wall_cargo": {
+      "w": 2.0,
+      "h": 4.5,
+      "tris": 1342
+    },
+    "wall_rack": {
+      "w": 2.0,
+      "h": 4.5,
+      "tris": 1478
+    },
+    "wall_promenade": {
+      "w": 2.0,
+      "h": 4.5,
+      "tris": 1343
     },
     "floor_trim": {
       "w": 2.0,

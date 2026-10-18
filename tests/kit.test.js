@@ -373,10 +373,11 @@ describe('specialists', () => {
   });
 
   it('a scout picks out something shadowing the squad', () => {
-    const w = calm({}, { squad: squadOf('veteran', 'heavy', 'tech', 'scout') });
+    // (A corvette: two decks and few dead ends, so the file keeps its order on the way in.)
+    const w = calm({}, { squad: squadOf('veteran', 'heavy', 'tech', 'scout'), seed: 'CRV-A1' });
     roomAhead(w, 9);
     // The scout started at the rear; a turn on the way (a dead end) would have put him on point.
-    if (w.squad.order[w.squad.order.length - 1].role !== 'scout') { w.turnAround(); run(w, 6); roomAhead(w, 9); }
+    for (let t = 0; t < 3 && w.squad.order[w.squad.order.length - 1].role !== 'scout'; t++) { w.turnAround(); run(w, 6); roomAhead(w, 9); }
     const rear = w.squad.order[w.squad.order.length - 1];
     expect(rear.role).toBe('scout');
     const [wl, wr] = walkLimits(w.level.rooms[rear.room]);

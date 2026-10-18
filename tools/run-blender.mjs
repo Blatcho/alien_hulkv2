@@ -5,8 +5,9 @@
 //   npm run assets -- marine alien    build a subset
 //   npm run assets -- --preview       also render contact sheets to tools/out/previews/
 //   BLENDER=path/to/blender.exe       override the Blender executable
-import { spawn } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+//   BLENDER=tools/bpy-blender         Blender as a Python module (pip install bpy); its GLBs get meshopt-packed by gltfpack
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -42,6 +43,8 @@ function run(blender, asset, preview) {
       const secs = ((Date.now() - t0) / 1000).toFixed(1);
       if (code === 0) {
         const notes = log.split('\n').filter((l) => /^(EXPORTED|PREVIEW|WARN|STATS)/.test(l));
+        const packed = pack(join(OUT, `${asset}.glb`));
+        if (packed) notes.push(packed);
         console.log(`✔ ${asset} (${secs}s)\n  ${notes.join('\n  ')}`);
       } else {
         console.error(`✘ ${asset} failed (exit ${code})\n${log.split('\n').slice(-40).join('\n')}`);
@@ -49,6 +52,26 @@ function run(blender, asset, preview) {
       done(code === 0);
     });
   });
+}
+
+/**
+ * The bpy module (pip install bpy) exports without EXT_meshopt_compression - its build lacks the
+ * meshopt bridge - so a GLB that comes out uncompressed goes through gltfpack (a devDependency)
+ * keeping nodes, materials, extras and float precision; the loader (core/assets.js) decodes both.
+ */
+function pack(glb) {
+  if (!existsSync(glb)) return null;
+  const buf = readFileSync(glb);
+  const json = JSON.parse(buf.subarray(20, 20 + buf.readUInt32LE(12)).toString('utf8'));
+  if ((json.extensionsUsed ?? []).includes('EXT_meshopt_compression')) return null;
+  const bin = join(ROOT, 'node_modules', '.bin', process.platform === 'win32' ? 'gltfpack.cmd' : 'gltfpack');
+  if (!existsSync(bin)) return 'WARN uncompressed GLB (no gltfpack: npm install)';
+  const tmp = glb.replace(/\.glb$/, '.packed.glb');
+  const r = spawnSync(bin, ['-i', glb, '-o', tmp, '-c', '-kn', '-km', '-ke', '-noq'], { cwd: ROOT, shell: process.platform === 'win32' });
+  if (r.status !== 0 || !existsSync(tmp)) return `WARN gltfpack failed: ${(r.stderr ?? '').toString().trim().split('\n').pop()}`;
+  const size = readFileSync(tmp).length;
+  renameSync(tmp, glb);
+  return `PACKED ${glb} ${buf.length} -> ${size} bytes (meshopt)`;
 }
 
 const args = process.argv.slice(2);

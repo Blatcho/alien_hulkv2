@@ -1,5 +1,5 @@
 {
-  "built": 1791461845700,
+  "built": 1792343724333,
   "models": {
     "alien": {
       "name": "alien",
@@ -447,7 +447,13 @@
         "turret",
         "eggs",
         "cryopod",
-        "body"
+        "body",
+        "missile",
+        "planter",
+        "specimen_tank",
+        "lab_bench",
+        "galley_counter",
+        "kiosk"
       ],
       "pieces": {
         "crate": {
@@ -594,6 +600,36 @@
           "w": 2.056,
           "h": 0.195,
           "tris": 624
+        },
+        "missile": {
+          "w": 2.65,
+          "h": 1.16,
+          "tris": 872
+        },
+        "planter": {
+          "w": 2.053,
+          "h": 1.7,
+          "tris": 814
+        },
+        "specimen_tank": {
+          "w": 1.24,
+          "h": 2.3,
+          "tris": 756
+        },
+        "lab_bench": {
+          "w": 2.2,
+          "h": 1.475,
+          "tris": 1094
+        },
+        "galley_counter": {
+          "w": 2.2,
+          "h": 1.514,
+          "tris": 956
+        },
+        "kiosk": {
+          "w": 1.4,
+          "h": 2.2,
+          "tris": 778
         }
       },
       "bounds": {
@@ -620,6 +656,11 @@
         "wall_screen",
         "wall_shelves",
         "wall_hazard",
+        "wall_cabin",
+        "wall_lab",
+        "wall_cargo",
+        "wall_rack",
+        "wall_promenade",
         "floor_trim",
         "ceiling_pipes",
         "ceiling_lamp",
@@ -674,6 +715,31 @@
           "w": 2,
           "h": 4.5,
           "tris": 1499
+        },
+        "wall_cabin": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1427
+        },
+        "wall_lab": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1173
+        },
+        "wall_cargo": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1342
+        },
+        "wall_rack": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1478
+        },
+        "wall_promenade": {
+          "w": 2,
+          "h": 4.5,
+          "tris": 1343
         },
         "floor_trim": {
           "w": 2,

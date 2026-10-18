@@ -30,7 +30,13 @@
     "turret",
     "eggs",
     "cryopod",
-    "body"
+    "body",
+    "missile",
+    "planter",
+    "specimen_tank",
+    "lab_bench",
+    "galley_counter",
+    "kiosk"
   ],
   "pieces": {
     "crate": {
@@ -177,6 +183,36 @@
       "w": 2.056,
       "h": 0.195,
       "tris": 624
+    },
+    "missile": {
+      "w": 2.65,
+      "h": 1.16,
+      "tris": 872
+    },
+    "planter": {
+      "w": 2.053,
+      "h": 1.7,
+      "tris": 814
+    },
+    "specimen_tank": {
+      "w": 1.24,
+      "h": 2.3,
+      "tris": 756
+    },
+    "lab_bench": {
+      "w": 2.2,
+      "h": 1.475,
+      "tris": 1094
+    },
+    "galley_counter": {
+      "w": 2.2,
+      "h": 1.514,
+      "tris": 956
+    },
+    "kiosk": {
+      "w": 1.4,
+      "h": 2.2,
+      "tris": 778
     }
   },
   "bounds": {

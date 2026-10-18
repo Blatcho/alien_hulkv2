@@ -20,7 +20,8 @@ from mathutils import Vector, noise as mnoise  # noqa: E402
 from lib.common import cyl, out_dir, reset_scene, script_args  # noqa: E402
 from lib.env import (Geo, blob, bx, chamfer_rect, circle, flat, lump, move, pipe, plate,  # noqa: E402
                      poly_prism, quad, ring, rotate, row, col, sag, stencil, stripes, studs, tube,
-                     wall_grime, prop_grime, yz_prism, piece_info, PAL, smooth, lerp3, _rgb, check_extent, check_clear)
+                     wall_grime, prop_grime, yz_prism, piece_info, PAL, smooth, lerp3, _rgb, check_extent, check_clear,
+                     rifle_parts, place)
 from lib.export import bounds, export_glb, write_meta  # noqa: E402
 
 BACK = (0, 1, 0)   # cull direction: faces pointing into the back wall are never seen
@@ -362,6 +363,174 @@ def wall_hazard():
     rust(g, 0.7, 3.3, 0.13, 0.18, 1.785, 93, two=False, fade=C["panel2"])
     streak(g, -0.2, 2.3, 0.45, 0.05, 1.835, 94, C["grime"], C["panel2"])
     return g.build("wall_hazard", grime=wall_grime(7))
+
+
+# ================================================================ class walls (gen/classes.js look.backdrops)
+# The same frame (rail, conduits, cornice, rib rhythm), so they tile with the others.
+
+def wall_cabin():
+    """Liner cabins and galleys: wood-tone slats below the rail, a cream panel with a framed print
+    above, brass trim, a coat hook and the cabin number."""
+    g = Geo(seed=18)
+    wood, wood_lt, wood_dk, cream, brass = "#4a3b2c", "#5a4836", "#3a2d22", "#6b665c", C["brass"]
+    wall_frame(g, 8, upper=False, lower=False)
+    g.add(plate(-0.9, 0.9, 0.36, 1.45, 1.85, 1.95, bevel=0.006), wood_dk, cull=[BACK])
+    for i in range(12):   # slats
+        x = -0.86 + i * 0.147
+        g.add(bx(x, x + 0.12, 1.82, 1.85, 0.4, 1.41, bevel=0.006), wood if i % 2 else wood_lt, cull=[BACK], jitter=0.04)
+    g.add(bx(-0.9, 0.9, 1.775, 1.8, 1.45, 1.49), brass, cull=[BACK], top=0.5)   # brass cap on the rail
+    g.add(plate(-0.9, 0.9, 1.6, 3.75, 1.86, 1.95, steps=[(0.05, -0.012)], bevel=0.008), cream, cull=[BACK], jitter=0.02)
+    g.add(ring(chamfer_rect(-0.8, 0.8, 1.7, 3.65, 0.04), chamfer_rect(-0.84, 0.84, 1.66, 3.69, 0.06), 1.845, 1.86), wood,
+          cull=[BACK])
+    shadow(g, -0.9, 0.9, 3.75, 0.2, 1.856, cream, k=0.55)
+    # a framed print (a muted seascape) with a picture lamp over it
+    g.add(plate(-0.38, 0.38, 2.35, 3.05, 1.8, 1.86, bevel=0.01), wood_dk, cull=[BACK])
+    g.add(quad(-0.33, 0.33, 2.4, 2.72, 1.797), "#2f4a5a", jitter=0.0)
+    g.add(quad(-0.33, 0.33, 2.72, 3.0, 1.797), "#6a7a86", jitter=0.0)
+    g.add(quad(-0.2, 0.1, 2.66, 2.74, 1.795), "#8a8070", jitter=0.0)
+    g.add(bx(-0.2, 0.2, 1.76, 1.86, 3.1, 3.16), brass, cull=[BACK])
+    g.glow(bx(-0.17, 0.17, 1.75, 1.76, 3.11, 3.15), "amber")
+    # coat hook and the cabin number
+    g.add(bx(0.62, 0.72, 1.82, 1.86, 2.45, 2.55), brass, cull=[BACK])
+    g.add(tube([(0.67, 1.82, 2.5), (0.67, 1.72, 2.5), (0.67, 1.7, 2.58)], 0.012, verts=5), brass)
+    g.add(stencil("C-214", -0.8, 3.45, 1.855, px=0.02), C["stencil"], jitter=0.0)
+    g.add(stencil("DECK B", -0.8, 3.3, 1.855, px=0.012), C["stencil"], jitter=0.0)
+    streak(g, 0.5, 1.45, 0.3, 0.03, 1.816, 121, C["grime"], wood_dk)
+    return g.build("wall_cabin", grime=wall_grime(8, stain=0.14))
+
+
+def wall_lab():
+    """Research labs and medbays: white tiling above the rail, a glass cabinet of jars under a
+    cold strip light, an eyewash sign and the ward number."""
+    g = Geo(seed=19)
+    tile, tile_dk, seams = "#7a848a", "#6b7579", "#3a4247"
+    wall_frame(g, 9, upper=False, lower_rgb="#5c666a")
+    g.add(plate(-0.9, 0.9, 1.6, 3.75, 1.87, 1.95, bevel=0.006), seams, cull=[BACK])
+    rnd = random.Random(19)
+    for i in range(4):
+        for j in range(3):
+            x0 = -0.88 + i * 0.443
+            z0 = 1.63 + j * 0.707
+            g.add(bx(x0, x0 + 0.42, 1.845, 1.87, z0, z0 + 0.68), tile if rnd.random() < 0.8 else tile_dk, cull=[BACK],
+                  jitter=0.02)
+    shadow(g, -0.9, 0.9, 3.75, 0.2, 1.84, tile, k=0.6)
+    # glass cabinet: frame, dark glass, jars on two shelves, the strip light above
+    g.add(plate(-0.6, 0.3, 2.0, 3.2, 1.7, 1.85, steps=[(0.04, -0.012)], bevel=0.012), C["steel"], cull=[BACK])
+    g.add(bx(-0.55, 0.25, 1.73, 1.74, 2.05, 3.15), "#0f1b20", cull=[BACK], jitter=0.0)
+    for zs in (2.1, 2.62):
+        g.add(bx(-0.54, 0.24, 1.74, 1.84, zs - 0.02, zs), C["steel_lt"], cull=[BACK], top=0.3)
+        for k, (x, r, h, rgb) in enumerate(((-0.46, 0.05, 0.3, "#3f5a4a"), (-0.33, 0.045, 0.24, "#6b5a30"),
+                                            (-0.2, 0.06, 0.36, "#2f4a44"), (-0.05, 0.04, 0.2, "#5a2a22"),
+                                            (0.1, 0.055, 0.3, "#3f5a4a"))):
+            if (k + int(zs * 10)) % 3 == 0:
+                continue
+            g.add(cyl(r, h, (x, 1.79, zs + h / 2), verts=6), rgb, cull=[BACK])
+    g.add(bx(-0.58, 0.28, 1.72, 1.85, 3.2, 3.28), C["rib"], cull=[BACK])
+    g.glow(bx(-0.52, 0.22, 1.715, 1.72, 3.21, 3.25), "white")
+    # eyewash sign and the ward number
+    g.add(bx(0.48, 0.82, 1.84, 1.855, 2.5, 2.84), "#2f6a3a", cull=[BACK], jitter=0.0)
+    g.add(quad(0.58, 0.72, 2.56, 2.62, 1.838), "#cfe0d0", jitter=0.0)
+    g.add(quad(0.63, 0.67, 2.62, 2.78, 1.838), "#cfe0d0", jitter=0.0)
+    g.add(stencil("WASH", 0.55, 2.42, 1.84, px=0.011), C["stencil"], jitter=0.0)
+    g.add(stencil("WARD 3", 0.42, 3.5, 1.84, px=0.013), C["stencil"], jitter=0.0)
+    streak(g, -0.75, 1.6, 0.25, 0.035, 1.843, 131, C["grime"], tile)
+    return g.build("wall_lab", grime=wall_grime(9, floor=0.65, stain=0.12))
+
+
+def wall_cargo():
+    """Freighter holds and stores: a container's end wall - corrugated door leaves, locking bars,
+    a lashing rail with its rings and the consignment stencils."""
+    g = Geo(seed=20)
+    cont, cont_dk = C["container"], "#43211a"
+    wall_frame(g, 10, upper=False, lower=False, kick_slots=False)
+    g.add(plate(-0.9, 0.9, 0.36, 3.75, 1.86, 1.95, bevel=0.008), cont_dk, cull=[BACK], jitter=0.03)
+    for i in range(14):   # corrugation, two leaves with a seam between
+        x = -0.86 + i * 0.125
+        if abs(x + 0.0625) < 0.03:
+            continue
+        g.add(bx(x, x + 0.07, 1.82, 1.86, 0.42, 3.69), cont, cull=[BACK], top=0.3, jitter=0.06)
+    seam(g, -0.015, 0.015, 0.4, 3.72, 1.818)
+    for x in (-0.33, 0.3):   # locking bars and their handles
+        g.add(pipe((x, 1.76, 0.42), (x, 1.76, 3.69), 0.028, verts=7), C["steel"], cull=[BACK])
+        for z in (0.55, 3.55):
+            g.add(bx(x - 0.07, x + 0.07, 1.74, 1.8, z - 0.04, z + 0.04), C["rib"], cull=[BACK])
+        g.add(tube([(x, 1.74, 1.7), (x + 0.16, 1.72, 1.75), (x + 0.18, 1.72, 1.95)], 0.018, verts=5), C["steel_lt"])
+    g.add(bx(-0.9, 0.9, 1.74, 1.78, 1.45, 1.6), C["steel"], cull=[BACK])   # lashing rail over the frame's rail
+    for x in (-0.7, -0.1, 0.5):
+        g.add(tube([(x + 0.06 * math.cos(a), 1.72, 1.38 + 0.06 * math.sin(a))
+                    for a in [2 * math.pi * i / 10 for i in range(11)]], 0.012, verts=4, caps=False), C["steel_lt"])
+    g.add(stencil("HX-4471", -0.84, 3.3, 1.815, px=0.028), "#8a8676", jitter=0.03)
+    g.add(stencil("MAX 24T", -0.84, 3.05, 1.815, px=0.014), "#7c786a", jitter=0.03)
+    g.add(stripes(0.55, 0.86, 0.45, 0.75, 1.815, width=0.08, slant=0.8), C["haz"], jitter=0.1)
+    rust(g, -0.55, 0.9, 0.22, 0.18, 1.815, 141, fade=cont)
+    rust(g, 0.62, 2.4, 0.14, 0.3, 1.815, 143, two=False, fade=cont)
+    return g.build("wall_cargo", grime=wall_grime(10, stain=0.22))
+
+
+def wall_rack():
+    """Corvette barracks, magazines and armouries: a weapons rack with the rifles locked in, an
+    ammunition shelf, a red band and the compartment stencils."""
+    g = Geo(seed=21)
+    wall_frame(g, 11, lower_rgb="#34383a")
+    g.add(bx(-0.9, 0.9, 1.855, 1.86, 3.5, 3.62), "#6a1f1a", jitter=0.03)
+    g.add(stencil("ARMS 2-4", -0.84, 3.52, 1.853, px=0.013), C["stencil"], jitter=0.0)
+    # the rack: a frame plate, four rifles standing muzzle-up, a locking bar across them
+    g.add(plate(-0.78, 0.78, 1.7, 3.35, 1.78, 1.86, steps=[(0.03, -0.01)], bevel=0.012), C["rib"], cull=[BACK])
+    g.add(bx(-0.76, 0.76, 1.72, 1.78, 1.72, 1.8), C["steel"], cull=[BACK], top=0.3)
+    for k in range(4):
+        xr = -0.58 + k * 0.39
+        parts = rifle_parts(1.15)
+        place(parts, rot_y=-90, loc=(xr, 1.71, 1.82))
+        for bm, rgb in parts:
+            g.add(bm, rgb, cull=[BACK])
+        g.add(bx(xr - 0.09, xr + 0.09, 1.69, 1.72, 2.55, 2.63), C["steel_lt"], cull=[BACK])   # clamp
+    g.add(bx(-0.78, 0.78, 1.68, 1.72, 2.5, 2.56), C["dark"], cull=[BACK])   # locking bar
+    g.glow(bx(0.7, 0.76, 1.67, 1.68, 2.51, 2.55), "red")                   # locked
+    # ammunition shelf below the rail
+    g.add(bx(-0.88, 0.88, 1.6, 1.93, 1.0, 1.05), C["steel"], cull=[BACK], top=0.35)
+    for x, w, rgb in ((-0.8, 0.3, C["olive"]), (-0.45, 0.26, C["olive_dk"]), (-0.15, 0.3, C["olive"]), (0.3, 0.34, "#4a4032")):
+        g.add(bx(x, x + w, 1.64, 1.9, 1.05, 1.26, bevel=0.008), rgb, cull=[BACK], jitter=0.05)
+        g.add(bx(x + 0.04, x + w - 0.04, 1.636, 1.64, 1.12, 1.17), C["stencil_y"], jitter=0.04)
+    g.add(stencil("5.56", -0.8, 0.8, 1.835, px=0.012), C["stencil"], jitter=0.0)
+    rust(g, 0.6, 0.6, 0.14, 0.1, 1.838, 151, two=False, fade="#34383a")
+    return g.build("wall_rack", grime=wall_grime(11))
+
+
+def wall_promenade():
+    """Station promenades: a shop front with its shutter down, the neon sign still lit, notices
+    pasted either side and a vending slot kicked in."""
+    g = Geo(seed=22)
+    wall_frame(g, 12, upper=False, lower=False, kick_slots=False)
+    g.add(plate(-0.9, 0.9, 0.36, 3.75, 1.86, 1.95, bevel=0.006), C["panel3"], cull=[BACK])
+    # the shutter: frame and slats, bent near the bottom
+    g.add(plate(-0.66, 0.66, 0.36, 3.2, 1.78, 1.86, steps=[(0.03, -0.01)], bevel=0.01), C["rib"], cull=[BACK])
+    rnd = random.Random(22)
+    for i in range(22):
+        z = 0.44 + i * 0.125
+        dent = 0.03 * max(0.0, 1.0 - i / 4.0) * rnd.uniform(0.3, 1.0)
+        g.add(bx(-0.62, 0.62, 1.79 - dent, 1.82 - dent, z, z + 0.1), C["steel"], cull=[BACK], top=0.3, jitter=0.05)
+    g.add(bx(-0.66, 0.66, 1.76, 1.82, 3.2, 3.3), C["dark"], cull=[BACK])   # shutter box
+    # neon sign above: a glowing frame and a squiggle of script
+    g.add(bx(-0.5, 0.5, 1.84, 1.86, 3.34, 3.72), C["dark"], cull=[BACK], jitter=0.0)
+    g.glow(tube([(-0.44, 1.835, 3.4), (0.44, 1.835, 3.4), (0.44, 1.835, 3.66), (-0.44, 1.835, 3.66), (-0.44, 1.835, 3.4)],
+                0.008, verts=4, caps=False), "amber")
+    g.glow(tube([(-0.36, 1.835, 3.47), (-0.28, 1.835, 3.6), (-0.2, 1.835, 3.47), (-0.1, 1.835, 3.6), (0.0, 1.835, 3.5),
+                 (0.12, 1.835, 3.58), (0.24, 1.835, 3.48), (0.34, 1.835, 3.58)], 0.009, verts=4, caps=False), "red")
+    # notices pasted either side
+    for x, z, w, h, rgb in ((-0.86, 2.6, 0.17, 0.26, "#8a8070"), (-0.86, 2.2, 0.16, 0.22, "#6a7a86"),
+                            (0.7, 2.7, 0.16, 0.3, "#8a7060"), (0.7, 1.4, 0.17, 0.2, "#7a8a70")):
+        g.add(bx(x, x + w, 1.853, 1.86, z, z + h), rgb, jitter=0.03)
+        for k in range(3):
+            g.add(bx(x + 0.02, x + w * rnd.uniform(0.4, 0.9), 1.851, 1.853, z + h - 0.05 - k * 0.05, z + h - 0.04 - k * 0.05),
+                  C["dark"], jitter=0.0)
+    # the vending slot, low on the right
+    g.add(bx(0.7, 0.88, 1.84, 1.86, 0.5, 0.95), C["dark"], cull=[BACK])
+    seam(g, 0.73, 0.85, 0.55, 0.62, 1.838)
+    g.glow(bx(0.74, 0.84, 1.838, 1.84, 0.85, 0.88), "amber")
+    g.add(stencil("CONCOURSE 4", -0.84, 0.15, 1.825, px=0.012), C["stencil"], jitter=0.0)
+    streak(g, 0.2, 3.2, 0.5, 0.05, 1.775, 161, C["grime"], C["steel"])
+    rust(g, -0.4, 0.6, 0.18, 0.12, 1.785, 163, two=False, fade=C["steel"])
+    return g.build("wall_promenade", grime=wall_grime(12, stain=0.2))
 
 
 # ================================================================ floor / ceiling
@@ -875,7 +1044,8 @@ def noise_1(co):
 PIECES = [
     ("wall_plain", wall_plain), ("wall_pipes", wall_pipes), ("wall_vent", wall_vent),
     ("wall_window", wall_window), ("wall_screen", wall_screen), ("wall_shelves", wall_shelves),
-    ("wall_hazard", wall_hazard), ("floor_trim", floor_trim), ("ceiling_pipes", ceiling_pipes),
+    ("wall_hazard", wall_hazard), ("wall_cabin", wall_cabin), ("wall_lab", wall_lab), ("wall_cargo", wall_cargo),
+    ("wall_rack", wall_rack), ("wall_promenade", wall_promenade), ("floor_trim", floor_trim), ("ceiling_pipes", ceiling_pipes),
     ("ceiling_lamp", ceiling_lamp), ("bulkhead_door", bulkhead_door), ("bulkhead_solid", bulkhead_solid),
     ("door_panel", door_panel), ("hull_end", hull_end), ("hull_airlock", hull_airlock), ("ladder", ladder),
     ("stairs", stairs), ("shaft_rim", shaft_rim), ("vent_wall", vent_wall), ("vent_ceiling", vent_ceiling),
@@ -887,7 +1057,7 @@ PIECES = [
 WALL = dict(x=(-1, 1), y=(1.55, 2.0), z=(0, 4.5))
 CONTRACT = {
     **{w: WALL for w in ("wall_plain", "wall_pipes", "wall_vent", "wall_window", "wall_screen", "wall_shelves",
-                         "wall_hazard")},
+                         "wall_hazard", "wall_cabin", "wall_lab", "wall_cargo", "wall_rack", "wall_promenade")},
     "floor_trim": dict(x=(-1, 1), y=(-1.0, -0.9), z=(-0.5, 0)),
     "ceiling_pipes": dict(x=(-1, 1), y=(0.2, 2.0), z=(3.7, 4.5)),
     "ceiling_lamp": dict(x=(-1, 1), y=(0.2, 2.0), z=(3.7, 4.5)),

@@ -9,6 +9,7 @@
 // Browser console errors are echoed; exit code 1 if the page threw.
 import { createServer } from 'vite';
 import puppeteer from 'puppeteer-core';
+import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -29,6 +30,7 @@ const CHROME = [
   process.env.CHROME,
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  process.platform === 'win32' ? '' : execSync('find /opt/pw-browsers -maxdepth 4 -type f -name chrome 2>/dev/null | head -1').toString().trim(),
 ].find((p) => p && existsSync(p));
 
 const server = await createServer({ root: ROOT, logLevel: 'error', server: { port: 0 } });
@@ -40,7 +42,7 @@ const glArgs = argv.includes('--swiftshader')
 const browser = await puppeteer.launch({
   executablePath: CHROME,
   headless: true,
-  args: [...glArgs, `--window-size=${w},${h}`, '--autoplay-policy=no-user-gesture-required'],
+  args: [...glArgs, `--window-size=${w},${h}`, '--autoplay-policy=no-user-gesture-required', ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])],
   defaultViewport: { width: w, height: h },
 });
 

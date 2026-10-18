@@ -104,6 +104,12 @@ Open `viewer.html` in the dev server (`npm run dev`) to inspect models and clips
 | `debris` | 1.5 | collapsed wreckage pile about 0.8 m high, on the walking line (the squad jumps it) |
 | `beam` | 1.8 | fallen girder hanging from 1.3 m to 2.2 m above floor (the squad crouches under) |
 | `airlock_hatch` | 1.0 | inner airlock control pillar with red lamp |
+| `missile` | 2.6 | a ship-killer on its cradle, hazard band, red seeker (corvette magazines) |
+| `planter` | 2.0 | hydroponics trough on legs, plants, a pink grow lamp (`M_GlowPink`) |
+| `specimen_tank` | 1.3 | 2.3 m tank, its front open to the camera, lit from below, a specimen inside |
+| `lab_bench` | 2.2 | drawers, glassware, microscope, centrifuge, a readout |
+| `galley_counter` | 2.2 | hob with a pot, a tray, a ticket rail, utensils hung above |
+| `kiosk` | 1.4 | 2.2 m vending kiosk, lit advert panel, product rows, keypad |
 
 ### `roomkit.glb`: modular level pieces, one top-level node each
 Deck interior height is 4.5 m (floor top at z = 0, ceiling underside at z = 4.5). Depth runs from the back wall plane at **y = +2.0** (three z = −2) to the front floor edge at **y = −1.0** (three z = +1). Pieces are placed by the engine at (x, deck floor height) only, so **model each piece at its correct depth**.
@@ -111,6 +117,7 @@ Deck interior height is 4.5 m (floor top at z = 0, ceiling underside at z = 4.5)
 | node | extent | notes |
 |---|---|---|
 | `wall_plain`, `wall_pipes`, `wall_vent`, `wall_window`, `wall_screen`, `wall_shelves`, `wall_hazard` | x ∈ [−1, 1], z ∈ [0, 4.5], back face at y = +2.0, relief up to y = +1.55 | Back-wall panels, tiled every 2 m. `wall_window` has a real opening (no faces), about 1.4 × 1.6 m centred at z ≈ 2.5, with a frame; a starfield shader plane sits behind it. `wall_screen` has an emissive display. `wall_hazard` has yellow/black warning stripes. |
+| `wall_cabin`, `wall_lab`, `wall_cargo`, `wall_rack`, `wall_promenade` | as above | The hull classes' walls (`src/gen/classes.js` look.backdrops): a liner cabin (wood slats, a framed print), a lab (white tiles, a jar cabinet), a container end wall (corrugated leaves, locking bars), a weapons rack (rifles locked in), a shop front (shutter down, neon still lit). Same frame, so they tile with the others. |
 | `floor_trim` | x ∈ [−1, 1], z ∈ [−0.5, 0], y ∈ [−1.0, −0.9] | Detail strip over the front face of the floor slab (rivets, grating edge). The engine builds the slab body itself. |
 | `ceiling_pipes`, `ceiling_lamp` | x ∈ [−1, 1], hanging from z = 4.5 down to at most z = 3.7, y ∈ [+0.2, +2.0] | Ceiling clutter; the lamp has an emissive strip. |
 | `bulkhead_door` | x ∈ [−0.3, 0.3], z ∈ [0, 4.5], full depth y ∈ [−1, 2] | Doorway frame in cut-away style: a solid lintel for z ∈ [3.0, 4.5] and frame posts only at the back (y > 1.5). The opening z ∈ [0, 3] must be see-through from the camera. |
