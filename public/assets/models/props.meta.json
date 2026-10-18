@@ -36,7 +36,11 @@
     "specimen_tank",
     "lab_bench",
     "galley_counter",
-    "kiosk"
+    "kiosk",
+    "gas_cylinder",
+    "fuse_box",
+    "fuse_box_broken",
+    "rubble"
   ],
   "pieces": {
     "crate": {
@@ -213,6 +217,26 @@
       "w": 1.4,
       "h": 2.2,
       "tris": 778
+    },
+    "gas_cylinder": {
+      "w": 0.647,
+      "h": 1.615,
+      "tris": 590
+    },
+    "fuse_box": {
+      "w": 0.76,
+      "h": 2.402,
+      "tris": 292
+    },
+    "fuse_box_broken": {
+      "w": 0.76,
+      "h": 2.402,
+      "tris": 215
+    },
+    "rubble": {
+      "w": 1.319,
+      "h": 0.373,
+      "tris": 454
     }
   },
   "bounds": {

@@ -43,6 +43,10 @@ describe('in-world nudges', () => {
     let tested = 0;
     for (const seed of ['A1', 'B2', 'C3', 'D4', 'E5']) {
       const w = new World(generateLevel(seed), { params: { god: true }, doctrine: { loot: 'leave' } });
+      // Nothing hunting: a long fight on the way would outlast the order (it stands for 90 s).
+      for (const a of [...w.aliens, ...w.critters]) { a.alive = false; w.physics.removeHitbox(a); }
+      w.reserve = 0;
+      w.director.hordeSize = 0;
       let crate = null;
       until(w, () => (crate = w.interactables().find((t) => t.kind === 'crate')), 120);
       if (!crate) continue;

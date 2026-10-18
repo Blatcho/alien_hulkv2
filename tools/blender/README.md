@@ -110,6 +110,9 @@ Open `viewer.html` in the dev server (`npm run dev`) to inspect models and clips
 | `lab_bench` | 2.2 | drawers, glassware, microscope, centrifuge, a readout |
 | `galley_counter` | 2.2 | hob with a pot, a tray, a ticket rail, utensils hung above |
 | `kiosk` | 1.4 | 2.2 m vending kiosk, lit advert panel, product rows, keypad |
+| `gas_cylinder` | 0.6 | 1.5 m pressurised bottle, hazard collar, valve (explosive) |
+| `fuse_box`, `fuse_box_broken` | 0.8 | wall cabinet from z = 1.2 with a cable to the deck; shut and live / blown open and burnt |
+| `rubble` | 1.2 | the low heap most broken furniture leaves |
 
 ### `roomkit.glb`: modular level pieces, one top-level node each
 Deck interior height is 4.5 m (floor top at z = 0, ceiling underside at z = 4.5). Depth runs from the back wall plane at **y = +2.0** (three z = −2) to the front floor edge at **y = −1.0** (three z = +1). Pieces are placed by the engine at (x, deck floor height) only, so **model each piece at its correct depth**.
@@ -122,6 +125,8 @@ Deck interior height is 4.5 m (floor top at z = 0, ceiling underside at z = 4.5)
 | `ceiling_pipes`, `ceiling_lamp` | x ∈ [−1, 1], hanging from z = 4.5 down to at most z = 3.7, y ∈ [+0.2, +2.0] | Ceiling clutter; the lamp has an emissive strip. |
 | `bulkhead_door` | x ∈ [−0.3, 0.3], z ∈ [0, 4.5], full depth y ∈ [−1, 2] | Doorway frame in cut-away style: a solid lintel for z ∈ [3.0, 4.5] and frame posts only at the back (y > 1.5). The opening z ∈ [0, 3] must be see-through from the camera. |
 | `bulkhead_solid` | x ∈ [−0.3, 0.3], z ∈ [0, 4.5], full depth | Solid wall between rooms: girders, plating. |
+| `bulkhead_weak` | as `bulkhead_solid` | A weak bulkhead (`src/gen/populate.js` placeBreaches): bowed, rusted through along a seam, the charge point stencilled. |
+| `bulkhead_breach` | x ∈ [−0.65, 0.65], z ∈ [0, 4.5] | The weak bulkhead blown open: the lintel stays above z ≈ 2.85, the plates peel back against the posts behind y = 1.5; the opening x ∈ [−0.25, 0.25], z ∈ [0.15, 2.6] must be see-through from the camera. |
 | `door_panel` | x ∈ [−0.25, 0.25], z ∈ [0, 3.0], y ∈ [−0.9, 1.6], **origin at the top centre (z = 3.0)** | The engine scales it along Z (0.05 = open) like a roller shutter, so use horizontal slats and hazard edge stripes. |
 | `hull_end` | x ∈ [−0.6, 0.6], z ∈ [−0.5, 4.5], full depth | Outer hull wall at deck ends: thick ribs. |
 | `hull_airlock` | same as `hull_end` | Includes a big round outer hatch. |

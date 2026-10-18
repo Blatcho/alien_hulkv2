@@ -151,6 +151,19 @@ export class GameView {
       this.camera.shake(0.2);
     });
     w.on('acid', ({ x, y }) => this.fx.acidSplash(x, y));
+    // Breakables (sim/hazards.js): a weak bulkhead blown open, fires where blasts were, a fuse box going.
+    w.on('breach', ({ breach }) => {
+      const y = w.level.rooms[breach.a].y0;
+      this.level.openBreach(breach.id);
+      this.fx.explosion(breach.x, y + 1.3, 2.4);
+      this.fx.sparksAt(breach.x, y + 1.5, 1, 30);
+      this.lights.explosion(breach.x, y + 1.3);
+      this.camera.shake(0.5);
+      this.onHitStop?.(0.04);
+    });
+    w.on('blast-fire', ({ id, x, y, room }) => { this.level.addBlastLight(id, x, y, room); this.fx.addFire(id, x, y); });
+    w.on('blast-fire-out', ({ id }) => { this.level.removeBlastLight(id); this.fx.removeFire(id); });
+    w.on('fuse-blown', ({ x, y }) => { this.fx.sparksAt(x, y + 1.6, 1, 28); this.camera.shake(0.08); });
     // Welds (door controls, vents): a glowing bead that cools; cutting a door burns it away.
     w.on('welded', ({ portal }) => {
       const y = fireAt(portal);

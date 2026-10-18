@@ -69,6 +69,7 @@ function mirrorLevel(level) {
   }
   if (level.objective) level.objective.x = mx(level.objective.x);
   for (const e of level.events ?? []) if (e.x !== undefined) e.x = mx(e.x);
+  for (const b of level.breaches ?? []) { b.x = mx(b.x); [b.a, b.b] = [b.b, b.a]; }
   level.spans = level.spans.map(([c0, c1]) => [level.cols - 1 - c1, level.cols - 1 - c0]);
   level.bounds = { ...level.bounds, x0: mx(level.bounds.x1), x1: mx(level.bounds.x0) };
   level.heading = -1;
@@ -181,8 +182,11 @@ export function buildSolids(level) {
     for (let i = 0; i + 1 < rooms.length; i++) {
       const xb = rooms[i].x1;
       const door = level.portals.find((p) => p.kind === 'door' && p.a === rooms[i].id && p.b === rooms[i + 1].id);
-      solids.push({ kind: 'bulkhead', x0: xb - WALL / 2, x1: xb + WALL / 2, y0: door ? y0 + DOOR_H : y0, y1 });
+      const weak = level.breaches?.find((b) => b.a === rooms[i].id && b.b === rooms[i + 1].id);
+      solids.push({ kind: 'bulkhead', x0: xb - WALL / 2, x1: xb + WALL / 2, y0: door || weak ? y0 + DOOR_H : y0, y1 });
       if (door) solids.push({ kind: 'door', portal: door.id, x0: xb - DOOR_W / 2, x1: xb + DOOR_W / 2, y0, y1: y0 + DOOR_H });
+      // A weak bulkhead (gen/populate.js placeBreaches): its lower part is a collider of its own, gone once blown.
+      if (weak) solids.push({ kind: 'breach', breach: weak.id, x0: xb - WALL / 2, x1: xb + WALL / 2, y0, y1: y0 + DOOR_H });
     }
   }
   // Boarding ship + tube: floor, ceiling and back wall (the art covers them visually). The bay

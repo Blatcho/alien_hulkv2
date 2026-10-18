@@ -59,6 +59,10 @@ describe('encounters', () => {
     const L = shipWith('terminal');
     expect(L).not.toBeNull();
     const w = new World(L, { params: { god: true }, doctrine: { route: 'thorough' } });
+    // Nothing hunting: a fight would pull the tech off the terminal mid-download.
+    for (const a of [...w.aliens, ...w.critters]) { a.alive = false; w.physics.removeHitbox(a); }
+    w.reserve = 0;
+    w.director.hordeSize = 0;
     const prop = propsOf(L, 'terminal')[0];
     let d = null;
     for (let i = 0; i < 12 && !d; i++) { goTo(w, prop); d = untilEncounter(w, 'terminal', 60); }

@@ -19,6 +19,8 @@
     "ceiling_lamp",
     "bulkhead_door",
     "bulkhead_solid",
+    "bulkhead_weak",
+    "bulkhead_breach",
     "door_panel",
     "hull_end",
     "hull_airlock",
@@ -118,6 +120,16 @@
       "w": 0.6,
       "h": 4.5,
       "tris": 781
+    },
+    "bulkhead_weak": {
+      "w": 0.6,
+      "h": 4.5,
+      "tris": 838
+    },
+    "bulkhead_breach": {
+      "w": 1.2,
+      "h": 4.5,
+      "tris": 444
     },
     "door_panel": {
       "w": 0.5,
