@@ -21,9 +21,9 @@ const C = {
 };
 export const GLOW = { blue: 0x3d7cff, orange: 0xff7a2a, warm: 0xc9955a, cold: 0x5ff0d8, red: 0xff3a22, green: 0x3aff6a, white: 0xd8e8ff };
 
-/** Interior x-extent of a deck's rooms (the hull adds HULL beyond each end). */
+/** Interior x-extent of a deck's rooms, halls from the deck below included (the hull adds HULL beyond each end). */
 function extent(level, d) {
-  const rs = level.rooms.filter((r) => r.deck === d && !r.exterior);
+  const rs = level.rooms.filter((r) => !r.exterior && (r.deck === d || (r.tall && r.deck === d - 1)));
   return [Math.min(...rs.map((r) => r.x0)), Math.max(...rs.map((r) => r.x1))];
 }
 

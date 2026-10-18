@@ -110,7 +110,7 @@ describe('ship events', () => {
     let asked = 0;
     let out = 0;
     w.on('decision', (d) => { if (d.kind === 'fire') asked++; });
-    w.on('fire-out', () => out++);
+    w.on('fire-out', ({ portal }) => { if (portal === p) out++; }); // (the ship may have a fire of its own too)
     w.encounters.rng = { chance: () => true, int: () => 5 };
     run(w, 900);
     expect(asked).toBeGreaterThan(0);

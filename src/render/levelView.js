@@ -140,16 +140,21 @@ export class LevelView {
     const tint = this.roomTint(wear);
 
     // Back wall panels, 2 m modules - the room type's variants, or the class's own for that type.
+    // A hall two decks tall gets a second row over a band where the deck's slab would be.
     const variants = Object.entries(this.look?.backdrops?.[room.type] ?? tpl.backdrop);
-    let lastWindow = -99;
-    for (let x = room.x0 + 1, i = 0; x < room.x1; x += 2, i++) {
-      let v = rng.weighted(variants);
-      if (v === 'window' && i - lastWindow < 3) v = 'plain';
-      if (v === 'window') lastWindow = i;
-      const piece = this.kit(`wall_${v}`) ?? this.kit('wall_plain');
-      const t = this.tileTint(tint, wear);
-      if (piece) b.addObject(piece, at(x, room.y0), t);
-      else b.add(boxGeo(2, INNER_H, 0.3, v === 'window' ? 0x1a2a3a : COL.wall), at(x, room.y0 + INNER_H / 2, BACK_Z - 0.15), this.fallbackMat, t);
+    const rows = room.tall ? [room.y0, room.y0 + DECK_H] : [room.y0];
+    for (const ry of rows) {
+      let lastWindow = -99;
+      for (let x = room.x0 + 1, i = 0; x < room.x1; x += 2, i++) {
+        let v = rng.weighted(variants);
+        if (v === 'window' && i - lastWindow < 3) v = 'plain';
+        if (v === 'window') lastWindow = i;
+        const piece = this.kit(`wall_${v}`) ?? this.kit('wall_plain');
+        const t = this.tileTint(tint, wear);
+        if (piece) b.addObject(piece, at(x, ry), t);
+        else b.add(boxGeo(2, INNER_H, 0.3, v === 'window' ? 0x1a2a3a : COL.wall), at(x, ry + INNER_H / 2, BACK_Z - 0.15), this.fallbackMat, t);
+      }
+      if (ry > room.y0) b.add(boxGeo(room.x1 - room.x0, SLAB, 0.6, COL.slab), at((room.x0 + room.x1) / 2, ry - SLAB / 2, BACK_Z + 0.3), this.fallbackMat, tint);
     }
 
     // Lamps along the back wall. On a deck whose power can fail (ship events) the fixtures stay
@@ -158,17 +163,17 @@ export class LevelView {
     const lampPiece = this.kit(room.light === 'red' ? 'lamp_red' : 'lamp_white');
     // (A fuse box in the room can take the lights too - sim/hazards.js.)
     const canFail = this.level.events?.some((e) => e.kind === 'power' && e.rooms.includes(room.id)) || room.props.some((p) => p.kind === 'fuse_box');
-    for (let x = room.x0 + 3; x < room.x1 - 1; x += 6) {
+    for (const ry of rows) for (let x = room.x0 + 3; x < room.x1 - 1; x += 6) {
       const lx = x + rng.float(-0.6, 0.6);
       if (lampPiece && canFail) {
         const o = lampPiece.clone(true);
-        o.position.set(lx, room.y0, 0);
+        o.position.set(lx, ry, 0);
         const mats = [];
         o.traverse((n) => { if (n.isMesh) { n.material = n.material.clone(); mats.push({ m: n.material, e: n.material.emissiveIntensity ?? 1 }); } });
         this.loose.push(o);
         this.lampObjs.push({ room: room.id, mats, k: 1 });
-      } else if (lampPiece) b.addObject(lampPiece, at(lx, room.y0), tint);
-      this.lamps.push({ x: lx, y: room.y0 + 3.5, z: BACK_Z + 0.6, color: lampColor, room: room.id,
+      } else if (lampPiece) b.addObject(lampPiece, at(lx, ry), tint);
+      this.lamps.push({ x: lx, y: ry + 3.5, z: BACK_Z + 0.6, color: lampColor, room: room.id,
         flicker: room.light === 'flicker' ? rng.float(0.5, 3) : 0, dim: (room.light === 'dim' ? 0.5 : 1) * (this.level.mods?.blackout ? 0.2 : 1) });
     }
 
@@ -176,7 +181,7 @@ export class LevelView {
     for (let x = room.x0 + 1; x < room.x1; x += 2) {
       if (rng.chance(0.35)) {
         const piece = this.kit(rng.chance(0.6) || canFail ? 'ceiling_pipes' : 'ceiling_lamp');
-        if (piece) b.addObject(piece, at(x, room.y0), tint);
+        if (piece) b.addObject(piece, at(x, room.y1 - INNER_H), tint); // (under the ceiling, however high)
       }
     }
     // Organic dressing is modelled in place (puddles/mounds at the wall base); cobwebs are
@@ -193,7 +198,7 @@ export class LevelView {
     for (const vid of room.vents ?? []) {
       const v = this.level.vents[vid];
       const piece = this.kit(v.ceiling ? 'vent_ceiling' : 'vent_wall');
-      if (piece) b.addObject(piece, at(v.x, room.y0), tint);
+      if (piece) b.addObject(piece, at(v.x, v.ceiling ? room.y1 - INNER_H : room.y0), tint);
       else b.add(boxGeo(1, v.ceiling ? 0.1 : 0.6, 0.1, 0x111416), at(v.x, v.ceiling ? room.y1 - 0.05 : room.y0 + 0.45, BACK_Z + 0.1), this.fallbackMat, tint);
     }
 
@@ -277,6 +282,15 @@ export class LevelView {
       const rooms = L.rooms.filter((r) => r.deck === d && !r.exterior).sort((a, c) => a.x0 - c.x0);
       for (let i = 0; i + 1 < rooms.length; i++) {
         const xb = rooms[i].x1;
+        if (rooms[i + 1].x0 - xb > 0.01) {
+          // A hall's void between them: a solid wall on each side of it.
+          for (const wx of [xb, rooms[i + 1].x0]) {
+            const piece = this.kit('bulkhead_solid');
+            if (piece) b.addObject(piece, M.makeTranslation(wx, rooms[i].y0, 0), T);
+            else b.add(boxGeo(WALL, INNER_H, depth, COL.bulk), M.makeTranslation(wx, rooms[i].y0 + INNER_H / 2, zc), this.fallbackMat, T);
+          }
+          continue;
+        }
         const door = L.portals.find((p) => p.kind === 'door' && p.a === rooms[i].id);
         const weak = L.breaches?.find((q) => q.a === rooms[i].id && q.b === rooms[i + 1].id);
         if (weak) { this.breachWall(weak, xb, rooms[i].y0, T); continue; }

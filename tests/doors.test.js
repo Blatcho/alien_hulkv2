@@ -109,14 +109,20 @@ describe('vents', () => {
   });
 
   it('pointing at a vent sends them to weld it', () => {
-    const w = aboard();
-    lucky(w);
-    // Through the inner door: the airlock itself has no vents.
-    const inner = w.interactables().find((q) => q.kind === 'door' && w.level.portals[q.portal].airlock);
-    w.nudge(inner.id);
-    until(w, () => w.squad.leader.room !== w.level.airlock && w.squad.state === 'hold', 90);
-    const t = w.interactables().find((q) => q.kind === 'vent' && q.room === w.squad.leader.room)
-      ?? w.interactables().find((q) => q.kind === 'vent');
+    // A ship whose first room past the airlock has a vent in sight.
+    let w = null;
+    let t = null;
+    for (const seed of ['A1', 'B2', 'C3', 'D4', 'E5', 'F6']) {
+      w = aboard(seed);
+      lucky(w);
+      // Through the inner door: the airlock itself has no vents.
+      const inner = w.interactables().find((q) => q.kind === 'door' && w.level.portals[q.portal].airlock);
+      w.nudge(inner.id);
+      until(w, () => w.squad.leader.room !== w.level.airlock && w.squad.state === 'hold', 90);
+      t = w.interactables().find((q) => q.kind === 'vent' && q.room === w.squad.leader.room)
+        ?? w.interactables().find((q) => q.kind === 'vent');
+      if (t) break;
+    }
     expect(t).toBeTruthy();
     w.nudge(t.id);
     expect(until(w, () => w.squad.decision?.kind === 'vent', 60)).toBe(true);

@@ -28,12 +28,12 @@ describe('determinism', () => {
   // One per hull class (gen/classes.js), plus the two bare seeds (which roll a research vessel
   // and a mirrored freighter). The hull classes changed every ship once, deliberately.
   it.each([
-    ['A1', 240, { autoplay: true, god: true }, 'ee265006'],
-    ['G7', 240, { autoplay: true }, 'baaee993'],
-    ['CRV-A1', 240, { autoplay: true, god: true }, '90d2ea55'],
-    ['FRT-A1', 240, { autoplay: true, god: true }, '902369b4'],
-    ['LNR-A1', 240, { autoplay: true, god: true }, 'e5195b65'],
-    ['STN-A1', 240, { autoplay: true, god: true }, '54ae45ba'],
+    ['A1', 240, { autoplay: true, god: true }, '39e5ff8d'],
+    ['G7', 240, { autoplay: true }, '49aa1c6e'],
+    ['CRV-A1', 240, { autoplay: true, god: true }, '94d5c974'],
+    ['FRT-A1', 240, { autoplay: true, god: true }, '1c5bd7c1'],
+    ['LNR-A1', 240, { autoplay: true, god: true }, '8b9f7977'],
+    ['STN-A1', 240, { autoplay: true, god: true }, 'f8050daf'],
   ])('golden digest: %s', (seed, seconds, params, golden) => {
     const h = hashString(digest(play(seed, seconds, params))).toString(16);
     expect(h).toBe(golden);

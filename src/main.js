@@ -21,6 +21,7 @@ import {
 } from './meta/profile.js';
 import { candidatePool } from './meta/candidates.js';
 import { HULL_CLASSES, classFor, parseSeed, seedCode } from './gen/classes.js';
+import { storyFor } from './gen/stories.js';
 import { difficultyString, isDefaultDifficulty, parseDifficulty, withDifficulty } from './meta/difficulty.js';
 import { portraitMap } from './render/portraits.js';
 import { PRESETS, doctrineString, nextOrder, parseDoctrine } from './sim/doctrine.js';
@@ -113,7 +114,7 @@ class Game {
     this.briefing?.dispose();
     this.briefing = new BriefingScreen(this.hud.root, {
       heading: 'QUICK PLAY · BRIEFING', pool, portraits: portraitMap(this.assets, pool),
-      ship: { name: `Derelict ${seedCode(cls, seed)}`, size: HULL_CLASSES[cls].label, cls, blurb: HULL_CLASSES[cls].blurb, threat: 0, modifiers: [] },
+      ship: { name: `Derelict ${seedCode(cls, seed)}`, size: HULL_CLASSES[cls].label, cls, blurb: HULL_CLASSES[cls].blurb, story: storyFor(seed, cls), threat: 0, modifiers: [] },
       hull, onHull: (k) => this.showQuickBriefing(k ? seedCode(k, seed) : seed),
       selected: pool.slice(0, 4).map((t) => t.id), doctrine: last?.doctrine ?? PRESETS.standard.doctrine,
       difficulty: last?.difficulty, control: last?.control,
@@ -161,6 +162,8 @@ class Game {
       onDeploy: (offer, squad, doctrine, difficulty, control) => {
         // The difficulty rides in the ship's mods (meta/difficulty.js).
         saveRun({ seed: offer.seed, threat: offer.threat, mods: withDifficulty(offer.mods, difficulty), reward: offer.reward, name: offer.name, squad, doctrine, difficulty, control });
+        // What was played lately: the next offers steer away from it (meta/ships.js).
+        this.profile.recent = [...(this.profile.recent ?? []), { cls: offer.cls, modifiers: offer.modifiers ?? [] }].slice(-4);
         this.profile.seedCounter++;
         saveProfile(this.profile);
         location.search = '?run=1';

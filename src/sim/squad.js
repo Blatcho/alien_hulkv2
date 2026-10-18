@@ -759,7 +759,9 @@ export class Squad {
     const slot = this.trail.sample(target);
     const physX = m.x;
     const H = this.heading;
-    const wait = this.followersHold || (physX - lead.x) * H > 0.05 || (slot.x - lead.x) * H > -0.05;
+    // (The point man on another deck - down the stairs he just took - is nobody to wait for.)
+    const sameFloor = Math.abs(lead.y - m.y) < 0.5;
+    const wait = this.followersHold || (sameFloor && ((physX - lead.x) * H > 0.05 || (slot.x - lead.x) * H > -0.05));
     const d = wait ? 0 : slot.x - physX;
     const err = Math.abs(d);
     let want = 0;

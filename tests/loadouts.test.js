@@ -25,6 +25,7 @@ function squadOf(archetypes, opts = {}) {
   w.reserve = 0;
   w.director.hordeSize = 0;
   w.kit.grenades = 0; // (a tough foe is "worth a frag" - here they shoot)
+  w.shipEvents.list.length = 0; // (no deck going dark: they have to see what they shoot)
   run(w, 25);
   const settle = () => {
     for (let i = 0; i < 60 * 120; i++) {
@@ -163,7 +164,7 @@ describe('the minigun', () => {
     const m = w.marines[0];
     for (const o of w.marines.slice(1)) o.weapon = { ...o.weapon, rate: 0 }; // (only he shoots)
     expect(m.spin ?? 0).toBe(0);
-    const a = foe(w, m, 8);
+    const a = foe(w, m, 5); // (inside his awareness radius: his torch may well be on a lamp)
     a.hp = a.maxHp = 1e6;
     let first = null;
     let spun = 0;
