@@ -6,6 +6,9 @@
 // look: how the class dresses (render/levelView.js, render/exterior.js): tint multiplies the kit's
 // colours, wear/rust vary the wall tiles, lamp and sky are the lamp and fill colours, backdrops
 // override room types' wall variants, exterior names the silhouette beyond the hull.
+// oddities: the class's set-piece odds (gen/populate.js placeOddities: a sentry, a cryo pod and
+// what tends to be in it, a locked storeroom). stories: which derelict stories the class tells
+// (gen/stories.js), as weights.
 //
 // A seed code names its class: 'CRV-A1B2C3' is corvette A1B2C3; a bare seed rolls one.
 import { Rng } from '../core/rng.js';
@@ -20,6 +23,8 @@ export const HULL_CLASSES = {
     zones: { aft: { engineering: 3, reactor: 2, storage: 1.5 }, mid: { magazine: 3, barracks: 2, armory: 1.5 }, fore: { quarters: 2, medbay: 2, corridor: 1.5 } },
     reward: -0.1, danger: 1, modifiers: { bias: { restless: 1.5, armory: 1.5, volatile: 1.3 }, never: ['treasure', 'refugees'] },
     hints: ['acc', 'nrv'],
+    oddities: { turret: 0.8, cryopod: 0.25, storeroom: 0.5, pods: { alien: 1.5 } },
+    stories: { mutiny: 3, salvage: 1.5, silence: 1, outbreak: 0.3, evacuation: 0.5, quarantine: 0.5 },
     look: { tint: [0.9, 0.95, 1.06], wear: 0.35, rust: 0.1, lamp: 0xcfe0ff, sky: 0x6a7fa0, exterior: 'warship',
       backdrops: { quarters: { plain: 3, rack: 1, screen: 1 }, storage: { shelves: 3, rack: 1, plain: 1 }, corridor: { plain: 3, pipes: 2, rack: 0.5, hazard: 1 } } },
   },
@@ -32,6 +37,8 @@ export const HULL_CLASSES = {
     zones: { aft: { engineering: 3, reactor: 2 }, mid: { cargo: 3, storage: 2 }, fore: { quarters: 2, medbay: 1.5 }, low: { cargo: 2, storage: 1.5 }, high: { quarters: 2, corridor: 1 } },
     reward: 0, danger: 0, modifiers: { bias: { treasure: 1.6, volatile: 1.3 } },
     hints: ['sta', 'spd'],
+    oddities: { turret: 0.5, cryopod: 0.35, storeroom: 0.85 },
+    stories: { salvage: 3, mutiny: 1.5, silence: 1, evacuation: 1, quarantine: 0.5, outbreak: 0.3 },
     look: { tint: [1.06, 0.98, 0.9], wear: 0.7, rust: 0.45, lamp: 0xffd9a8, sky: 0x8a7a66, exterior: 'hauler',
       backdrops: { storage: { cargo: 2, shelves: 2, plain: 1 }, corridor: { plain: 2, pipes: 3, cargo: 1, vent: 1 }, cargo: { cargo: 3, hazard: 2, plain: 1 } } },
   },
@@ -44,6 +51,8 @@ export const HULL_CLASSES = {
     zones: { aft: { engineering: 3, reactor: 2, storage: 1.5 }, mid: { quarters: 2, galley: 2 }, fore: { medbay: 2, quarters: 1.5 }, low: { cargo: 2, storage: 2, hydroponics: 1.5 }, high: { quarters: 2, galley: 1.5 } },
     reward: 0.1, danger: 0, modifiers: { bias: { refugees: 2.5, blackout: 1.2 }, never: ['armory'] },
     hints: ['nrv', 'per'],
+    oddities: { turret: 0.3, cryopod: 0.6, storeroom: 0.6, pods: { survivor: 2 } },
+    stories: { evacuation: 3, quarantine: 2, silence: 1, outbreak: 1, mutiny: 0.5, salvage: 0.5 },
     look: { tint: [1.08, 1.04, 0.96], wear: 0.25, rust: 0.08, lamp: 0xffe8c8, sky: 0x9a8c86, exterior: 'liner',
       backdrops: { quarters: { cabin: 3, plain: 1, window: 1 }, corridor: { cabin: 2, plain: 2, window: 1 }, medbay: { lab: 2, screen: 2 }, storage: { shelves: 3, cargo: 1 } } },
   },
@@ -56,6 +65,8 @@ export const HULL_CLASSES = {
     zones: { aft: { engineering: 3, reactor: 2 }, mid: { lab: 3, specimens: 2 }, fore: { lab: 2, medbay: 2, quarters: 1.5 } },
     reward: 0.15, danger: 1, modifiers: { bias: { hive: 2.5, restless: 1.3 } },
     hints: ['int', 'per'],
+    oddities: { turret: 0.4, cryopod: 0.85, storeroom: 0.5, pods: { alien: 2, cache: 1.5 } },
+    stories: { outbreak: 3, quarantine: 2, silence: 1.5, salvage: 0.5, mutiny: 0.3, evacuation: 0.5 },
     look: { tint: [0.98, 1.06, 1.08], wear: 0.2, rust: 0.05, lamp: 0xdff4ff, sky: 0x6f98a0, exterior: 'research',
       backdrops: { medbay: { lab: 3, screen: 1 }, corridor: { plain: 3, lab: 1, pipes: 1, window: 1 }, quarters: { plain: 3, cabin: 1, screen: 1 } } },
   },
@@ -68,6 +79,8 @@ export const HULL_CLASSES = {
     zones: { low: { engineering: 3, reactor: 2, cargo: 2, storage: 1.5 }, high: { quarters: 2, promenade: 2, medbay: 1.5, galley: 1.5 } },
     reward: 0.2, danger: 1, modifiers: { bias: { blackout: 1.5, refugees: 1.5 } },
     hints: ['sta', 'spd'],
+    oddities: { turret: 0.6, cryopod: 0.45, storeroom: 0.7 },
+    stories: { evacuation: 2, salvage: 2, quarantine: 1.5, silence: 1, mutiny: 1, outbreak: 1 },
     look: { tint: [1, 1, 1], jitter: 0.08, wear: 0.55, rust: 0.3, lamp: 0xcfe8ff, sky: 0x7a8898, exterior: 'station',
       backdrops: { storage: { cargo: 2, shelves: 2 }, quarters: { cabin: 2, plain: 2 }, corridor: { plain: 2, pipes: 2, promenade: 1, cargo: 0.5 } } },
   },

@@ -103,6 +103,10 @@ describe('encounters', () => {
   it('if the player lets the clock run out, the standing orders choose', () => {
     const L = shipWith('armoury');
     const w = new World(L, { params: { god: true }, doctrine: { loot: 'leave' } });
+    // Nothing hunting: this is about the clock, not the fight on the way.
+    for (const a of [...w.aliens, ...w.critters]) { a.alive = false; w.physics.removeHitbox(a); }
+    w.reserve = 0;
+    w.director.hordeSize = 0;
     const prop = propsOf(L, 'armoury')[0];
     let d = null;
     for (let i = 0; i < 12 && !d; i++) { goTo(w, prop); d = untilEncounter(w, 'armoury', 60); }

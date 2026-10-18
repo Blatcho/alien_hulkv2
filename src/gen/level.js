@@ -8,6 +8,7 @@
 import { Rng } from '../core/rng.js';
 import { WORLD } from '../core/config.js';
 import { HULL_CLASSES, classFor, parseSeed, seedCode, shipSize } from './classes.js';
+import { storyFor } from './stories.js';
 import { buildLayout, layoutScore } from './layout.js';
 import { populate } from './populate.js';
 
@@ -23,7 +24,7 @@ export function generateLevel(seed, opts = {}) {
   let best = null;
   let found = 0;
   for (let attempt = 0; attempt < 200 && found < CANDIDATES; attempt++) {
-    const L = buildLayout(new Rng(bare, `layout-${attempt}`), { ...size, cls });
+    const L = buildLayout(new Rng(bare, `layout-${attempt}`), { ...size, cls, hallRng: new Rng(bare, `hall-${attempt}`) });
     if (!L) continue;
     found++;
     const score = layoutScore(L);
@@ -31,7 +32,7 @@ export function generateLevel(seed, opts = {}) {
   }
   if (!best) throw new Error(`no valid layout for seed ${seed}`);
   // threat = campaign difficulty tier; mods = ship modifiers (see meta/ships.js)
-  const level = { seed: seedCode(cls, bare), bare, attempt: best.attempt, threat: opts.threat ?? 0, mods, heading: 1, mirror: false, ...best.L };
+  const level = { seed: seedCode(cls, bare), bare, attempt: best.attempt, threat: opts.threat ?? 0, mods, heading: 1, mirror: false, story: storyFor(bare, cls), ...best.L };
   populate(level, (name) => new Rng(bare, name));
   addDock(level);
   if (HULL_CLASSES[cls].dockSide === 'either' && new Rng(bare, 'mirror').chance(0.5)) mirrorLevel(level);
@@ -153,10 +154,11 @@ export function buildSolids(level) {
     const x0 = Math.min(...ext.map((e) => e[0])) - HULL;
     const x1 = Math.max(...ext.map((e) => e[1])) + HULL;
     const y = k * DECK_H;
-    const holes = level.portals
-      .filter((p) => p.kind !== 'door' && Math.abs(p.yHigh - y) < 0.01)
-      .map(shaftOpening)
-      .sort((a, b) => a[0] - b[0]);
+    // Openings in this slab: the shafts of ladders and stairs, and the halls two decks tall below it.
+    const holes = [
+      ...level.portals.filter((p) => p.kind !== 'door' && Math.abs(p.yHigh - y) < 0.01).map(shaftOpening),
+      ...level.rooms.filter((r) => r.tall && r.deck === k - 1).map((r) => [r.x0, r.x1]),
+    ].sort((a, b) => a[0] - b[0]);
     let cursor = x0;
     for (const [h0, h1] of holes) {
       if (h0 > cursor) solids.push({ kind: 'slab', x0: cursor, x1: h0, y0: y - SLAB, y1: y });
@@ -181,6 +183,12 @@ export function buildSolids(level) {
     }
     for (let i = 0; i + 1 < rooms.length; i++) {
       const xb = rooms[i].x1;
+      if (rooms[i + 1].x0 - xb > 0.01) {
+        // A hall two decks tall from the deck below sits between them: a solid wall on each side of it.
+        solids.push({ kind: 'bulkhead', x0: xb - WALL / 2, x1: xb + WALL / 2, y0, y1 });
+        solids.push({ kind: 'bulkhead', x0: rooms[i + 1].x0 - WALL / 2, x1: rooms[i + 1].x0 + WALL / 2, y0, y1 });
+        continue;
+      }
       const door = level.portals.find((p) => p.kind === 'door' && p.a === rooms[i].id && p.b === rooms[i + 1].id);
       const weak = level.breaches?.find((b) => b.a === rooms[i].id && b.b === rooms[i + 1].id);
       solids.push({ kind: 'bulkhead', x0: xb - WALL / 2, x1: xb + WALL / 2, y0: door || weak ? y0 + DOOR_H : y0, y1 });
@@ -203,10 +211,10 @@ export function buildSolids(level) {
   return solids;
 }
 
-/** Room containing a point (by floor band), or -1. */
+/** Room containing a point (by floor band - a hall two decks tall owns both of its), or -1. */
 export function roomAt(level, x, y) {
   for (const r of level.rooms) {
-    if (x >= r.x0 && x <= r.x1 && y >= r.y0 - 0.3 && y <= r.y0 + DECK_H - 0.3) return r.id;
+    if (x >= r.x0 && x <= r.x1 && y >= r.y0 - 0.3 && y <= r.y1 + SLAB - 0.3) return r.id;
   }
   return -1;
 }

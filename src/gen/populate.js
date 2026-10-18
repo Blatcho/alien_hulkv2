@@ -27,7 +27,9 @@ function assignTypes(level, rng) {
   const degree = (r) => r.portals.length;
   // Reactor: a big room on the main path, away from both ends - aft, for preference.
   const mids = level.mainPath.slice(3, -3).filter((id) => cells(rooms[id]) >= 3);
-  const reactorPick = mids.length ? rng.weighted(mids.map((id) => [id, zoneWeight(cls, sectionOf(level, rooms[id]), 'reactor')])) : undefined;
+  const reactorPick = mids.length ? rng.weighted(mids.map((id) => [id, zoneWeight(cls, sectionOf(level, rooms[id]), 'reactor') * (rooms[id].tall ? 3 : 1)])) : undefined;
+  const HALL_TYPES = { cargo: 4, engineering: 3, hydroponics: 3, promenade: 4, magazine: 3, corridor: 0.5 };
+  const story = level.story ?? {};
   const pool = Object.entries(ROOM_TYPES).filter(([, t]) => t.weight > 0 && (!t.only || t.only.includes(cls)));
   for (const room of rooms) {
     room.seed = rng.int(0, 2 ** 30);
@@ -39,13 +41,13 @@ function assignTypes(level, rng) {
       const sec = sectionOf(level, room);
       const options = pool
         .filter(([k, t]) => (!t.minCells || cells(room) >= t.minCells) && (quota[k] === undefined || (counts[k] ?? 0) < quota[k]))
-        .map(([k, t]) => [k, t.weight * (C.types?.[k] ?? 1) * zoneWeight(cls, sec, k) * (deadEnd && (k === 'armory' || k === 'storage') ? 3 : 1)]);
+        .map(([k, t]) => [k, t.weight * (C.types?.[k] ?? 1) * zoneWeight(cls, sec, k) * (deadEnd && (k === 'armory' || k === 'storage') ? 3 : 1) * (room.tall ? HALL_TYPES[k] ?? 0.15 : 1)]);
       room.type = options.length ? rng.weighted(options) : 'corridor';
     }
     counts[room.type] = (counts[room.type] ?? 0) + 1;
     room.light = ROOM_TYPES[room.type].light;
     room.onMainPath = level.mainPath.includes(room.id);
-    room.nest = room.type !== 'airlock' && room.type !== 'cockpit' && degree(room) === 1 && room.dist >= 3 && rng.chance(Math.min(0.95, 0.55 * (level.mods?.nests ?? 1)));
+    room.nest = room.type !== 'airlock' && room.type !== 'cockpit' && degree(room) === 1 && room.dist >= 3 && rng.chance(Math.min(0.95, 0.55 * (level.mods?.nests ?? 1) * (story.nests ?? 1)));
     if (level.mods?.blackout && room.type !== 'airlock') room.light = rng.chance(0.7) ? 'dim' : 'flicker';
     room.explored = false;
     room.seen = false;
@@ -207,7 +209,7 @@ function placeActors(level, rng) {
   // Stranded crew hiding deeper in the ship.
   const survivors = [];
   const hideouts = rng.shuffle(level.rooms.filter((r) => r.dist >= 3 && !r.nest && r.type !== 'cockpit' && r.type !== 'reactor'));
-  const nSurv = rng.weighted([[1, 5], [2, 3], [0, 1]]) + (level.mods?.survivors ?? 0);
+  const nSurv = Math.max(0, rng.weighted([[1, 5], [2, 3], [0, 1]]) + (level.mods?.survivors ?? 0) + (level.story?.survivors ?? 0));
   for (const room of hideouts.slice(0, nSurv)) {
     const [wl, wr] = walkLimits(room);
     survivors.push({ room: room.id, x: rng.float(wl + 0.8, wr - 0.8) });
@@ -314,8 +316,12 @@ function placeOddities(level, rng) {
   };
   const inside = level.rooms.filter((r) => !r.exterior && r.type !== 'airlock' && r.type !== 'cockpit');
   const pick = (rooms) => (rooms.length ? rng.pick(rooms) : null);
+  // The odds: the defaults, the hull class's own (gen/classes.js oddities), then the story's (gen/stories.js).
+  const story = level.story ?? {};
+  const C = HULL_CLASSES[level.cls]?.oddities ?? {};
+  const O = { turret: 0.55, cryopod: 0.45, storeroom: 0.6, ...C, ...(story.oddities ?? {}), pods: { ...(C.pods ?? {}), ...(story.oddities?.pods ?? {}) } };
   // A sentry gun on standby.
-  if (rng.chance(0.55)) {
+  if (rng.chance(O.turret)) {
     const room = pick(inside.filter((r) => r.dist >= 2 && !r.nest && ['armory', 'engineering', 'storage', 'cargo', 'corridor', 'barracks', 'magazine', 'promenade'].includes(r.type)));
     if (room) add(room, 'turret', { encounter: 'turret' });
   }
@@ -325,15 +331,15 @@ function placeOddities(level, rng) {
     if (bed) bed.encounter = 'autodoc';
   }
   // Eggs in the nests.
-  for (const r of inside.filter((q) => q.nest)) if (rng.chance(0.7)) add(r, 'eggs', { encounter: 'eggs' });
-  // A cryo pod: someone (or something) put on ice.
-  if (rng.chance(0.45)) {
+  for (const r of inside.filter((q) => q.nest)) if (rng.chance(story.eggs ?? 0.7)) add(r, 'eggs', { encounter: 'eggs' });
+  // A cryo pod: someone (or something) put on ice - what, depends on the ship.
+  if (rng.chance(O.cryopod)) {
     const room = pick(inside.filter((r) => r.dist >= 2 && !r.nest && ['medbay', 'quarters', 'storage', 'lab', 'specimens', 'barracks'].includes(r.type)));
-    const pod = rng.weighted(Object.entries(POD));
+    const pod = rng.weighted(Object.entries(POD).map(([k, w]) => [k, w * (O.pods[k] ?? 1)]));
     if (room) add(room, 'cryopod', { encounter: 'cryopod', pod, ...(pod === 'cache' ? { loot: { type: 'treasure', item: rollTreasure(rng, threat) } } : {}) });
   }
   // A locked storeroom off the route, and the dead crewman with its keycard on the way there.
-  if (rng.chance(0.6)) {
+  if (rng.chance(O.storeroom)) {
     const side = pick(inside.filter((r) => r.dist >= 2 && !r.nest && r.type !== 'reactor' && !level.mainPath.includes(r.id)
       && r.portals.length === 1 && level.portals[r.portals[0]].kind === 'door'));
     const before = side && pick(inside.filter((r) => level.mainPath.includes(r.id) && r.dist >= 1 && r.dist < side.dist));
@@ -341,15 +347,38 @@ function placeOddities(level, rng) {
       const door = level.portals[side.portals[0]];
       door.locked = true;
       side.locked = door.id;
-      const prize = rng.chance(0.5) ? { type: 'weapon', item: rollWeapon(rng, { luck: 1.1 + threat * 0.15 }) } : { type: 'treasure', item: rollTreasure(rng, threat + 1) };
+      const prize = (O.prize ? O.prize === 'weapon' : rng.chance(0.5)) ? { type: 'weapon', item: rollWeapon(rng, { luck: 1.1 + threat * 0.15 }) } : { type: 'treasure', item: rollTreasure(rng, threat + 1) };
       const box = side.props.find((p) => p.loot && p.loot.type !== 'ambush');
       if (box) box.loot = prize; else add(side, 'safe', { loot: prize });
     }
   }
-  // More of the crew who didn't make it.
-  for (let i = rng.int(1, 3); i > 0; i--) {
-    const room = pick(inside.filter((r) => r.dist >= 1 && !r.nest));
-    if (room) add(room, 'body', { loot: rollLoot(rng, 'body', threat, level.mods) });
+  // The crew who didn't make it - where the story put them, carrying what it says.
+  const [b0, b1] = story.bodies ?? [1, 3];
+  for (let i = rng.int(b0, b1); i > 0; i--) {
+    const where = inside.filter((r) => r.dist >= 1 && !r.nest && (!story.near || r.dist <= 3));
+    const told = where.filter((r) => (story.bodyRooms ?? []).includes(r.type));
+    const room = pick(told.length && rng.chance(0.75) ? told : where);
+    if (room) add(room, 'body', { loot: story.bodyLoot ? storyLoot(rng, rng.pick(story.bodyLoot), threat, level.mods) : rollLoot(rng, 'body', threat, level.mods) });
+  }
+  // A quarantine: the medbay welded itself shut from inside (a door off the route; a charge cuts it).
+  if (story.weld) {
+    const sealed = pick(inside.filter((r) => r.type === story.weld && !level.mainPath.includes(r.id) && r.portals.some((pid) => level.portals[pid].kind === 'door')));
+    const door = sealed && level.portals[sealed.portals.find((pid) => level.portals[pid].kind === 'door')];
+    if (door && !door.outer && !door.locked) { door.welded = true; sealed.sealed = door.id; }
+  }
+}
+
+/** What a story's dead carry. */
+function storyLoot(rng, kind, threat, mods = {}) {
+  switch (kind) {
+    case 'weapon': return { type: 'weapon', item: rollWeapon(rng, { luck: 0.3 + threat * 0.15 + (mods.luck ?? 0) }) };
+    case 'treasure': return { type: 'treasure', item: rollTreasure(rng, threat) };
+    case 'credits': return { type: 'credits', amount: rng.int(2, 12) * 5 };
+    case 'ammo': return { type: 'ammo', amount: rng.int(3, 8) * 10 };
+    case 'medkit': return { type: 'medkit', amount: 35 };
+    case 'stim': return { type: 'stim', amount: 1 };
+    case 'food': return { type: 'food' };
+    default: return { type: 'empty' };
   }
 }
 
@@ -380,7 +409,8 @@ function placeEvents(level, rng) {
   level.events = [];
   const m = level.mods ?? {};
   const want = rng.weighted([[0, 2], [1, 5], [2, 3]]);
-  const pool = [['power', m.blackout ? 0.3 : 1.2], ['fire', m.volatile ? 2 : 1], ['distress', m.refugees ? 2 : 1]];
+  const lean = level.story?.events ?? {};
+  const pool = [['power', (m.blackout ? 0.3 : 1.2) * (lean.power ?? 1)], ['fire', (m.volatile ? 2 : 1) * (lean.fire ?? 1)], ['distress', (m.refugees ? 2 : 1) * (lean.distress ?? 1)]];
   const maxDist = Math.max(...level.rooms.map((r) => r.dist));
   const deep = (r) => !r.exterior && r.dist >= 2 && r.type !== 'cockpit' && r.type !== 'airlock';
   for (let i = 0; i < want && pool.length; i++) {
@@ -503,6 +533,7 @@ function placeBreaches(level, rng) {
       const a = rooms[i];
       const b = rooms[i + 1];
       if (a.type === 'airlock' || b.type === 'airlock' || a.id === level.objective.room || b.id === level.objective.room) continue;
+      if (Math.abs(a.x1 - b.x0) > 0.01) continue; // a hall's void lies between them
       if (level.portals.some((p) => p.kind === 'door' && p.a === a.id && p.b === b.id)) continue;
       const far = bfs(level.rooms, level.portals, a.id).dist[b.id];
       if (far >= 4) cands.push({ a: a.id, b: b.id, x: a.x1, deck: d, far });

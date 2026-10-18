@@ -10,6 +10,8 @@
 //    of the leftover candidates are re-added as loops. Removing doors is what forces the
 //    squad to climb and backtrack.
 // 5. Vertical links become ladders or stairs and get non-overlapping positions.
+// Some ships have a hall two decks tall (a hold, a hangar bay, the reactor): a room on one deck
+// with no rooms over it on the next, which that deck's rooms sit either side of.
 // Returns null when the result is too linear/short so the caller can retry with a new stream.
 import { SHIP, WORLD } from '../core/config.js';
 import { HULL_CLASSES, bridgeFor, deckSpans, dockDeckFor } from './classes.js';
@@ -76,31 +78,64 @@ export function walkLimits(room) {
   return [room.x0 + WALL / 2 + 0.45, room.x1 - WALL / 2 - 0.45];
 }
 
-export function buildLayout(rng, { cols, decks, cls = 'freighter' } = {}) {
+/**
+ * A hall two decks tall: 3-4 cells on a deck below the top one, with two cells kept at either end
+ * of both decks (the airlock, the cockpit, and rooms either side of the void above it). Never
+ * on or under a deck whose bridge sits in its core.
+ */
+function pickHall(rng, spans, decks, bridge, C) {
+  if (decks < 2 || !rng.chance(C.hall ?? 0.45)) return null;
+  const options = [];
+  for (let d = 0; d + 1 < decks; d++) {
+    if (bridge.at === 'core' && (d === bridge.deck || d + 1 === bridge.deck)) continue;
+    const lo = Math.max(spans[d][0], spans[d + 1][0]) + 2;
+    const hi = Math.min(spans[d][1], spans[d + 1][1]) - 2;
+    for (let w = 3; w <= 4; w++) for (let c = lo; c + w - 1 <= hi; c++) options.push({ deck: d, c0: c, c1: c + w - 1 });
+  }
+  return options.length ? rng.pick(options) : null;
+}
+
+export function buildLayout(rng, { cols, decks, cls = 'freighter', hallRng = null } = {}) {
   cols ??= SHIP.COLS;
   decks ??= SHIP.DECKS;
   const C = HULL_CLASSES[cls] ?? HULL_CLASSES.freighter;
   const dockDeck = dockDeckFor(cls, decks);
   const bridge = bridgeFor(cls, rng, decks, dockDeck);
   const spans = deckSpans(cls, rng, cols, decks, dockDeck);
+  const hall = pickHall(hallRng ?? rng, spans, decks, bridge, C); // (its own stream: ships without one keep their layout)
   const rooms = [];
   const byDeck = [];
   for (let d = 0; d < decks; d++) {
     const [c0, c1] = spans[d];
     if (c1 - c0 + 1 < 4) return null; // a deck too short for two rooms
-    const widths = partition(rng, c0, c1, {
+    const opts = {
       first: d === dockDeck ? 2 : 0,
       last: d === bridge.deck && bridge.at === 'far' ? 2 : 0,
       core: d === bridge.deck && bridge.at === 'core' ? 2 : 0,
-    });
-    let c = c0;
+    };
     byDeck[d] = [];
-    for (const w of widths) {
-      const room = makeRoom(rooms.length, d, c, c + w - 1);
+    const place = (widths, start) => {
+      let c = start;
+      for (const w of widths) {
+        const room = makeRoom(rooms.length, d, c, c + w - 1);
+        rooms.push(room);
+        byDeck[d].push(room);
+        c += w;
+      }
+    };
+    if (hall && d === hall.deck) {
+      place(partition(rng, c0, hall.c0 - 1, { first: opts.first }), c0);
+      const room = makeRoom(rooms.length, d, hall.c0, hall.c1);
+      room.tall = true;
+      room.y1 = room.y0 + 2 * DECK_H - SLAB;
       rooms.push(room);
       byDeck[d].push(room);
-      c += w;
-    }
+      place(partition(rng, hall.c1 + 1, c1, { last: opts.last }), hall.c1 + 1);
+    } else if (hall && d === hall.deck + 1) {
+      // The deck over the hall: rooms either side of the void, none over it.
+      place(partition(rng, c0, hall.c0 - 1, { first: opts.first }), c0);
+      place(partition(rng, hall.c1 + 1, c1, { last: opts.last }), hall.c1 + 1);
+    } else place(partition(rng, c0, c1, opts), c0);
   }
   const airlock = byDeck[dockDeck][0].id;
   const bridgeRow = byDeck[bridge.deck];
@@ -113,6 +148,7 @@ export function buildLayout(rng, { cols, decks, cls = 'freighter' } = {}) {
   for (let d = 0; d < decks; d++) {
     const row = byDeck[d];
     for (let i = 0; i + 1 < row.length; i++) {
+      if (row[i].c1 + 1 !== row[i + 1].c0) continue; // either side of a hall's void: no door between them
       cands.push({ kind: 'door', a: row[i].id, b: row[i + 1].id, w: rng.next() });
     }
     if (d + 1 >= decks) continue;
@@ -206,5 +242,6 @@ export function layoutScore(L) {
     if (p.kind === 'stairs') stairs++;
     if (p.kind !== 'door' && at.has(p.a) && at.has(p.b) && Math.abs(at.get(p.a) - at.get(p.b)) === 1) climbs++;
   }
-  return L.mainPath.length + Math.min(loops, 4) * 0.6 + Math.min(deadEnds, 5) * 0.35 + climbs * 0.5 + Math.min(stairs, 3) * 0.2;
+  const hall = L.rooms.some((r) => r.tall) ? 0.5 : 0;
+  return L.mainPath.length + Math.min(loops, 4) * 0.6 + Math.min(deadEnds, 5) * 0.35 + climbs * 0.5 + Math.min(stairs, 3) * 0.2 + hall;
 }

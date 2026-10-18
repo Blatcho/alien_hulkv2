@@ -1,7 +1,7 @@
 // The squad's kit (grenades, flares, the Defend guns), firing drills (staggered reloads, top-ups,
 // suppression), the shove, the specialists and squad morale.
 import { beforeAll, describe, expect, it } from 'vitest';
-import { ABILITY, DEFEND, KIT, MORALE, SQUAD, SUPPRESS } from '../src/core/config.js';
+import { ABILITY, ALIEN, DEFEND, ENERGY, KIT, MORALE, ROE, SQUAD, SUPPRESS } from '../src/core/config.js';
 import { Rng } from '../src/core/rng.js';
 import { walkLimits } from '../src/gen/layout.js';
 import { generateLevel } from '../src/gen/level.js';
@@ -23,6 +23,7 @@ function calm(params = {}, opts = {}) {
   const w = new World(generateLevel(opts.seed ?? 'A1'), { params, ...opts });
   for (const a of [...w.aliens, ...w.critters]) { a.alive = false; w.physics.removeHitbox(a); }
   w.reserve = 0;
+  w.shipEvents.list.length = 0; // (no deck going dark on them)
   run(w, 45);
   return w;
 }
@@ -362,13 +363,26 @@ describe('specialists', () => {
   it('the marksman\'s round into a sleeper hits far harder', () => {
     const w = calm({ god: true }, { doctrine: { roe: 'alert' } });
     const lead = roomAhead(w, 12);
+    // High alert burns energy, and the walk here may have spent it: fed and weapons up again
+    // (under normal fire discipline nobody fires on a sleeper).
+    w.energy = ENERGY.MAX;
+    w.setROE(ROE.ALERT);
     const mk = w.squad.order.find((m) => m.role === 'marksman');
+    // (His round, not a mate's, and not his frag: nobody else shoots, and a brute isn't worth a grenade here.)
+    for (const o of w.squad.order) if (o !== mk) o.weapon = { ...o.weapon, rate: 0 };
+    w.kit.grenades = 0;
     const a = spawn(w, 'brute', lead.x + w.squad.heading * 9, lead.room, 'dormant');
     a.hp = a.maxHp = 1e6;
+    // A sleeper in plain view wakes on sight of them (sim/alien.js sense); this one has its eyes shut.
+    const sight = ALIEN.SIGHT;
+    ALIEN.SIGHT = 2;
     let hit = null;
     w.on('hit', (e) => { if (e.entity === a && e.source === mk && !hit) hit = e; });
-    for (let i = 0; i < 60 * 8 && !hit; i++) w.step(STEP);
+    try {
+      for (let i = 0; i < 60 * 8 && !hit; i++) w.step(STEP);
+    } finally { ALIEN.SIGHT = sight; }
     expect(hit).toBeTruthy();
+    expect(a.state).toBe('hunt'); // (the round woke it)
     expect(hit.dmg).toBeGreaterThanOrEqual(mk.weapon.damage[0] * ABILITY.SNIPE * 0.99);
   });
 

@@ -404,4 +404,6 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color:
 .hulls { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
 .hulls button { font: inherit; font-size: 11px; padding: 4px 8px; cursor: pointer; background: #1d2624; color: var(--ink); border: 1px solid var(--edge); }
 .hulls button.on { border-color: var(--accent); color: #fff; box-shadow: 0 0 10px var(--glow); background: #243029; }
+.intel .story { margin: 4px 0 6px; font-size: 12px; line-height: 1.35; color: #c9c2a6; }
+.intel .story b { color: #e8d9a0; font-weight: 600; }
 .intel .bl, .ship .bl { font-size: 12px; color: var(--ink-dim); margin: 4px 0 2px; text-transform: none; }

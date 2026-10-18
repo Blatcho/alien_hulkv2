@@ -96,6 +96,7 @@ export class BriefingScreen {
         <div class="sn">${esc(ship.name)}</div>
         <div class="sz">${esc(ship.size ?? '')} · threat ${ship.threat ?? 0}${ship.reward ? ` · pay ×${ship.reward}` : ''}</div>
         ${ship.blurb ? `<div class="bl">${esc(ship.blurb)}</div>` : ''}
+        ${ship.story ? `<div class="story"><b>${esc(ship.story.title)}.</b> ${esc(ship.story.blurb)}</div>` : ''}
         <div class="mods">${(ship.modifiers ?? []).map((k) => `<span title="${esc(MODIFIERS[k].text)}">${MODIFIERS[k].label}</span>`).join('') || '<span class="plain">No known anomalies</span>'}</div>
         ${hintKeys.size ? `<div class="hint">Matters here: ${[...hintKeys].map((k) => `<b>${STATS.LABEL[k]}</b>`).join(', ')}</div>` : ''}
       </div>` : '';
