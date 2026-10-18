@@ -30,20 +30,28 @@ export function normalizeGeometry(src) {
 export class Batch {
   constructor() { this.byMat = new Map(); }
 
-  /** Add every mesh under `obj` (a kit/prop node) transformed by `matrix`. */
-  addObject(obj, matrix) {
+  /**
+   * Add every mesh under `obj` (a kit/prop node) transformed by `matrix`. `tint` ([r, g, b])
+   * multiplies the vertex colours of its lit parts (not its glow strips): the hull class's palette.
+   */
+  addObject(obj, matrix, tint = null) {
     obj.updateMatrixWorld(true);
     const rootInv = new THREE.Matrix4().copy(obj.matrixWorld).invert();
     obj.traverse((o) => {
       if (!o.isMesh) return;
       const local = new THREE.Matrix4().multiplyMatrices(rootInv, o.matrixWorld);
-      this.add(o.geometry, new THREE.Matrix4().multiplyMatrices(matrix, local), o.material);
+      const lit = !/^M_(Glow|Rarity)/.test(o.material.name ?? '');
+      this.add(o.geometry, new THREE.Matrix4().multiplyMatrices(matrix, local), o.material, lit ? tint : null);
     });
   }
 
-  add(geometry, matrix, material) {
+  add(geometry, matrix, material, tint = null) {
     const g = normalizeGeometry(geometry).clone().applyMatrix4(matrix);
     if (matrix.determinant() < 0) flipWinding(g);
+    if (tint) {
+      const c = g.attributes.color.array;
+      for (let i = 0; i < c.length; i += 3) { c[i] *= tint[0]; c[i + 1] *= tint[1]; c[i + 2] *= tint[2]; }
+    }
     if (!this.byMat.has(material)) this.byMat.set(material, []);
     this.byMat.get(material).push(g);
   }

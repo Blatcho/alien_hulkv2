@@ -3,6 +3,10 @@
 // is, which rooms it has and where they sit (zones, quotas), and which ship modifiers suit it.
 // Everything downstream - layout, population, the dock, the look - reads the class off the level.
 //
+// look: how the class dresses (render/levelView.js, render/exterior.js): tint multiplies the kit's
+// colours, wear/rust vary the wall tiles, lamp and sky are the lamp and fill colours, backdrops
+// override room types' wall variants, exterior names the silhouette beyond the hull.
+//
 // A seed code names its class: 'CRV-A1B2C3' is corvette A1B2C3; a bare seed rolls one.
 import { Rng } from '../core/rng.js';
 
@@ -16,6 +20,8 @@ export const HULL_CLASSES = {
     zones: { aft: { engineering: 3, reactor: 2, storage: 1.5 }, mid: { magazine: 3, barracks: 2, armory: 1.5 }, fore: { quarters: 2, medbay: 2, corridor: 1.5 } },
     reward: -0.1, danger: 1, modifiers: { bias: { restless: 1.5, armory: 1.5, volatile: 1.3 }, never: ['treasure', 'refugees'] },
     hints: ['acc', 'nrv'],
+    look: { tint: [0.9, 0.95, 1.06], wear: 0.35, rust: 0.1, lamp: 0xcfe0ff, sky: 0x6a7fa0, exterior: 'warship',
+      backdrops: { quarters: { plain: 3, rack: 1, screen: 1 }, storage: { shelves: 3, rack: 1, plain: 1 }, corridor: { plain: 3, pipes: 2, rack: 0.5, hazard: 1 } } },
   },
   freighter: {
     label: 'Freighter', code: 'FRT', weight: 1.2,
@@ -26,6 +32,8 @@ export const HULL_CLASSES = {
     zones: { aft: { engineering: 3, reactor: 2 }, mid: { cargo: 3, storage: 2 }, fore: { quarters: 2, medbay: 1.5 }, low: { cargo: 2, storage: 1.5 }, high: { quarters: 2, corridor: 1 } },
     reward: 0, danger: 0, modifiers: { bias: { treasure: 1.6, volatile: 1.3 } },
     hints: ['sta', 'spd'],
+    look: { tint: [1.06, 0.98, 0.9], wear: 0.7, rust: 0.45, lamp: 0xffd9a8, sky: 0x8a7a66, exterior: 'hauler',
+      backdrops: { storage: { cargo: 2, shelves: 2, plain: 1 }, corridor: { plain: 2, pipes: 3, cargo: 1, vent: 1 }, cargo: { cargo: 3, hazard: 2, plain: 1 } } },
   },
   liner: {
     label: 'Liner', code: 'LNR', weight: 1,
@@ -36,6 +44,8 @@ export const HULL_CLASSES = {
     zones: { aft: { engineering: 3, reactor: 2, storage: 1.5 }, mid: { quarters: 2, galley: 2 }, fore: { medbay: 2, quarters: 1.5 }, low: { cargo: 2, storage: 2, hydroponics: 1.5 }, high: { quarters: 2, galley: 1.5 } },
     reward: 0.1, danger: 0, modifiers: { bias: { refugees: 2.5, blackout: 1.2 }, never: ['armory'] },
     hints: ['nrv', 'per'],
+    look: { tint: [1.08, 1.04, 0.96], wear: 0.25, rust: 0.08, lamp: 0xffe8c8, sky: 0x9a8c86, exterior: 'liner',
+      backdrops: { quarters: { cabin: 3, plain: 1, window: 1 }, corridor: { cabin: 2, plain: 2, window: 1 }, medbay: { lab: 2, screen: 2 }, storage: { shelves: 3, cargo: 1 } } },
   },
   research: {
     label: 'Research vessel', code: 'RSV', weight: 0.9,
@@ -46,6 +56,8 @@ export const HULL_CLASSES = {
     zones: { aft: { engineering: 3, reactor: 2 }, mid: { lab: 3, specimens: 2 }, fore: { lab: 2, medbay: 2, quarters: 1.5 } },
     reward: 0.15, danger: 1, modifiers: { bias: { hive: 2.5, restless: 1.3 } },
     hints: ['int', 'per'],
+    look: { tint: [0.98, 1.06, 1.08], wear: 0.2, rust: 0.05, lamp: 0xdff4ff, sky: 0x6f98a0, exterior: 'research',
+      backdrops: { medbay: { lab: 3, screen: 1 }, corridor: { plain: 3, lab: 1, pipes: 1, window: 1 }, quarters: { plain: 3, cabin: 1, screen: 1 } } },
   },
   station: {
     label: 'Station', code: 'STN', weight: 0.8,
@@ -56,6 +68,8 @@ export const HULL_CLASSES = {
     zones: { low: { engineering: 3, reactor: 2, cargo: 2, storage: 1.5 }, high: { quarters: 2, promenade: 2, medbay: 1.5, galley: 1.5 } },
     reward: 0.2, danger: 1, modifiers: { bias: { blackout: 1.5, refugees: 1.5 } },
     hints: ['sta', 'spd'],
+    look: { tint: [1, 1, 1], jitter: 0.08, wear: 0.55, rust: 0.3, lamp: 0xcfe8ff, sky: 0x7a8898, exterior: 'station',
+      backdrops: { storage: { cargo: 2, shelves: 2 }, quarters: { cabin: 2, plain: 2 }, corridor: { plain: 2, pipes: 2, promenade: 1, cargo: 0.5 } } },
   },
 };
 

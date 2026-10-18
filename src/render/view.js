@@ -12,6 +12,7 @@ import { Renderer } from './renderer.js';
 import { makeStarfield } from './starfield.js';
 import { DarknessShader, VisMask } from './visMask.js';
 import { WORLD } from '../core/config.js';
+import { HULL_CLASSES } from '../gen/classes.js';
 import { RARITY } from '../sim/loot.js';
 
 export class GameView {
@@ -34,6 +35,8 @@ export class GameView {
     this.scene.add(this.starfield);
     this.actors = new Actors(this.scene, assets);
     this.lights = new Lights(this.scene, world.marines.length);
+    const look = HULL_CLASSES[world.level.cls]?.look;
+    if (look?.sky) this.lights.hemi.color.set(look.sky); // the class's cast to the fill light
     this.fx = new Fx(this.scene, world.physics);
     this.markers = new Markers(this.scene); // what there is to click, glowing faintly
     this.vis = new VisMask(this.renderer, world.level);

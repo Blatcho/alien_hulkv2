@@ -137,6 +137,8 @@ Every seed is a **hull class** and a number: `CRV-7F2A9B` is corvette 7F2A9B. A 
 - **Zones:** rooms are placed by section - engineering and the reactor aft, the holds amidships, quarters and the medbay forward (on a station, by ring) - and each class caps its rarer rooms (one magazine on a corvette, three labs on a research vessel).
 - **The best of five:** the generator lays out five ships for a seed and keeps the one that plays best: the longest way through, with loops to double back by, dead ends for nests, and climbs and stairs on the way.
 - **Briefing:** ship intel names the class and what it is like; the hull picker (AUTO, or any class) rewrites the seed code, and the deploy link carries it.
+- **Looks:** each class casts its own tint over the kit (cold blue-grey warship, rusty hauler, warm liner, clinical research vessel, patchwork station), wears its wall tiles its own way, lights its rooms its own colour, and has walls of its own - a liner's cabins, a lab's tiling and jar cabinet, a freighter's container ends, a corvette's weapons racks, a station's shop fronts - and props of its own (missiles on cradles, hydroponics troughs under grow lamps, specimen tanks, lab benches, galley counters, vending kiosks).
+- **From outside:** beyond the hull each class has its silhouette against the stars - drives with their burners lit, cargo pods under the keel, a bridge house, a liner's funnel and portholes, a research vessel's dish and boom, a station's solar arrays and berth - placed from the level's own geometry (so a starboard-docked ship is mirrored too), in box geometry that needs no art.
 
 ---
 ## Troopers: stats and archetypes
@@ -341,5 +343,5 @@ See [tools/blender/README.md](tools/blender/README.md) for the full asset contra
 - Animation clips are keyed in script and exported as one GLB per asset family.
 - On the move a trooper's legs always walk or run at the speed he's going. A reload, a shove, a hand signal or a burst plays on his upper body only (the clip split at the hips), so nobody glides along the deck in a standing pose.
 - The bolt pistol and minigun share the other weapons' grip points; the power sword rides the left hand and the power fists both hands. The minigun's barrel cluster has its own bone, which the game spins. Power fields use the emissive `M_Power` material.
-- `npm run assets` needs Blender. Where only Python is available, `pip install bpy` (Blender as a Python module) and `BLENDER=tools/bpy-blender npm run assets` run the same scripts (`BPY_PYTHON` picks the Python that has `bpy`). Previews also need EGL (`libegl1`, `EGL_PLATFORM=surfaceless`).
+- `npm run assets` needs Blender. Where only Python is available, `pip install bpy` (Blender as a Python module) and `BLENDER=tools/bpy-blender npm run assets` run the same scripts (`BPY_PYTHON` picks the Python that has `bpy`). The module exports without meshopt compression, so the build then packs each GLB with `gltfpack` (a devDependency), keeping node names, materials and float precision. Previews also need EGL (`libegl1`, `EGL_PLATFORM=surfaceless`).
 - Room pieces are merged per room at load time, keeping draw calls low.

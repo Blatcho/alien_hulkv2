@@ -41,6 +41,8 @@ GLOWS = {   # emissive strengths tuned against the game's bloom (threshold 0.82,
     "white": ("M_GlowWhite", (0.85, 0.93, 1.0), 2.2),   # cold work lights
     "amber": ("M_GlowAmber", (1.0, 0.55, 0.12), 2.0),   # small indicator buttons
     "blue": ("M_GlowBlue", (0.3, 0.55, 1.0), 1.6),      # idling thrusters (faint)
+    "pink": ("M_GlowPink", (1.0, 0.4, 0.85), 1.6),      # grow lamps (hydroponics)
+    "green": ("M_GlowGreen", (0.35, 1.0, 0.45), 1.6),   # status lamps
     "rarity": ("M_Rarity", (1.0, 1.0, 1.0), 1.6),       # loot strip: white, the engine tints per rarity
 }
 
@@ -54,7 +56,7 @@ def mat(key):
 
 # display colours for glow faces (what Workbench previews and the base colour show)
 GLOW_RGB = {"glow": "#5ff0d8", "red": "#ff3a22", "white": "#e8f2ff", "amber": "#ffae3a", "blue": "#6aa0ff",
-            "rarity": "#ffffff"}
+            "pink": "#ff6ad0", "green": "#5aff78", "rarity": "#ffffff"}
 
 # Shared environment palette (README art direction: gunmetal, rust, grime, sparse hazard yellow).
 PAL = {

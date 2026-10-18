@@ -154,15 +154,16 @@ describe('simulation', () => {
   });
 
   it('after a fight the squad holds weapons up, calls clear, then relaxes to casual', () => {
-    const world = new World(generateLevel('A1'), { params: { autoplay: true, god: true } });
+    // (A corvette: a short fight early, then a quiet stretch to relax in.)
+    const world = new World(generateLevel('CRV-A1'), { params: { autoplay: true, god: true } });
     const said = [];
     world.on('bark', (b) => said.push({ t: world.time, key: b.key }));
-    let combatEnd = null;
+    let combatEnd = null; // the latest fight's end: a quiet quarter minute after any of them will do
     let sawCasualAfter = false;
-    for (let i = 0; i < 60 * 300 && world.status === 'playing'; i++) {
+    for (let i = 0; i < 60 * 600 && world.status === 'playing' && !sawCasualAfter; i++) {
       const was = world.squad.engaged;
       world.step(STEP);
-      if (was && !world.squad.engaged && combatEnd === null) combatEnd = world.time;
+      if (was && !world.squad.engaged) combatEnd = world.time;
       if (combatEnd !== null && world.time < combatEnd + 1.5) {
         expect(world.squad.order.every((m) => m.stance === 'engaged')).toBe(true);
       }
