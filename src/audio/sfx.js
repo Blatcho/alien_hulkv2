@@ -549,6 +549,8 @@ export class Sfx {
     on('horde-warning', () => { this.distant('alarm', 1.2); this.trackerPing([{ d: 2 }, { d: 3 }, { d: 4 }]); });
     on('horde', () => { this.distant('alien_screech', 1.6); this.distant('alien_growl', 1.4); });
     on('barricade-down', ({ prop }) => { this.clang(prop.x); this.play('armor_hit', prop.x, 1.2); });
+    on('breach', ({ breach }) => this.boom(breach.x));
+    on('fuse-blown', ({ x }) => this.play('spark', x, 1.4, { rate: 0.6, gap: 0.15 }));
     on('welded', ({ portal }) => { this.play('spark', portal.x, 1.3); this.clang(portal.x, 0.7); });
     on('vent-welded', ({ vent }) => { this.play('spark', vent.x, 1.3); this.clang(vent.x, 0.6); });
     on('cut', ({ portal }) => { this.play('explosion_sub', portal.x, 0.8) || this.boom(portal.x); this.clang(portal.x); });

@@ -677,6 +677,65 @@ def bulkhead_solid():
     return g.build("bulkhead_solid", grime=wall_grime(12, floor=0.7, stain=0.14, depth=None))
 
 
+def bulkhead_weak():
+    """A bulkhead gone soft (gen/populate.js placeBreaches): the same girder as bulkhead_solid, its
+    middle plate bowed and rusted through along a seam, the charge point stencilled by whoever
+    surveyed it. The engine swaps it for bulkhead_breach once blown."""
+    g = Geo(seed=33)
+    fl = girder_face(g, -0.3, 0.3, 0.0, 4.5, -1.0, 33)
+    plates = [(0.32, 1.55), (1.62, 2.95), (3.02, 4.3)]
+    for i, (z0, z1) in enumerate(plates):
+        rgb = C["rust"] if i == 1 else (C["panel2"] if i % 2 else C["panel"])
+        g.add(plate(-0.3 + fl + 0.01, 0.3 - fl - 0.01, z0, z1, -0.985 - (0.05 if i == 1 else 0.0), -0.95,
+                    steps=[(0.03, -0.008), (0.03, 0.006)], bevel=0.01), rgb, cull=[BACK], jitter=0.06 if i == 1 else 0.03)
+        g.add(studs([(x, -0.985, z) for x in (-0.16, 0.16) for z in (z0 + 0.05, z1 - 0.05)], s=0.014, h=0.01),
+              C["steel_lt"])
+        shadow(g, -0.3 + fl, 0.3 - fl, z0, 0.1, -0.952, C["back"], k=0.6)
+    for z0, z1 in ((0.0, 0.32), (1.55, 1.62), (2.95, 3.02), (4.3, 4.5)):
+        g.add(plate(-0.3, 0.3, z0, z1, -1.0, -0.9, bevel=0.008), C["steel"], cull=[BACK])
+    # the seam: a ragged crack down the bowed plate, rust bleeding from it
+    g.add(flat([(-0.02, 1.7), (0.03, 1.95), (-0.04, 2.3), (0.05, 2.6), (0.0, 2.9), (-0.05, 2.75), (0.01, 2.4),
+                (-0.06, 2.05), (-0.04, 1.75)], -1.045), C["void"], jitter=0.0)
+    rust(g, 0.0, 2.3, 0.12, 0.5, -1.04, 131)
+    rust(g, 0.12, 1.9, 0.07, 0.12, -1.04, 133, two=False)
+    streak(g, -0.08, 1.6, 0.6, 0.04, -1.0, 134, C["rust_dk"], C["panel"])
+    # the charge point: chevrons at the foot and the surveyor's stencil
+    g.add(bx(-0.3, 0.3, -1.03, -1.0, 0.0, 0.3), C["haz_dk"])
+    g.add(stripes(-0.3, 0.3, 0.02, 0.28, -1.035, width=0.07, slant=0.8), C["haz"], jitter=0.1)
+    g.add(bx(-0.22, 0.22, -1.05, -1.04, 1.18, 1.5), C["haz_dk"], jitter=0.0)
+    g.add(stencil("WEAK", 0.0, 1.38, -1.053, px=0.02, anchor="center"), C["stencil_y"], jitter=0.0)
+    g.add(stencil("SEAM", 0.0, 1.24, -1.053, px=0.02, anchor="center"), C["stencil_y"], jitter=0.0)
+    g.squash("y", -1.0, -0.9)
+    return g.build("bulkhead_weak", grime=wall_grime(13, floor=0.7, stain=0.18, depth=None))
+
+
+def bulkhead_breach():
+    """The weak bulkhead blown: the lintel left hanging with a scorched tear, the lower plates
+    peeled back against the posts, soot, embers in the debris at the back. The opening stays
+    see-through in front of y = 1.5, like a doorway."""
+    g = Geo(seed=34)
+    fl = girder_face(g, -0.3, 0.3, 2.85, 4.5, -1.0, 34)
+    g.add(plate(-0.3 + fl + 0.01, 0.3 - fl - 0.01, 3.1, 4.3, -0.985, -0.95, steps=[(0.03, -0.008)], bevel=0.01),
+          C["panel"], cull=[BACK], jitter=0.03)
+    g.add(plate(-0.3, 0.3, 4.3, 4.5, -1.0, -0.9, bevel=0.008), C["steel"], cull=[BACK])
+    torn = [(-0.3, 3.12), (-0.3, 3.1), (-0.18, 2.86), (-0.06, 3.0), (0.08, 2.8), (0.2, 2.98), (0.3, 2.88), (0.3, 3.12)]
+    g.add(poly_prism(torn, -1.0, 1.95), "#1a1613", jitter=0.08)
+    # back posts (behind y = 1.5) with the plates peeled off them
+    g.add(bx(-0.3, 0.3, 1.55, 2.0, 0.0, 2.9), C["panel3"], cull=[BACK])
+    g.add(plate(-0.3, 0.3, 0.0, 2.9, 1.51, 1.55, steps=[(0.04, -0.01)]), C["rib"], cull=[BACK])
+    for sx in (-1, 1):   # peeled plate curls, flat against the back posts
+        pts = [(sx * 0.3, 0.2), (sx * 0.3, 1.6), (sx * 0.5, 1.75), (sx * 0.6, 1.3), (sx * 0.48, 0.6), (sx * 0.38, 0.15)]
+        g.add(poly_prism(pts, 1.55, 1.6), C["rust_dk"], jitter=0.08)
+    g.add(flat(blob(0.0, 1.4, 0.3, 0.9, 10, 7, jag=0.4), 1.505), "#141210", jitter=0.0)   # soot on the posts
+    for i, (x, z, r) in enumerate(((-0.2, 0.08, 0.1), (0.12, 0.06, 0.08), (0.02, 0.18, 0.06))):   # debris at the back
+        g.add(lump((x, 1.75, z), r, seed=40 + i, seg=6, rings=4, rough=0.35, scale=(1.4, 0.6, 0.6), cut="bottom"),
+              C["rust_dk"])
+    g.glow(bx(-0.1, 0.0, 1.66, 1.7, 0.02, 0.05), "amber")
+    g.glow(bx(0.14, 0.2, 1.66, 1.7, 0.01, 0.04), "red")
+    g.add(bx(-0.3, 0.3, -1.0, 1.5, 0.0, 0.012), C["steel"], top=0.1)   # threshold plate
+    g.squash("y", -1.0, -0.9)
+    return g.build("bulkhead_breach", grime=wall_grime(14, floor=0.7, stain=0.2, depth=None))
+
 def hull_frame(g, seed, hatch=False):
     """Thick outer hull section: heavy side plates, massive ribs, dark bracing between."""
     g.add(bx(-0.6, 0.6, -0.9, 2.0, -0.5, 4.5), C["back"], cull=[BACK])
@@ -1047,6 +1106,7 @@ PIECES = [
     ("wall_hazard", wall_hazard), ("wall_cabin", wall_cabin), ("wall_lab", wall_lab), ("wall_cargo", wall_cargo),
     ("wall_rack", wall_rack), ("wall_promenade", wall_promenade), ("floor_trim", floor_trim), ("ceiling_pipes", ceiling_pipes),
     ("ceiling_lamp", ceiling_lamp), ("bulkhead_door", bulkhead_door), ("bulkhead_solid", bulkhead_solid),
+    ("bulkhead_weak", bulkhead_weak), ("bulkhead_breach", bulkhead_breach),
     ("door_panel", door_panel), ("hull_end", hull_end), ("hull_airlock", hull_airlock), ("ladder", ladder),
     ("stairs", stairs), ("shaft_rim", shaft_rim), ("vent_wall", vent_wall), ("vent_ceiling", vent_ceiling),
     ("lamp_red", lamp_red), ("lamp_white", lamp_white), ("slime", slime), ("cobweb", cobweb), ("biomass", biomass),
@@ -1063,6 +1123,8 @@ CONTRACT = {
     "ceiling_lamp": dict(x=(-1, 1), y=(0.2, 2.0), z=(3.7, 4.5)),
     "bulkhead_door": dict(x=(-0.3, 0.3), y=(-1, 2), z=(0, 4.5)),
     "bulkhead_solid": dict(x=(-0.3, 0.3), y=(-1, 2), z=(0, 4.5)),
+    "bulkhead_weak": dict(x=(-0.3, 0.3), y=(-1, 2), z=(0, 4.5)),
+    "bulkhead_breach": dict(x=(-0.65, 0.65), y=(-1, 2), z=(0, 4.5)),
     "door_panel": dict(x=(-0.25, 0.25), y=(-0.9, 1.6), z=(0, 3.0)),
     "hull_end": dict(x=(-0.6, 0.6), y=(-1, 2), z=(-0.5, 4.5)),
     "hull_airlock": dict(x=(-0.6, 0.6), y=(-1, 2), z=(-0.5, 4.5)),
@@ -1101,6 +1163,9 @@ def validate(pieces):
     blocked = check_clear(pieces["bulkhead_door"], (-0.29, 0.29), (0.02, 2.98), y_stop=1.5)
     if blocked:
         problems.append(f"bulkhead_door: {blocked} rays blocked in the doorway in front of y=1.5")
+    blocked = check_clear(pieces["bulkhead_breach"], (-0.25, 0.25), (0.15, 2.6), y_stop=1.5)
+    if blocked:
+        problems.append(f"bulkhead_breach: {blocked} rays blocked in the opening in front of y=1.5")
     for p in problems:
         print("WARN contract", p)
     return problems

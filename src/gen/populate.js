@@ -3,7 +3,7 @@
 import { ALIEN_TYPES, BROOD, CRAWL, DEFEND, HORDE, HOSTILES, POD, SHIP, WORLD } from '../core/config.js';
 import { LOOT, PROPS, ROOM_TYPES } from './templates.js';
 import { HULL_CLASSES, sectionOf, zoneWeight } from './classes.js';
-import { walkLimits } from './layout.js';
+import { bfs, walkLimits } from './layout.js';
 import { ceilingSpans, doorInWall, portalEnds, wallFace } from './level.js';
 import { pickAlienType } from '../sim/entities.js';
 import { rollTreasure, rollWeapon } from '../sim/loot.js';
@@ -488,6 +488,34 @@ function placeDefences(level, rng) {
   for (let i = 0; i < DEFEND.EXTRA; i++) put(boxes(() => true));
 }
 
+/**
+ * Weak bulkheads (sim/hazards.js, encounter 'breach'): a solid wall between two neighbouring rooms
+ * that are a long way apart by the doors - a charge (or a blast against it) opens a shortcut the
+ * ship never had. One or two per ship, the longest detours favoured; never into the airlock or
+ * the command deck.
+ */
+function placeBreaches(level, rng) {
+  level.breaches = [];
+  const cands = [];
+  for (let d = 0; d < level.decks; d++) {
+    const rooms = level.rooms.filter((r) => r.deck === d && !r.exterior).sort((p, q) => p.x0 - q.x0);
+    for (let i = 0; i + 1 < rooms.length; i++) {
+      const a = rooms[i];
+      const b = rooms[i + 1];
+      if (a.type === 'airlock' || b.type === 'airlock' || a.id === level.objective.room || b.id === level.objective.room) continue;
+      if (level.portals.some((p) => p.kind === 'door' && p.a === a.id && p.b === b.id)) continue;
+      const far = bfs(level.rooms, level.portals, a.id).dist[b.id];
+      if (far >= 4) cands.push({ a: a.id, b: b.id, x: a.x1, deck: d, far });
+    }
+  }
+  const want = Math.min(cands.length, level.rooms.length > 20 ? 2 : 1);
+  for (let k = 0; k < want; k++) {
+    const pick = rng.weighted(cands.map((c, i) => [i, c.far * c.far]));
+    const c = cands.splice(pick, 1)[0];
+    level.breaches.push({ id: k, a: c.a, b: c.b, x: c.x, deck: c.deck, far: c.far, open: false });
+  }
+}
+
 export function populate(level, rngFor) {
   assignTypes(level, rngFor('types'));
   placeProps(level, rngFor('props'));
@@ -499,6 +527,7 @@ export function populate(level, rngFor) {
   placeRations(level, rngFor('rations'));
   placeOddities(level, rngFor('oddities'));
   placeEvents(level, rngFor('events'));
+  placeBreaches(level, rngFor('breaches'));
   placeHorde(level, rngFor('horde'));
   placeDefences(level, rngFor('defences'));
   return level;

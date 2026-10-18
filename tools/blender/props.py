@@ -33,6 +33,7 @@ WIDTH = {
     "barrel_explosive": 0.9, "barrel_wreck": 1.0, "console_broken": 1.8, "weapon_case": 1.4, "safe": 1.0, "scorch": 2.0,
     "barricade": 1.2, "turret": 1.0, "eggs": 1.6, "cryopod": 1.3, "body": 2.0,
     "missile": 2.6, "planter": 2.0, "specimen_tank": 1.3, "lab_bench": 2.2, "galley_counter": 2.2, "kiosk": 1.4,
+    "gas_cylinder": 0.6, "fuse_box": 0.8, "fuse_box_broken": 0.8, "rubble": 1.2,
 }
 BUDGET = {"reactor": 3000, "control_panel": 3000}
 
@@ -1419,11 +1420,91 @@ def kiosk():
     return g.build("kiosk", grime=prop_grime(361, h=1.8))
 
 
+
+# ================================================================ hazards and wreckage (sim/hazards.js)
+
+def gas_cylinder():
+    """A pressurised gas cylinder (~0.6 m wide, 1.5 m tall): a tall steel bottle on a foot ring,
+    a hazard collar, the valve under a carry handle, the contents stencilled. Explosive."""
+    g = Geo(seed=371)
+    g.add(cyl(0.3, 0.06, (0, 0, 0.03), verts=12), C["dark"])
+    g.add(cyl(0.26, 1.16, (0, 0, 0.64), verts=14), "#4a5a5e", jitter=0.04)
+    g.add(cyl(0.26, 0.2, (0, 0, 1.32), verts=14, r2=0.1), "#4a5a5e", jitter=0.04)
+    g.add(cyl(0.275, 0.1, (0, 0, 0.95), verts=14), C["haz"], jitter=0.08)
+    g.add(cyl(0.275, 0.03, (0, 0, 1.01), verts=14), C["haz_dk"], jitter=0.0)
+    g.add(cyl(0.06, 0.12, (0, 0, 1.48), verts=8), C["brass"])
+    g.add(bx(-0.12, 0.12, -0.03, 0.03, 1.5, 1.53), C["brass"])
+    g.add(tube([(0.0, -0.1, 1.49), (0.0, -0.19, 1.49), (0.0, -0.2, 1.42)], 0.012, verts=4), C["pipe_cu"])
+    g.add(tube([(-0.14, 0.0, 1.4), (-0.14, 0.0, 1.6), (0.14, 0.0, 1.6), (0.14, 0.0, 1.4)], 0.015, verts=5), C["steel"])
+    g.add(stencil("CO2", -0.12, 0.7, -0.27, px=0.02), C["stencil"], jitter=0.0)
+    g.add(stencil("1800 KPA", -0.17, 0.55, -0.27, px=0.011), C["stencil"], jitter=0.0)
+    rust(g, 0.1, 0.3, 0.1, 0.12, -0.27, 371, two=False)
+    return g.build("gas_cylinder", grime=prop_grime(371, h=1.2))
+
+
+def _fuse_frame(g):
+    g.add(bx(-0.38, 0.38, -0.12, 0.2, 1.2, 2.0, bevel=0.012), C["steel"], jitter=0.03)
+    g.add(pipe((0.0, 0.05, 2.0), (0.0, 0.05, 2.4), 0.03, verts=6), C["pipe"])                              # conduit up
+    g.add(tube([(-0.2, 0.05, 1.2), (-0.22, 0.02, 0.6), (-0.3, 0.0, 0.0)], 0.014, verts=4), C["cable"])   # cable to the deck
+
+
+def fuse_box():
+    """A fuse box on the back wall (~0.8 m, from z = 1.2): a steel cabinet with its door shut, the
+    voltage stencilled, conduit in from above, a cable down to the deck, a live lamp. Shot out,
+    its room goes dark (sim/hazards.js)."""
+    g = Geo(seed=381)
+    _fuse_frame(g)
+    g.add(plate(-0.34, 0.34, 1.26, 1.94, -0.14, -0.12, steps=[(0.02, -0.006)], bevel=0.008), C["panel"], jitter=0.02)
+    g.add(bx(-0.3, 0.3, -0.145, -0.14, 1.75, 1.88), "#3a3a2a", jitter=0.0)
+    g.add(poly_prism([(-0.04, 1.86), (0.03, 1.86), (-0.01, 1.8), (0.04, 1.8), (-0.03, 1.72), (0.0, 1.78), (-0.05, 1.78)],
+                     -0.15, -0.145), C["haz"], jitter=0.0)
+    g.add(stencil("400V", 0.08, 1.78, -0.148, px=0.012), C["stencil_y"], jitter=0.0)
+    g.add(bx(0.24, 0.3, -0.16, -0.14, 1.5, 1.62), C["steel_lt"])
+    g.glow(bx(-0.3, -0.24, -0.15, -0.14, 1.32, 1.36), "green")
+    return g.build("fuse_box", grime=prop_grime(381, h=1.6))
+
+
+def fuse_box_broken():
+    """The fuse box shot out: the door blown open on its hinge, the fuses burnt, soot on the face."""
+    g = Geo(seed=382)
+    _fuse_frame(g)
+    g.add(bx(-0.34, 0.34, -0.125, -0.1, 1.26, 1.94), "#0f0e0c", jitter=0.0)
+    for i in range(5):
+        g.add(bx(-0.26 + i * 0.12, -0.2 + i * 0.12, -0.15, -0.12, 1.4 + (0.05 if i % 2 else 0.0), 1.6),
+              C["dark"] if i % 2 else "#2a2420", jitter=0.05)
+    d = plate(-0.34, 0.34, 1.26, 1.94, -0.14, -0.12, steps=[(0.02, -0.006)], bevel=0.008)
+    rotate(d, 75, "X", (0.0, -0.13, 1.26))   # hanging forward off its bottom hinge
+    g.add(d, C["panel"], jitter=0.02)
+    g.add(flat(blob(0.0, 1.98, 0.3, 0.12, 9, 5, jag=0.4), -0.125), "#141210", jitter=0.0)
+    return g.build("fuse_box_broken", grime=prop_grime(382, h=1.6))
+
+
+def rubble():
+    """What is left of broken furniture (~1.2 m): a low heap of bent panels, a drawer and splinters
+    of frame on the deck (sim/hazards.js: the wreck of most things that break)."""
+    g = Geo(seed=391)
+    g.add(lump((0.0, 0.0, 0.0), 0.5, seed=1, seg=9, rings=4, rough=0.35, scale=(1.2, 0.7, 0.3), cut="bottom"),
+          C["panel3"], jitter=0.1)
+    rnd = random.Random(391)
+    for i in range(7):
+        w, h = rnd.uniform(0.25, 0.45), rnd.uniform(0.02, 0.04)
+        b = bx(-w / 2, w / 2, -0.15, 0.15, 0.0, h, bevel=0.004)
+        rotate(b, rnd.uniform(-20, 20), "Y")
+        rotate(b, rnd.uniform(-60, 60), "Z")
+        move(b, (rnd.uniform(-0.35, 0.35), rnd.uniform(-0.25, 0.25), rnd.uniform(0.15, 0.32)))
+        g.add(b, rnd.choice((C["panel"], C["panel2"], C["steel"], C["olive_dk"], "#4a4032")), jitter=0.08)
+    g.add(bx(-0.2, 0.15, -0.2, 0.0, 0.18, 0.3, bevel=0.006), C["dark"])
+    for i in range(4):
+        g.add(tube([(rnd.uniform(-0.4, 0.4), rnd.uniform(-0.2, 0.2), 0.03),
+                    (rnd.uniform(-0.4, 0.4), rnd.uniform(-0.2, 0.2), rnd.uniform(0.1, 0.4))], 0.015, verts=4), C["rib"])
+    return g.build("rubble", grime=prop_grime(391, h=0.4))
+
 PROPS = [crate, locker, chest, cabinet, ammo_rack, barrel, bigcrate, console, bunk, medbed, shelf, table,
          reactor, pilot_seat, control_panel, debris, beam, airlock_hatch,
          barrel_explosive, barrel_wreck, console_broken, weapon_case, safe, scorch,
          barricade, turret, eggs, cryopod, body,
-         missile, planter, specimen_tank, lab_bench, galley_counter, kiosk]
+         missile, planter, specimen_tank, lab_bench, galley_counter, kiosk,
+         gas_cylinder, fuse_box, fuse_box_broken, rubble]
 
 
 def build():

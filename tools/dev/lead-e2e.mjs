@@ -81,9 +81,10 @@ try {
   await shot(tab, '5-run-firing');
   await tab.evaluate(() => { window.__pad.buttons[7] = { pressed: false, value: 0 }; window.__pad.axes[2] = 0; window.__pad.axes[3] = 0; });
   await new Promise((r) => setTimeout(r, 800));
-  const quiet = await tab.evaluate(() => ({ loops: __game.sfx().loops.size }));
+  // (His own loop: a follower may well be firing at something of their own.)
+  const quiet = await tab.evaluate(() => ({ loops: __game.sfx().loops.size, mine: __game.sfx().loops.has(__game.world().player) }));
   console.log('trigger released:', JSON.stringify(quiet));
-  if (fired.sound.loaded && quiet.loops !== 0) { failed = true; console.log('FAIL: the fire loop kept running after the trigger was released'); }
+  if (fired.sound.loaded && quiet.mine) { failed = true; console.log('FAIL: the fire loop kept running after the trigger was released'); }
   // B: followers hold; the use prompt near the inner door after walking to it.
   // (held across a few frames: headless software GL may run under 10 fps)
   await tab.evaluate(() => { window.__pad.buttons[1] = { pressed: true, value: 1 }; });

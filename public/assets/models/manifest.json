@@ -1,5 +1,5 @@
 {
-  "built": 1792343724333,
+  "built": 1792345189772,
   "models": {
     "alien": {
       "name": "alien",
@@ -453,7 +453,11 @@
         "specimen_tank",
         "lab_bench",
         "galley_counter",
-        "kiosk"
+        "kiosk",
+        "gas_cylinder",
+        "fuse_box",
+        "fuse_box_broken",
+        "rubble"
       ],
       "pieces": {
         "crate": {
@@ -630,6 +634,26 @@
           "w": 1.4,
           "h": 2.2,
           "tris": 778
+        },
+        "gas_cylinder": {
+          "w": 0.647,
+          "h": 1.615,
+          "tris": 590
+        },
+        "fuse_box": {
+          "w": 0.76,
+          "h": 2.402,
+          "tris": 292
+        },
+        "fuse_box_broken": {
+          "w": 0.76,
+          "h": 2.402,
+          "tris": 215
+        },
+        "rubble": {
+          "w": 1.319,
+          "h": 0.373,
+          "tris": 454
         }
       },
       "bounds": {
@@ -666,6 +690,8 @@
         "ceiling_lamp",
         "bulkhead_door",
         "bulkhead_solid",
+        "bulkhead_weak",
+        "bulkhead_breach",
         "door_panel",
         "hull_end",
         "hull_airlock",
@@ -765,6 +791,16 @@
           "w": 0.6,
           "h": 4.5,
           "tris": 781
+        },
+        "bulkhead_weak": {
+          "w": 0.6,
+          "h": 4.5,
+          "tris": 838
+        },
+        "bulkhead_breach": {
+          "w": 1.2,
+          "h": 4.5,
+          "tris": 444
         },
         "door_panel": {
           "w": 0.5,

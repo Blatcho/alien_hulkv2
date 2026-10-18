@@ -22,6 +22,7 @@ const KIND = {
   downed: { color: 0xff5a40, size: 1.4, k: 1.2 },
   barrel: { color: 0xff9a40, size: 0.95, k: 0.9 },
   fire: { color: 0xff7a20, size: 1.1, k: 0.8 },
+  breach: { color: 0xffb060, size: 1.0, k: 0.9 },
 };
 const MAX = 160;
 const BASE = 0.26;   // glow at the bottom of a breath

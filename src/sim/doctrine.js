@@ -18,7 +18,7 @@
 // schematics).
 import { ENERGY, PACE, ROE } from '../core/config.js';
 import { walkLimits } from '../gen/layout.js';
-import { portalEnds } from '../gen/level.js';
+import { portalEnds, wallFace } from '../gen/level.js';
 
 export const KNOBS = {
   route: { label: 'Route', options: { manual: 'Your call - they go where you click', direct: 'Direct to the cockpit', thorough: 'Sweep side rooms' } },
@@ -212,7 +212,7 @@ export class Doctrine {
   errands() {
     const w = this.world;
     const o = this.override;
-    if (o?.verb !== 'doorctl' && o?.verb !== 'vent') return;
+    if (o?.verb !== 'doorctl' && o?.verb !== 'vent' && o?.verb !== 'breach') return;
     const sq = w.squad;
     const lead = sq.leader;
     if (sq.state === 'decision' || sq.action || sq.trav || lead.room !== o.goal.room || Math.abs(lead.x - o.goal.x) > 1.6) return;
@@ -220,6 +220,10 @@ export class Doctrine {
     if (o.verb === 'vent') {
       const v = w.level.vents[o.target.vent];
       w.encounters.offer('vent', { x: v.x, room: v.room, vent: v, id: `vent${v.id}` }, { key: `vent${v.id}` });
+    } else if (o.verb === 'breach') {
+      const b = w.level.breaches?.find((q) => q.id === o.target.breach);
+      if (!b || b.open) return;
+      w.encounters.offer('breach', { x: o.goal.x, room: o.goal.room, breach: b, far: o.goal.room === b.a ? b.b : b.a, id: `breach${b.id}` }, { key: `breach${b.id}` });
     } else {
       const p = w.level.portals[o.target.portal];
       w.encounters.offer('doorctl', { x: o.goal.x, room: o.goal.room, door: p, id: `door${p.id}` }, { key: `doorctl${p.id}` });
@@ -411,7 +415,7 @@ export class Doctrine {
     const lead = w.squad.leader;
     const t = o.target;
     if (o.verb === 'move') return !!o.arrived;
-    if (o.verb === 'doorctl' || o.verb === 'vent') return false; // errands() clears it on arrival
+    if (o.verb === 'doorctl' || o.verb === 'vent' || o.verb === 'breach') return false; // errands() clears it on arrival
     if (o.verb === 'downed') {
       const m = w.marines.find((q) => q.id === t.marine);
       return !m?.alive || !m.down;
@@ -448,9 +452,9 @@ export class Doctrine {
       w.barks.say(lead, 'nudge_barrel');
       return;
     }
-    if (t.kind === 'doorctl' || t.kind === 'vent') {
+    if (t.kind === 'doorctl' || t.kind === 'vent' || t.kind === 'breach') {
       // Walk up to it; the choices come up there (errands).
-      const x = t.kind === 'vent' ? t.x : portalEnds(L, L.portals[t.portal])[t.room].x;
+      const x = t.kind === 'doorctl' ? portalEnds(L, L.portals[t.portal])[t.room].x : t.x;
       this.override = { goal: { kind: 'nudge', room: t.room, x }, until: Infinity, verb: t.kind, target: t };
       w.barks.say(lead, 'nudge');
       return;
@@ -502,7 +506,7 @@ export class Doctrine {
   /** Where the point man should stop in this room for a move order (squad.explore), or null. */
   stopX(lead) {
     const o = this.override;
-    return ['move', 'downed', 'doorctl', 'vent', 'distress'].includes(o?.verb) && !o.arrived && o.goal.room === lead.room ? o.goal.x : null;
+    return ['move', 'downed', 'doorctl', 'vent', 'distress', 'breach'].includes(o?.verb) && !o.arrived && o.goal.room === lead.room ? o.goal.x : null;
   }
 
   arrived() {

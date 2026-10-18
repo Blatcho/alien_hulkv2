@@ -38,6 +38,7 @@ export class LevelView {
     // Outside the hull only the fill light reaches: the silhouette keeps a floor of its own light.
     this.exteriorMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0.2, emissive: 0x2a3038, emissiveIntensity: 0.55 });
     this.look = HULL_CLASSES[level.cls]?.look ?? null;
+    this.breachWalls = new Map(); // breach id -> {obj, x, y, T, open}: weak bulkheads, their own objects
   }
 
   // ------------------------------------------------------------------ the class's look
@@ -155,7 +156,8 @@ export class LevelView {
     // separate objects, so they can go dark with the deck.
     const lampColor = room.light === 'red' ? 0xff2a1a : (this.look?.lamp ?? 0xcfe8ff);
     const lampPiece = this.kit(room.light === 'red' ? 'lamp_red' : 'lamp_white');
-    const canFail = this.level.events?.some((e) => e.kind === 'power' && e.rooms.includes(room.id));
+    // (A fuse box in the room can take the lights too - sim/hazards.js.)
+    const canFail = this.level.events?.some((e) => e.kind === 'power' && e.rooms.includes(room.id)) || room.props.some((p) => p.kind === 'fuse_box');
     for (let x = room.x0 + 3; x < room.x1 - 1; x += 6) {
       const lx = x + rng.float(-0.6, 0.6);
       if (lampPiece && canFail) {
@@ -276,6 +278,8 @@ export class LevelView {
       for (let i = 0; i + 1 < rooms.length; i++) {
         const xb = rooms[i].x1;
         const door = L.portals.find((p) => p.kind === 'door' && p.a === rooms[i].id);
+        const weak = L.breaches?.find((q) => q.a === rooms[i].id && q.b === rooms[i + 1].id);
+        if (weak) { this.breachWall(weak, xb, rooms[i].y0, T); continue; }
         const piece = this.kit(door ? 'bulkhead_door' : 'bulkhead_solid');
         if (piece) b.addObject(piece, M.makeTranslation(xb, rooms[i].y0, 0), T);
         else {
@@ -292,6 +296,43 @@ export class LevelView {
       if (Math.abs(s.y1) < 0.01) b.add(boxGeo(s.x1 - s.x0, 1.6, depth, COL.plating), M.makeTranslation((s.x0 + s.x1) / 2, s.y0 - 0.8, zc - 0.4), this.fallbackMat, T);
     }
     return b.build('structure');
+  }
+
+  /** A weak bulkhead (gen/populate.js placeBreaches): an object of its own, so it can be blown open. */
+  breachWall(br, x, y, T) {
+    const b = new Batch();
+    const M = new THREE.Matrix4();
+    const piece = this.kit('bulkhead_weak') ?? this.kit('bulkhead_solid');
+    if (piece) b.addObject(piece, M.makeTranslation(x, y, 0), T);
+    else {
+      const depth = FRONT_Z - BACK_Z + 0.3;
+      const zc = (FRONT_Z + BACK_Z - 0.3) / 2;
+      b.add(boxGeo(WALL, INNER_H, depth, COL.bulk), M.makeTranslation(x, y + INNER_H / 2, zc), this.fallbackMat, T);
+      b.add(boxGeo(WALL + 0.04, 0.3, 0.3, 0xb8912a), M.makeTranslation(x, y + 1.5, FRONT_Z - 0.3), this.fallbackMat);
+    }
+    const obj = b.build(`breach-${br.id}`);
+    this.loose.push(obj);
+    this.breachWalls.set(br.id, { obj, x, y, T, open: false });
+  }
+
+  /** Blown open: the torn wall takes the weak one's place (the lintel stays). */
+  openBreach(id) {
+    const v = this.breachWalls.get(id);
+    if (!v || v.open) return;
+    v.open = true;
+    this.group.remove(v.obj);
+    const b = new Batch();
+    const M = new THREE.Matrix4();
+    const piece = this.kit('bulkhead_breach');
+    if (piece) b.addObject(piece, M.makeTranslation(v.x, v.y, 0), v.T);
+    else {
+      const depth = FRONT_Z - BACK_Z + 0.3;
+      const zc = (FRONT_Z + BACK_Z - 0.3) / 2;
+      b.add(boxGeo(WALL, INNER_H - DOOR_H, depth, COL.bulk), M.makeTranslation(v.x, v.y + DOOR_H + (INNER_H - DOOR_H) / 2, zc), this.fallbackMat, v.T);
+      for (const [dx, w, h] of [[-0.9, 0.8, 0.3], [0.7, 0.6, 0.25], [-0.2, 0.5, 0.2]]) b.add(boxGeo(w, h, 0.6, COL.plating), M.makeTranslation(v.x + dx, v.y + h / 2, 0.2), this.fallbackMat);
+    }
+    v.obj = b.build(`breach-${id}-open`);
+    this.group.add(v.obj);
   }
 
   /** The class's silhouette beyond the hull (exterior.js): drives, pods, masts, running lights. */
@@ -395,7 +436,7 @@ export class LevelView {
     // with its power out (ship events) goes dark - fixtures too; firelight burns regardless.
     const rooms = this.level.rooms;
     for (const lamp of this.lamps) {
-      const out = !lamp.fire && rooms[lamp.room]?.powerOut;
+      const out = !lamp.fire && !lamp.blaze && rooms[lamp.room]?.powerOut;
       const want = out ? 0.02 : lamp.dim * (lamp.flicker ? flicker(time * lamp.flicker + lamp.x) : 1);
       lamp.k = lamp.k === undefined ? want : lamp.k + (want - lamp.k) * Math.min(1, dt * (out ? 3 : 8));
     }
@@ -436,6 +477,13 @@ export class LevelView {
   }
 
   removeFireLight(portal) { this.lamps = this.lamps.filter((l) => l.fire !== portal.id); }
+
+  /** A blast's fire on the deck (sim/hazards.js): its own flickering light while it burns. */
+  addBlastLight(id, x, y, room) {
+    this.lamps.push({ x, y: y + 0.8, z: 0.5, color: 0xff6a20, room, flicker: 3.3, dim: 1.5, blaze: id });
+  }
+
+  removeBlastLight(id) { this.lamps = this.lamps.filter((l) => l.blaze !== id); }
 
   /** A flare on the deck: a hot red light low in the room, flickering, for the rest of the mission. */
   addFlareLight(room, x, y) {

@@ -19,6 +19,7 @@ export class Physics {
   constructor(level) {
     this.world = new RAPIER.World({ x: 0, y: -18 });
     this.doors = new Map();       // portal id -> collider
+    this.breaches = new Map();    // breach id -> the weak bulkhead's lower collider (gone once blown)
     this.hitboxes = new Map();    // entity id -> {body, collider, entity}
     this.byCollider = new Map();  // collider handle -> entity
     this.debris = [];
@@ -33,6 +34,7 @@ export class Physics {
         .setRestitution(0.15);
       const col = this.world.createCollider(desc, fixed);
       if (s.kind === 'door') this.doors.set(s.portal, col);
+      if (s.kind === 'breach') this.breaches.set(s.breach, col);
     }
     // Every floor gets a thin solid lip on the walking line so debris lands on the walkway,
     // even above shaft openings (the openings sit behind the walkway in depth).
@@ -47,6 +49,11 @@ export class Physics {
 
   setDoor(portalId, open) {
     this.doors.get(portalId)?.setEnabled(!open);
+  }
+
+  /** A weak bulkhead blown open: a doorway-sized hole (the lintel above stays). */
+  openBreach(id) {
+    this.breaches.get(id)?.setEnabled(false);
   }
 
   /** Kinematic box that follows an entity (bottom-centre anchored). */

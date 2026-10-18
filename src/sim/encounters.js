@@ -26,6 +26,7 @@
 // Rolls use their own RNG stream ('checks'), so they never reshuffle combat or the director.
 import { AUTODOC, EGGS, STATS } from '../core/config.js';
 import { Rng } from '../core/rng.js';
+import { ROOM_TYPES } from '../gen/templates.js';
 import { specialist } from './melee.js';
 import { bestAt, checkChance, practice } from './stats.js';
 import { upgradeWeapon } from './loot.js';
@@ -148,6 +149,14 @@ export const ENCOUNTERS = {
       { id: 'card', label: 'Use the keycard', time: 1, note: `${w.kit.keycards} keycard${w.kit.keycards === 1 ? '' : 's'}`, needs: 'keycards' },
       { id: 'cut', label: 'Cut through', stat: 'str', base: 0.65, time: 5, note: `uses a charge (${w.kit.charges} left) - loud`, needs: 'charges' },
       { id: 'back', label: 'Leave it locked' },
+    ],
+  },
+  breach: {
+    title: 'WEAK BULKHEAD',
+    text: (_, p, w) => `Corroded seam, bowed plates. A charge here opens a way straight through to the ${ROOM_TYPES[w.level.rooms[p.far].type].label.toLowerCase()} beyond.`,
+    options: (prop, w) => [
+      { id: 'blow', label: 'Set a charge', stat: 'str', base: 0.7, time: 4, note: `uses a charge (${w.kit.charges} left) - loud`, needs: 'charges' },
+      { id: 'leave', label: 'Leave it' },
     ],
   },
   locker: {
@@ -329,6 +338,15 @@ export class Encounters {
           w.emit('cut', { portal: door });
           say('We\'re through!');
         }
+        return;
+      }
+      case 'breach': {
+        w.kit.charges--;
+        alarm(34);
+        if (!ok) { say('Charge fizzled - the seam held. That one\'s gone.'); return; }
+        say('Fire in the hole!');
+        w.breach(p.breach.id, by);
+        say('We\'re through!');
         return;
       }
       case 'vent': {

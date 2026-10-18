@@ -8,7 +8,7 @@ import { ABILITY, BROOD, COVER, DEFEND, DOWN, ENERGY, HOSTILES, KIT, PACE, PACK,
 import { EventBus } from '../core/events.js';
 import { Rng } from '../core/rng.js';
 import { walkLimits } from '../gen/layout.js';
-import { portalEnds } from '../gen/level.js';
+import { portalEnds, wallFace } from '../gen/level.js';
 import { PROPS } from '../gen/templates.js';
 import { NavGraph } from '../nav/graph.js';
 import { G, Physics } from '../physics/physics.js';
@@ -697,6 +697,32 @@ export class World {
     if (open) this.noise(portal.x, portal.y, 10);
   }
 
+  /**
+   * A weak bulkhead blown open (encounter 'breach', or a blast against it): a doorway the ship
+   * never had - the physics, the navigation graph and both rooms' features learn of it.
+   */
+  breach(id, by = null) {
+    const L = this.level;
+    const b = L.breaches?.find((q) => q.id === id);
+    if (!b || b.open) return false;
+    b.open = true;
+    const ra = L.rooms[b.a];
+    const rb = L.rooms[b.b];
+    const p = { id: L.portals.length, kind: 'door', a: b.a, b: b.b, x: b.x, y: ra.y0, open: true, breach: id };
+    L.portals.push(p);
+    ra.portals.push(p.id);
+    rb.portals.push(p.id);
+    this.physics.openBreach(id);
+    this.nav = new NavGraph(L);
+    this.squad.featureCache.delete(b.a);
+    this.squad.featureCache.delete(b.b);
+    this.squad.handled.delete('endL');
+    this.squad.handled.delete('endR');
+    this.noise(b.x, ra.y0 + 1, 40);
+    this.emit('breach', { breach: b, portal: p, by });
+    return true;
+  }
+
   resolveLoot(prop, marine) {
     prop.searched = true;
     prop.opened = true;
@@ -740,13 +766,14 @@ export class World {
           practice(marine, 'lck', 1);
         }
         const r = RARITY[item.rarity];
-        text = `${r.label} weapon: ${item.name}!`;
+        text = `${r.label} weapon: ${item.name}${loot.bent ? ' - knocked about, but it works' : ''}!`;
         this.emit('bark', { marine, text });
         this.stats.loot++;
         this.emit('loot', { prop, loot, marine });
         this.offerWeapon(item);
         return;
       }
+      case 'ruined': text = 'Smashed. Nothing in here worth having now.'; break;
       case 'treasure':
         this.salvage.push(loot.item);
         text = `${loot.item.name}. Worth ${loot.item.value} cr - if we get it home.`;
@@ -947,6 +974,12 @@ export class World {
         this.encounters.offer('doorctl', { x: t.x, room: t.room, door: d, id: `door${d.id}` }, { key: `doorctl${d.id}` });
         return true;
       }
+      case 'breach': {
+        const b = L.breaches.find((q) => q.id === t.breach);
+        if (!b || b.open) return false;
+        this.encounters.offer('breach', { x: t.x, room: t.room, breach: b, far: t.room === b.a ? b.b : b.a, id: `breach${b.id}` }, { key: `breach${b.id}` });
+        return true;
+      }
       case 'vent': {
         const v = L.vents[t.vent];
         this.encounters.offer('vent', { x: v.x, room: v.room, vent: v, id: `vent${v.id}` }, { key: `vent${v.id}` });
@@ -1099,7 +1132,16 @@ export class World {
     }
     for (const b of this.props) {
       if (!b.alive || !b.explosive || !b.visible) continue;
-      out.push({ id: `b${b.id}`, kind: 'barrel', x: b.x, y: b.y + 0.7, room: b.room, barrel: b.id, label: 'Shoot the barrel' });
+      out.push({ id: `b${b.id}`, kind: 'barrel', x: b.x, y: b.y + 0.7, room: b.room, barrel: b.id, label: b.prop.kind === 'gas_cylinder' ? 'Shoot the cylinder' : 'Shoot the barrel' });
+    }
+    // Weak bulkheads the squad knows of, from either side: a charge opens a way through.
+    for (const b of L.breaches ?? []) {
+      if (b.open) continue;
+      for (const r of [b.a, b.b]) {
+        if (!known(r)) continue;
+        const side = r === b.a ? 1 : -1; // the wall is at the room's right end from a, its left from b
+        out.push({ id: `w${b.id}r${r}`, kind: 'breach', x: wallFace(L.rooms[r], side) - side * 0.6, y: L.rooms[r].y0 + 1.6, room: r, breach: b.id, label: 'Weak bulkhead - set a charge' });
+      }
     }
     return out;
   }

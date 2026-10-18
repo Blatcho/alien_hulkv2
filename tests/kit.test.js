@@ -21,7 +21,7 @@ const squadOf = (...archetypes) => archetypes.map((a, i) => makeCandidate(new Rn
 /** Nothing on the board, well inside the ship. */
 function calm(params = {}, opts = {}) {
   const w = new World(generateLevel(opts.seed ?? 'A1'), { params, ...opts });
-  for (const a of w.aliens) { a.alive = false; w.physics.removeHitbox(a); }
+  for (const a of [...w.aliens, ...w.critters]) { a.alive = false; w.physics.removeHitbox(a); }
   w.reserve = 0;
   run(w, 45);
   return w;

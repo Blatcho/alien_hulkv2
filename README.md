@@ -245,6 +245,8 @@ You can adjust each order yourself:
      - **Egg cluster** (in nests): burn it with a flare, shoot it (loud, and one might get out), or sneak past (Nerve: if they stir, they hatch).
      - **Cryo pod:** sharp eyes (Perception) may read what's inside first - a survivor, something hostile, or a sealed cache. Open it, shoot it through the glass, or leave it.
      - **Locked storeroom:** a door off the route that wants a keycard. One of the dead crew lying about the ship carries it; or cut through with a charge. Inside is something worth the trouble.
+     - **Weak bulkhead:** a corroded seam the survey marked, in a solid wall between rooms a long way apart by the doors. Set a charge (a charge, loud) and it is a doorway the ship never had - a shortcut for the squad, and for everything else aboard. A blast against it does the same.
+   - **Breakables.** Furniture breaks under fire and in blasts, and leaves its wreck. A container smashed open spills what it held: credits, ammo, keycards and kit survive, stims and medkits don't, a good weapon may come out a grade worse, a sealed locker needs no hacking, and whatever was hiding inside comes out hurt. Fuel barrels and gas cylinders explode (chain reactions, a huge noise) and leave the deck burning for a few seconds; a fuse box shot out puts its room in the dark for good.
 3. **Stances and drills.** Troopers are **casual** (weapon lowered), **alert** (weapon at the hip) or **engaged** (weapon at eye level), depending on context.
    - **Doors:** #2 kneels to cover the door and the rear man watches behind.
    - **Ladders:** one climber at a time, with the next man covering the shaft and the first man up covering the hatch.
