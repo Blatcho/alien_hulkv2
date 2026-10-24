@@ -7,6 +7,7 @@ import { tierOf } from '../meta/ranks.js';
 import { RARITY } from '../sim/loot.js';
 import { portrait } from './icons.js';
 import { archetypeChip, meleeSuffix, statBars } from './statbars.js';
+import { quirkChips } from '../meta/quirks.js';
 
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -43,9 +44,17 @@ export function trooperCard(t, o = {}) {
       <div class="nm">${esc(rank.abbr)} ${esc(t.name)} ${archetypeChip(t)}${o.level ? `<span class="lv">LV ${o.level}</span>` : `<i class="rank-tag">${esc(rank.name)}</i>`}</div>
       ${w ? `<div class="wp" style="color:${RARITY[w.rarity]?.color ?? 'inherit'}">${esc(w.name + meleeSuffix(t))}</div>` : ''}
       ${o.bars ? statBars(t, { gains: o.gains ?? null }) : statChips(t)}
+      ${traitChips(t)}
       ${o.extra ?? ''}
     </div>
   </div>`;
+}
+
+/** A wound he's resting, and the quirks he carries (meta/quirks.js). */
+export function traitChips(t) {
+  const quirks = quirkChips(t).map((q) => `<span class="chip quirk ${q.good ? 'good' : 'bad'}" title="${esc(q.text)}">${esc(q.label)}</span>`).join('');
+  const wound = t.rest > 0 && t.wound ? `<span class="chip wound" title="Resting a wound: sits this run out (a Kestrel medbay heals them on the way home)">${t.wound === 'leg' ? 'LEG WOUND' : 'ARM WOUND'} · RESTING</span>` : '';
+  return quirks || wound ? `<div class="chips traits">${wound}${quirks}</div>` : '';
 }
 
 /**

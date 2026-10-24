@@ -22,6 +22,8 @@
 //             hostile, or a cache. Open it, shoot it through the glass, or leave it
 //   keydoor   a locked storeroom door: the keycard (off a dead crewman), cut through (a charge,
 //             loud), or leave it locked
+//   workbench a field workshop: fit one of three modifications to every weapon for the run
+//             (sim/fieldmods.js), or leave it
 //
 // Rolls use their own RNG stream ('checks'), so they never reshuffle combat or the director.
 import { AUTODOC, EGGS, STATS } from '../core/config.js';
@@ -30,6 +32,7 @@ import { ROOM_TYPES } from '../gen/templates.js';
 import { specialist } from './melee.js';
 import { bestAt, checkChance, practice } from './stats.js';
 import { upgradeWeapon } from './loot.js';
+import { FIELD_MODS, applyFieldMod, benchOffer } from './fieldmods.js';
 
 const DECIDE = 8; // seconds the player has to choose before the squad's orders do
 
@@ -47,6 +50,14 @@ export const ENCOUNTERS = {
     options: [
       { id: 'hack', label: 'Hack the keypad', stat: 'int', base: 0.55, time: 4, note: 'quiet' },
       { id: 'force', label: 'Force it open', stat: 'str', base: 0.5, time: 1.6, note: 'loud' },
+      { id: 'leave', label: 'Leave it' },
+    ],
+  },
+  workbench: {
+    title: 'FIELD WORKSHOP',
+    text: () => 'A bench with the tools still on it. One modification could go on every weapon before they move on.',
+    options: (prop, w) => [
+      ...benchOffer(w.level.bare).map((k) => ({ id: k, label: FIELD_MODS[k].label, note: FIELD_MODS[k].text, time: 6, stat: 'int', base: 0.95 })),
       { id: 'leave', label: 'Leave it' },
     ],
   },
@@ -279,6 +290,10 @@ export class Encounters {
             say('The latch snapped back - my hand! It\'s jammed.');
           }
         }
+        return;
+      case 'workbench':
+        p.used = true;
+        if (ok) { applyFieldMod(w, o.id); say(`${FIELD_MODS[o.id].label} fitted, all round.`); } else say('Botched it - the bench is scrap.');
         return;
       case 'terminal':
         if (ok) {

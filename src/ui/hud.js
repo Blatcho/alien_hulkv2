@@ -21,6 +21,8 @@ import { bodyPoint } from '../vis/sight.js';
 import { helpButton } from './help.js';
 import { Minimap } from './minimap.js';
 import { ORDER_TILES } from './orders.js';
+import { RELICS } from '../meta/relics.js';
+import { FIELD_MODS } from '../sim/fieldmods.js';
 
 export { ORDER_TILES };
 
@@ -176,6 +178,8 @@ export class Hud {
     world.on('survivor-found', ({ survivor }) => this.lootCard('Survivor', survivor.name, 'Heading for the Kestrel - keep the route clear', '#7fc25a'));
     world.on('survivor-rescued', ({ survivor }) => this.lootCard('Civilian safe', survivor.name, 'Aboard the Kestrel. +200 cr on extraction', '#7fc25a'));
     world.on('keycard', () => this.lootCard('Keycard', 'Crew access: stores', 'Somewhere aboard there\'s a door for this.', '#d8c070'));
+    world.on('relic', ({ key }) => this.lootCard('Relic', RELICS[key]?.label ?? key, `${RELICS[key]?.text ?? ''} Goes home with the squad.`, '#c890e0'));
+    world.on('field-mod', ({ key, label }) => this.lootCard('Field mod', label, `${FIELD_MODS[key]?.text ?? ''} - every weapon, this run.`, '#9fc8e0'));
     world.on('brood-dead', ({ bonus }) => this.lootCard('Brood mother', 'Killed', `The nest dies with her. +${bonus} cr`, '#c890e0'));
     world.on('power-out', ({ deck }) => this.lootCard('Ship event', `Deck ${deck + 1}: power failure`, 'Torches only - you see less, and they hear more. Find the power junction to restore it.', '#e0a050'));
     world.on('distress', ({ room }) => this.lootCard('Distress call', `A survivor on deck ${room.deck + 1}`, 'Marked on the tracker. Point at the beacon to answer it.', '#e0a050'));

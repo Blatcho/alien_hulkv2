@@ -25,14 +25,14 @@ const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
  *             identified yet (friendly fire!). Sleeping hostiles don't move, so they're left alone.
  *   alert     every hostile, sleeping ones included; nothing else (disciplined)
  */
-export function roeAllows(roe, e, { attackedRecently }) {
+export function roeAllows(roe, e, { attackedRecently, quietVermin = false }) {
   if (!e.alive) return false;
   if (e.kind === 'prop') return roe !== ROE.CAUTIOUS || attackedRecently;
   if (e.kind === 'survivor') return roe === ROE.NORMAL && !e.identified && e.moving;
   const hostile = e.kind === 'alien' && e.state !== 'vent';
   switch (roe) {
     case ROE.CAUTIOUS: return hostile && attackedRecently;
-    case ROE.NORMAL: return (hostile && e.state !== 'dormant') || (e.kind === 'critter' && e.moving);
+    case ROE.NORMAL: return (hostile && e.state !== 'dormant') || (e.kind === 'critter' && e.moving && !quietVermin);
     case ROE.ALERT: return hostile;
     default: return false;
   }
@@ -51,7 +51,7 @@ const berserk = (m, k) => (m.breakdown?.mode === 'berserk' ? BREAK.BERSERK[k] : 
 
 function pickTarget(world, m) {
   const W = m.weapon;
-  const ctx = { attackedRecently: world.time - world.attackedAt < ROE.ATTACKED_WINDOW };
+  const ctx = { attackedRecently: world.time - world.attackedAt < ROE.ATTACKED_WINDOW, quietVermin: !!world.relics?.has('ships_cat') };
   // Berserk: every hostile in sight, whatever the fire discipline.
   const roe = m.breakdown?.mode === 'berserk' ? ROE.ALERT : world.settings.roe;
   let best = null;

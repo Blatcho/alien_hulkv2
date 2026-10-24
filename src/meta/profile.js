@@ -11,6 +11,8 @@ import { tierForLevel } from './ranks.js';
 import { statsToMods } from '../sim/stats.js';
 import { evaluateBonuses } from '../gen/contracts.js';
 import { advanceSector, makeSector, sectorCleared } from './sector.js';
+import { TREAT_COST, QUIRKS, earnQuirk, quirkMods } from './quirks.js';
+import { rollEvent } from './events.js';
 
 export { starterSquad };
 export const PROFILE_VERSION = 3;
@@ -31,6 +33,7 @@ export const UPGRADES = {
   neural:  { label: 'Neural link', text: 'High alert burns energy 15% slower per tier', costs: [140, 300, 560] },
   tracker: { label: 'Tracker boost', text: '+5 m motion-tracker range per tier', costs: [90, 200, 380] },
   salvage: { label: 'Salvage crew', text: '+15% salvage value per tier', costs: [160, 340, 640] },
+  medbay:  { label: 'Kestrel medbay', text: 'Wounds heal on the way home (else a wounded trooper sits a run out)', costs: [220] },
 };
 
 // ------------------------------------------------------------------ troopers
@@ -47,7 +50,7 @@ export function rankFor(level) { return tierForLevel(level).abbr; }
 export const makeTrooper = (rng, opts) => makeCandidate(rng, opts);
 
 /** Simulation modifiers for a roster entry (sim/stats.js). */
-export const trooperMods = (t) => statsToMods(t.stats, t.loadout?.weapon);
+export const trooperMods = (t) => quirkMods(statsToMods(t.stats, t.loadout?.weapon), t.quirks ?? []);
 
 // ------------------------------------------------------------------ profile
 
@@ -55,14 +58,18 @@ export function newProfile(seed = Date.now().toString(36)) {
   return {
     version: PROFILE_VERSION, seed, credits: 150, threat: 0, runs: 0, wins: 0, bestThreat: 0,
     roster: starterSquad(seed), squad: null, memorial: [], stash: [],
-    upgrades: { armor: 0, stims: 0, cooling: 0, neural: 0, tracker: 0, salvage: 0 },
+    upgrades: { armor: 0, stims: 0, cooling: 0, neural: 0, tracker: 0, salvage: 0, medbay: 0 },
     totals: { kills: 0, rescued: 0, salvage: 0, credits: 0 }, seedCounter: 0,
     sector: makeSector(seed, 0), sectors: 0, // the map (meta/sector.js), and sectors cleared
+    relics: [], pendingEvent: null, lastEvent: null, boon: null, // meta/relics.js, meta/events.js
   };
 }
 
+/** Fit to deploy: alive, and not sitting a run out with a wound. */
+export const fit = (t) => t.alive && !(t.rest > 0);
+
 export function deployable(profile) {
-  const alive = profile.roster.filter((t) => t.alive);
+  const alive = profile.roster.filter(fit);
   const chosen = (profile.squad ?? []).map((id) => alive.find((t) => t.id === id)).filter(Boolean);
   for (const t of alive) if (chosen.length < 4 && !chosen.includes(t)) chosen.push(t);
   return chosen.slice(0, 4);
@@ -165,6 +172,12 @@ export function applyRun(profile, result, options = {}) {
     }
   }
 
+  // Relics (meta/relics.js): what the squad found comes home with it; a wipe loses them all.
+  if (won) profile.relics = [...new Set([...(profile.relics ?? []), ...(result.relics ?? [])])];
+  else profile.relics = [];
+  // Wounds: a trooper who sat a run out is fit again; a medbay aboard heals the rest on the way home.
+  for (const t of profile.roster) if (t.rest > 0 && !result.troopers.some((r) => r.id === t.id)) { t.rest--; if (t.rest <= 0) { t.rest = 0; t.wound = null; } }
+  const quirkRng = new Rng(`${profile.seed}/${profile.runs}`, 'quirks');
   const troopers = [];
   for (const r of result.troopers) {
     const t = profile.roster.find((q) => q.id === r.id);
@@ -183,12 +196,30 @@ export function applyRun(profile, result, options = {}) {
     }
     t.xp += xp;
     if (won && r.weaponItem) t.weaponItem = r.weaponItem; // keep what they carried home
+    if (r.downs > 0) t.downsEver = (t.downsEver ?? 0) + r.downs;
+    // A wound carried home: healed by the Kestrel's medbay, else he sits the next run out.
+    let wound = null;
+    if (won && r.wound) { if (profile.upgrades.medbay > 0) wound = 'healed'; else { t.wound = r.wound; t.rest = 1; wound = r.wound; } }
     const after = levelFor(t.xp);
     const gains = grow(t, r.usage);               // learning by doing (meta/growth.js)
-    troopers.push({ id: t.id, name: t.name, xp, before, after, gains, usage: r.usage ?? {} });
+    const quirk = won ? earnQuirk(t, r, result.flags ?? {}, quirkRng) : null; // (meta/quirks.js)
+    if (quirk) t.quirks = [...(t.quirks ?? []), quirk];
+    troopers.push({ id: t.id, name: t.name, xp, before, after, gains, usage: r.usage ?? {}, wound, quirk });
   }
+  // Something may happen aboard the Kestrel before the next launch (meta/events.js).
+  profile.pendingEvent = rollEvent(profile);
+  profile.boon = null;
   profile.roster = profile.roster.filter((t) => t.alive);
-  return { won, lines, earned, troopers, contract, sector };
+  return { won, lines, earned, troopers, contract, sector, relics: won ? result.relics ?? [] : [], event: profile.pendingEvent };
+}
+
+/** Treat a bad quirk at the Kestrel (meta/quirks.js): it costs, and it's gone. */
+export function treatQuirk(profile, trooperId, key) {
+  const t = profile.roster.find((q) => q.id === trooperId);
+  if (!t || !QUIRKS[key] || QUIRKS[key].good || !(t.quirks ?? []).includes(key) || profile.credits < TREAT_COST) return false;
+  profile.credits -= TREAT_COST;
+  t.quirks = t.quirks.filter((k) => k !== key);
+  return true;
 }
 
 // ------------------------------------------------------------------ migration
@@ -229,6 +260,13 @@ export function migrate(p) {
     p.sector = makeSector(p.seed ?? 'kestrel', 0);
     p.sectors = 0;
     p.version = 3;
+  }
+  if (p.version === 3) {
+    p.relics ??= [];
+    p.upgrades.medbay ??= 0;
+    p.pendingEvent ??= null;
+    p.lastEvent ??= null;
+    p.boon ??= null;
   }
   return p.version === PROFILE_VERSION ? p : null;
 }

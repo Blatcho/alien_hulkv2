@@ -44,7 +44,7 @@ export class Minimap {
       const moving = e.moving || e.state === 'emerge' || e.state === 'leap' || e.state === 'attack';
       if (!moving) continue;
       const d = Math.hypot(e.x - lead.x, e.y - lead.y);
-      if (d < this.range) out.push({ x: e.x, y: e.y, d, seen: e.visible });
+      if (d < this.range) out.push({ x: e.x, y: e.y, d, seen: e.visible, vermin: e.kind === 'critter' && !!w.relics?.has('tracker_filter') }); // (a scrubbed tracker tells vermin apart)
     }
     if (w.aliens.some((a) => a.vent && a.alive)) {
       for (const a of w.aliens) {
@@ -153,7 +153,7 @@ export class Minimap {
       c.stroke();
     }
     for (const b of blips) {
-      c.fillStyle = b.seen ? '#ff4a3a' : `rgba(255,74,58,${0.45 + 0.55 * (this.sweep ?? 0)})`;
+      c.fillStyle = b.vermin ? `rgba(180,180,120,${0.4 + 0.4 * (this.sweep ?? 0)})` : b.seen ? '#ff4a3a' : `rgba(255,74,58,${0.45 + 0.55 * (this.sweep ?? 0)})`;
       c.beginPath();
       c.arc(this.X(b.x), this.Y(b.y + 0.8), b.seen ? 2.6 : 2.2, 0, Math.PI * 2);
       c.fill();

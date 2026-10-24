@@ -3,6 +3,8 @@
 // debrief's timeline (ui/debrief.js) all read the same record - and tests can read it with no
 // DOM at all. Entries are {id, t (mission seconds), kind, text}; kinds colour the line:
 // info, good, warn, danger, loot.
+import { RELICS } from '../meta/relics.js';
+
 export const JOURNAL_MAX = 400;
 
 // How a trooper's breakdown reads (sim/breakdown.js modes).
@@ -111,6 +113,8 @@ export class Journal {
     on('beacon-planted', () => ['Beacon planted: the nest is awake', 'warn']);
     on('reactor-blown', () => ['The reactor went', 'danger']);
     on('extracted', ({ done }) => [done ? 'Everyone aboard the Kestrel: job done' : 'Everyone aboard the Kestrel', 'good']);
+    on('relic', ({ key }) => [`A relic: ${RELICS[key]?.label ?? key}`, 'loot']);
+    on('field-mod', ({ label }) => [`${label} fitted to every weapon`, 'good']);
     on('won', () => ['Extraction: the derelict is ours', 'good']);
     on('lost', () => ['Squad lost', 'danger']);
   }

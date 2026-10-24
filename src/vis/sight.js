@@ -72,7 +72,7 @@ export function canSee(world, m, t) {
 
 /** Can alien a notice marine m? Flashlights give the squad away from further off. */
 export function alienSees(world, a, m) {
-  const range = world.settings.flashlight ? ALIEN.SIGHT : ALIEN.SIGHT * 0.5;
+  const range = (world.settings.flashlight ? ALIEN.SIGHT : ALIEN.SIGHT * 0.5) * (world.relics?.has('hive_scent') ? 0.67 : 1); // (meta/relics.js)
   const head = bodyPoint(a, 0.65);
   const d = Math.hypot(m.x - head.x, m.y + 1.5 - head.y);
   if (d > range) return false;

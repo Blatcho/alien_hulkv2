@@ -612,3 +612,27 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color:
 .sectormap .node.lost text { fill: #7a4a4a; }
 .sectormap .node.boss rect { stroke: #c890e0; }
 .sectormap .node.boss .nm { fill: #e8c8f8; }
+
+/* ---------- relics, quirks, wounds and Kestrel events (meta/relics.js, meta/quirks.js, meta/events.js) */
+.chip.quirk.good { border-color: #4e6e4a; color: #b8d8a8; }
+.chip.quirk.bad { border-color: #6a3a6a; color: #d8a0d8; }
+.chip.wound { border-color: #a06040; color: #e0a080; }
+.rt.unfit { opacity: .45; cursor: not-allowed; }
+.rt.unfit:hover { opacity: .5; }
+.relics { display: grid; gap: 6px; }
+.relic { padding: 6px 8px; border: 1px solid #5a3a6a; background: rgba(14,10,16,.7); }
+.relic b { font-weight: normal; color: #e8c8f8; }
+.relic small { display: block; color: var(--ink-dim); font-size: 11px; }
+.treat { display: block; margin-top: 4px; font: inherit; font-size: 10px; letter-spacing: 1px; padding: 2px 8px; background: #1d2624; color: #d8a0d8; border: 1px solid #6a3a6a; cursor: pointer; }
+.treat:disabled { opacity: .4; cursor: default; }
+.kevent { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--warn); background: rgba(30,24,10,.6); }
+.kevent h2 { margin: 0 0 6px; }
+.kevent p { margin: 0 0 8px; font-size: 13px; color: var(--ink); max-width: 900px; }
+.evopts { display: flex; flex-wrap: wrap; gap: 6px; }
+.evopts button { font: inherit; text-align: left; padding: 7px 10px; background: #1d2624; color: var(--ink); border: 1px solid var(--edge-hi); cursor: pointer; min-width: 200px; }
+.evopts button:hover:not(:disabled) { border-color: var(--warn); }
+.evopts button:disabled { opacity: .4; cursor: not-allowed; }
+.evopts button b { display: block; font-weight: normal; color: #fff; font-size: 13px; letter-spacing: 1px; }
+.evopts button small { display: block; color: var(--ink-dim); font-size: 11px; }
+.kevent .evline { margin-top: 8px; color: #f0e0a0; }
+.intel .pay .boon { color: var(--warn); }
