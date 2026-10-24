@@ -17,18 +17,19 @@ import { World } from './sim/world.js';
 import { Hud } from './ui/hud.js';
 import { Sfx } from './audio/sfx.js';
 import {
-  applyRun, clearProfile, levelFor, loadProfile, loadRun, newProfile, rankFor, saveProfile, saveRun, trooperMods,
+  applyRun, clearProfile, deployable, levelFor, loadProfile, loadRun, newProfile, rankFor, saveProfile, saveRun, trooperMods,
 } from './meta/profile.js';
+import { shipOffers } from './meta/ships.js';
 import { candidatePool } from './meta/candidates.js';
 import { HULL_CLASSES, classFor, parseSeed, seedCode } from './gen/classes.js';
 import { storyFor } from './gen/stories.js';
 import { difficultyString, isDefaultDifficulty, parseDifficulty, withDifficulty } from './meta/difficulty.js';
 import { portraitMap } from './render/portraits.js';
 import { PRESETS, doctrineString, nextOrder, parseDoctrine } from './sim/doctrine.js';
-import { BriefingScreen } from './ui/briefing.js';
-import { CommandScreen } from './ui/command.js';
 import { Interact } from './ui/interact.js';
 import { DebriefScreen } from './ui/debrief.js';
+import { LaunchScreen } from './ui/launch.js';
+import { MapOverlay } from './ui/map.js';
 
 const ZOOM_STEP = 0.1; // one wheel notch or +/- press: 10% of the view height
 
@@ -45,6 +46,7 @@ class Game {
     this.paused = false;
     this.input = new Input((a) => this.command(a), { stage: this.stage });
     this.interact = new Interact(this.stage, this.hud.root, this);
+    this.map = new MapOverlay(this.hud.root, this); // the ship map (Tab / Back): pauses the run while open
     this.stage.addEventListener('wheel', (e) => {
       e.preventDefault();
       // A mouse wheel sends one big step per notch, a trackpad a stream of small ones (a pinch
@@ -112,7 +114,7 @@ class Game {
     let last = null;
     try { last = JSON.parse(localStorage.getItem('hullbreach.quick') ?? 'null'); } catch { /* none */ }
     this.briefing?.dispose();
-    this.briefing = new BriefingScreen(this.hud.root, {
+    this.briefing = new LaunchScreen(this.hud.root, {
       heading: 'QUICK PLAY · BRIEFING', pool, portraits: portraitMap(this.assets, pool),
       ship: { name: `Derelict ${seedCode(cls, seed)}`, size: HULL_CLASSES[cls].label, cls, blurb: HULL_CLASSES[cls].blurb, story: storyFor(seed, cls), threat: 0, modifiers: [] },
       hull, onHull: (k) => this.showQuickBriefing(k ? seedCode(k, seed) : seed),
@@ -124,7 +126,7 @@ class Game {
         const fresh = poolFor(++roll);
         return { pool: fresh, portraits: portraitMap(this.assets, fresh) };
       },
-      onDeploy: (ids, doctrine, difficulty, control) => {
+      onDeploy: (offer, ids, doctrine, difficulty, control) => {
         try { localStorage.setItem('hullbreach.quick', JSON.stringify({ doctrine, difficulty, control })); } catch { /* private mode */ }
         const diff = isDefaultDifficulty(difficulty) ? '' : `&diff=${difficultyString(difficulty)}`;
         location.search = `?seed=${hull ? seedCode(hull, seed) : seed}&go=1&squad=${ids.join(',')}${roll ? `&pool=${roll}` : ''}&doc=${doctrineString(doctrine)}${diff}${control === 'lead' ? '&ctrl=lead' : ''}`;
@@ -152,14 +154,22 @@ class Game {
     this.showCommand();
   }
 
+  /** The launch screen (ui/launch.js): the offers, the squad, the contract, one DEPLOY; the Kestrel tab for the shopping. */
   showCommand() {
     this.hud.hideStart();
     this.hud.root.classList.add('menu');
-    this.commandScreen?.dispose();
-    this.commandScreen = new CommandScreen(this.hud.root, {
-      profile: this.profile,
-      assets: this.assets,
+    const p = this.profile;
+    this.launch?.dispose();
+    this.launch = new LaunchScreen(this.hud.root, {
+      profile: p, assets: this.assets, offers: shipOffers(p),
+      selected: deployable(p).map((t) => t.id), doctrine: p.doctrine ?? PRESETS.standard.doctrine, difficulty: p.difficulty, control: p.control,
+      backLabel: 'MAIN MENU',
+      onBack: () => { location.search = ''; },
       onDeploy: (offer, squad, doctrine, difficulty, control) => {
+        p.squad = squad;
+        p.doctrine = doctrine;
+        p.difficulty = difficulty;
+        p.control = control;
         // The difficulty rides in the ship's mods (meta/difficulty.js).
         saveRun({ seed: offer.seed, threat: offer.threat, mods: withDifficulty(offer.mods, difficulty), reward: offer.reward, name: offer.name, squad, doctrine, difficulty, control });
         // What was played lately: the next offers steer away from it (meta/ships.js).
@@ -168,7 +178,6 @@ class Game {
         saveProfile(this.profile);
         location.search = '?run=1';
       },
-      onQuit: () => { location.search = ''; },
     });
   }
 
@@ -213,6 +222,7 @@ class Game {
     });
     this.hud.bind(this.world, this.view);
     this.interact.bind(this.world, this.view);
+    this.map.bind(this.world);
     this.hud.setPortraits(renderPortraits(this.view.renderer.gl, this.assets, this.world.marines));
     this.sfx.bind(this.world);
     this.loop = new Loop(
@@ -228,8 +238,9 @@ class Game {
           this.world.steer(st);
         }
         this.view.render(alpha, dt);
-        this.hud.update(dt, this.loop.paused);
+        this.hud.update(dt, this.loop.paused && !this.map.open);
         this.interact.update();
+        this.map.update();
         this.sfx.update(dt, this.view.camera.center);
         this.debugStats(dt, performance.now() - t0);
         window.__game?.onFrame?.(this.view.renderer.canvas, dt); // test hook (tools/dev/flicker.mjs)
@@ -275,7 +286,12 @@ class Game {
         if (opt) { w.choose(opt.id); this.sfx.ui(); }
         break;
       }
-      case 'pause': this.loop.paused = !this.loop.paused; break;
+      case 'pause':
+        if (this.map.open) { this.map.toggle(false); this.loop.paused = false; break; }
+        this.loop.paused = !this.loop.paused;
+        break;
+      // The ship map (ui/map.js): the run waits while it's open.
+      case 'map': this.map.toggle(); this.loop.paused = this.map.open; this.sfx.ui(); break;
       case 'cover': if (w.lead) this.input.toggleCover(); else w.toggleCover(); this.sfx.ui(); break;
       case 'turn': if (!w.lead) { w.turnAround(); this.sfx.ui(); } break;
       // Lead mode: A, RB, B - and the D-pad, which walks an encounter's options when a card is up.

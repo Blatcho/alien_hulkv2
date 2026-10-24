@@ -41,7 +41,9 @@ try {
   await tab.waitForSelector('.briefing .deploy', { visible: true, timeout: 60000 });
   await shot(tab, '1-briefing-squad');
   await tab.click('.briefing [data-control="lead"]');
-  await tab.waitForSelector('.briefing .controls', { visible: true });
+  await tab.click('.briefing .helpbtn');
+  await tab.waitForSelector('.briefing .help .controls', { visible: true });
+  await tab.click('.briefing .help .close');
   // Deselect the last two picks: YOU + one follower.
   const ids = await tab.$$eval('.briefing .rt.pick.in', (els) => els.map((e) => e.dataset.id));
   console.log('picked', ids);

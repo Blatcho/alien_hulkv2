@@ -14,6 +14,8 @@ export const ICONS = {
   flare: svg('<path d="M9 33l13-13 4 4-13 13zM27 16l3-3M30 21l4-1M24 12l1-4M29 11l3-3"/>'),
   // Two sentry guns on tripods, one each side.
   defend: svg('<path d="M4 33l4-8 4 8M8 25v-5M5 20h8l3-2h3M28 33l4-8 4 8M32 25v-5M35 20h-8l-3-2h-3"/>'),
+  loot: svg('<path d="M7 15l13-6 13 6v14l-13 6-13-6zM7 15l13 6 13-6M20 21v14M14 12l12 6"/>'),
+  map: svg('<path d="M6 10l9-4 10 4 9-4v24l-9 4-10-4-9 4zM15 6v24M25 10v24M11 20h6M21 16h6"/>'),
   rifle: svg('<path d="M4 18h54l4-3h8v4h-6v4H44l-4 9h-9l2-9h-8l-3 5h-8l2-5H4z" fill="#c9cfc4" stroke="none"/><path d="M40 23h-6l-1 6h5z" fill="#6a1f1a" stroke="none"/>', '0 0 72 36'),
   bullets: svg('<path d="M12 30V14l3-6 3 6v16zM20 30V14l3-6 3 6v16zM28 30V14l3-6 3 6v16z" fill="#c9b27a" stroke="none"/>'),
 };

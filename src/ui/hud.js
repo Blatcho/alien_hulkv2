@@ -1,28 +1,38 @@
-// DOM HUD laid out like the reference: squad top-left, tracker/minimap top-right, the controls
-// bottom-centre - Cover, Turn back and the standing orders bar (the briefing's orders, changeable
-// mid-mission: the squad runs itself by them - sim/doctrine.js) - weapon bottom-left, objective
-// bottom-right. Reads sim state every frame.
+// DOM HUD: squad cards top-left (portrait, name in rank colour, health, magazine, breath, a
+// glyph for anything wrong), the tracker/minimap top-right, a message ticker top-centre fed by
+// the ship's log (sim/journal.js - only a man down or a horde still shouts across the screen),
+// the controls bottom-centre in three clusters - ACT (Cover, Turn back, the map), KIT, and the
+// standing orders (the briefing's orders, changeable mid-mission: the squad runs itself by
+// them - sim/doctrine.js) - the weapon bottom-left, and bottom-right the objective over a strip
+// of meters: lifesigns, the ship's danger (how close a horde is), energy, morale, the kit.
+// Reads sim state every frame.
 //
 // Lead mode (#hud.lead): the player's marine is marked YOU; the bar shows Cover (LT) and Hold /
 // Follow (B) with the kit on the pad's buttons, and only the followers' orders; the weapon panel
 // is his own gun and magazine; a reticle rides his line of aim, and a prompt sits on whatever
 // he could use (ui/interact.js).
-import { ENERGY, KIT, MELEE, ROE } from '../core/config.js';
+import { ENERGY, HORDE, MELEE, ROE } from '../core/config.js';
 import { tierOf } from '../meta/ranks.js';
 import { BREAK_TAGS } from '../sim/breakdown.js';
 import { KNOBS, LEAD_KNOBS, isManual, missionOptions } from '../sim/doctrine.js';
 import { ICONS, portrait } from './icons.js';
 import { RARITY, affixText } from '../sim/loot.js';
 import { bodyPoint } from '../vis/sight.js';
+import { helpButton } from './help.js';
 import { Minimap } from './minimap.js';
+import { ORDER_TILES } from './orders.js';
+
+export { ORDER_TILES };
 
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // key: squad mode (keyboard); pad / lkey: lead mode (the controller / its keyboard fallback).
 const ACTIONS = [
   { id: 'cover', icon: 'cover', label: 'Cover', key: 'C', pad: 'LT', lkey: 'SHIFT' },
   { id: 'turn', icon: 'turn', label: 'Turn back', key: 'T' },
   { id: 'hold', icon: 'hold', label: 'Hold', key: 'T', pad: 'B', lkey: 'T', lead: true },
+  { id: 'map', icon: 'map', label: 'Map', key: 'TAB', pad: 'BACK', lkey: 'TAB' },
 ];
 
 // The kit (sim/kit.js): one slim button each, with what's left.
@@ -33,31 +43,9 @@ const KIT_BUTTONS = [
 ];
 const REFUSED = { grenade: 'NO CLEAR THROW', flare: 'ROOM ALREADY LIT', defend: 'CAN\'T SET UP HERE' };
 
-// The standing orders bar: one tile per knob, its hotkey (cycles it - core/input.js), and each
-// option's short name and what it means.
-export const ORDER_TILES = [
-  { knob: 'route', label: 'Route', key: 'R',
-    short: { manual: 'Your call', direct: 'Direct', thorough: 'Sweep' },
-    detail: { manual: 'They go where you click, then hold', direct: 'Straight for the command deck', thorough: 'Sweep the side rooms on the way' } },
-  { knob: 'roe', label: 'Fire', key: 'F', pad: '◀', lkey: 'X',
-    short: { cautious: 'Cautious', normal: 'Normal', alert: 'High alert' },
-    detail: { cautious: 'Only return fire', normal: 'Shoot anything that moves - vermin too', alert: 'Weapons up, fastest reactions - burns energy' } },
-  { knob: 'pace', label: 'Pace', key: 'G',
-    short: { stealthy: 'Stealthy', steady: 'Steady', fast: 'Fast' },
-    detail: { stealthy: 'Slow and quiet - hard to hear', steady: 'A steady jog', fast: 'Sprint while everyone has breath - drains stamina' } },
-  { knob: 'loot', label: 'Loot', key: 'L',
-    short: { leave: 'Leave it', way: 'On the way', all: 'Everything' },
-    detail: { leave: 'Search nothing', way: 'Search what they pass, unless in a fight', all: 'Go out of the way for every container' } },
-  { knob: 'stims', label: 'Stims', key: 'H', pad: '▶', lkey: 'H',
-    short: { early: 'Early', critical: 'Critical', hoard: 'Hoard' },
-    detail: { early: 'Stim anyone under 60% health', critical: 'Stim anyone under 35%', hoard: 'Only under 15%' } },
-  { knob: 'light', label: 'Lights', key: 'V', pad: '▲', lkey: 'V',
-    short: { on: 'On', auto: 'Auto', off: 'Off' },
-    detail: { on: 'Torches on', auto: 'Off in lit, quiet rooms', off: 'Dark - harder to spot them, harder to be spotted' } },
-  { knob: 'kit', label: 'Kit', key: 'K', pad: '▼', lkey: 'K',
-    short: { use: 'Use it', save: 'Save it' },
-    detail: { use: 'Grenades into packs, flares into dark rooms - by themselves', save: 'Grenades and flares only on your call' } },
-];
+const LOG_LINES = 4;     // lines the ticker keeps
+const LOG_SECS = 7;      // ... and for how long
+const LIFE_TREND = 30;   // seconds the lifesigns trend looks back
 
 export class Hud {
   constructor(root, game) {
@@ -67,15 +55,17 @@ export class Hud {
     this.squadEl = root.appendChild(h('<div id="squad"></div>'));
     const mm = root.appendChild(h('<div id="minimap" class="panel interactive"></div>'));
     this.minimap = new Minimap(mm, game);
-    this.actionsEl = root.appendChild(h('<div id="actions" class="panel interactive"></div>'));
+    this.logEl = root.appendChild(h('<div id="log"></div>'));
+    this.actionsEl = root.appendChild(h('<div id="actions" class="panel interactive"><div class="cluster cl-act"><small>ACT</small><div class="acts"></div></div><div class="cluster cl-kit"><small>KIT</small><div class="kitbar"></div></div><div class="cluster cl-ord"><small>ORDERS</small><div class="orders"></div></div></div>'));
     this.buttons = {};
+    const acts = this.actionsEl.querySelector('.acts');
     for (const a of ACTIONS) {
       const b = h(`<button class="act" data-id="${a.id}"><div class="ico">${ICONS[a.icon]}</div><div class="lbl">${a.label}</div><div class="key">[${a.key}]</div></button>`);
       b.addEventListener('click', () => game.command(a.id));
-      this.actionsEl.appendChild(b);
+      acts.appendChild(b);
       this.buttons[a.id] = b;
     }
-    this.kitEl = this.actionsEl.appendChild(h('<div class="kitbar"></div>'));
+    this.kitEl = this.actionsEl.querySelector('.kitbar');
     this.kitButtons = {};
     for (const k of KIT_BUTTONS) {
       const b = h(`<button class="kitb" data-id="${k.id}" title="${k.title}"><i>${ICONS[k.icon]}</i><span>${k.label}</span><b></b><kbd>${k.key}</kbd></button>`);
@@ -83,10 +73,10 @@ export class Hud {
       this.kitEl.appendChild(b);
       this.kitButtons[k.id] = { el: b, n: b.querySelector('b'), kit: k.kit, last: null };
     }
-    this.ordersEl = this.actionsEl.appendChild(h('<div class="orders"></div>'));
+    this.ordersEl = this.actionsEl.querySelector('.orders');
     this.tiles = {};
     for (const t of ORDER_TILES) {
-      const el = h(`<button class="ord" data-knob="${t.knob}"><span class="k">${t.label}<kbd>${t.key}</kbd></span><span class="v"></span><i class="m"><b></b></i></button>`);
+      const el = h(`<button class="ord" data-knob="${t.knob}"><span class="k"><i class="ico">${ICONS[t.icon] ?? ''}</i><em>${t.label}</em><kbd>${t.key}</kbd></span><span class="v"></span><i class="m"><b></b></i></button>`);
       el.addEventListener('click', (e) => { e.stopPropagation(); this.orderMenu(this.menuKnob === t.knob ? null : t.knob); });
       this.ordersEl.appendChild(el);
       this.tiles[t.knob] = { el, v: el.querySelector('.v'), meter: el.querySelector('.m b'), key: '' };
@@ -96,7 +86,19 @@ export class Hud {
     document.addEventListener('pointerdown', (e) => { if (this.menuKnob && !this.actionsEl.contains(e.target)) this.orderMenu(null); });
     this.weaponEl = root.appendChild(h(`<div id="weapon"><div class="gun panel">${ICONS.rifle}<small class="wname"></small></div><div class="ammo panel"><span>0</span><small>ROUNDS</small></div><div class="credits panel"><span>0</span><small>CREDITS</small></div></div>`));
     this.reticleEl = root.appendChild(h('<div id="reticle"></div>'));
-    this.objEl = root.appendChild(h('<div id="objective"><div class="obj"></div><div id="uplink"><i></i></div><div class="roe"></div></div>'));
+    this.objEl = root.appendChild(h(`<div id="objective"><div class="obj"></div><div id="uplink"><i></i></div>
+      <div class="strip">
+        <span class="mt life" title="Hostiles aboard, the horde included; the arrow: fewer than half a minute ago"><small>LIFESIGNS</small><b>0</b><i class="trend"></i></span>
+        <span class="mt civ" hidden title="Civilians found aboard: safe on the Kestrel / all"><small>CIVILIANS</small><b>0/0</b></span>
+        <span class="mt danger" title="How hot the ship is: noise brings the horde, quiet cools it (sim/director.js)"><small>DANGER</small><i class="meter"><b></b></i></span>
+        <span class="mt energy" title="High alert burns it; kills, vermin, food and drinks refill it"><small>ENERGY</small><i class="meter"><b></b></i></span>
+        <span class="mt morale" title="Kills and comrades back on their feet lift it; men lost and screams in the dark wear it down"><small>MORALE</small><b class="mor">HOLDING</b></span>
+        <span class="mt stims" title="Stim-packs left"><small>STIMS</small><b>0</b></span>
+        <span class="mt charges" title="Welding charges left"><small>CHARGES</small><b>0</b></span>
+        <span class="mt key" hidden title="A keycard: somewhere aboard there's a door for it">KEYCARD</span>
+        <span class="mt sentry" hidden title="A sentry gun of ours still has ammo">SENTRY</span>
+      </div>
+      <div class="roe"></div></div>`));
     this.barksEl = root.appendChild(h('<div id="barks"></div>'));
     this.lootEl = root.appendChild(h('<div id="lootcard" class="panel"><div class="tier"></div><div class="name"></div><div class="info"></div></div>'));
     this.toastEl = root.appendChild(h('<div id="toast"></div>'));
@@ -106,6 +108,8 @@ export class Hud {
     this.endEl = root.appendChild(h('<div class="screen"></div>'));
     this.troopers = [];
     this.ui = 1;
+    this.logSeen = 0;
+    this.lifeLog = [];
     window.addEventListener('resize', () => this.fitToScreen());
     document.fonts?.ready.then(() => this.fitToScreen());
     this.fitToScreen();
@@ -124,7 +128,7 @@ export class Hud {
     this.ui = Math.max(0.5, Math.min(1.5, Math.min(W / 1920, H / 1080) ** 0.6, fitRow || 1));
     this.root.style.setProperty('--ui', this.ui.toFixed(3));
     // The objective (bottom right) gets the room left beside the action bar.
-    this.objEl.style.maxWidth = `${Math.max(160, (W / 2 - 34 - (actions * this.ui) / 2) / this.ui)}px`;
+    this.objEl.style.maxWidth = `${Math.max(200, (W / 2 - 34 - (actions * this.ui) / 2) / this.ui)}px`;
   }
 
   // ------------------------------------------------------------------ binding
@@ -138,16 +142,21 @@ export class Hud {
     const pad = () => lead && (this.game.input?.padSeen ?? false);
     this.relabel();
     this.fitToScreen();
+    this.logEl.innerHTML = '';
+    this.logSeen = world.journal?.entries.length ?? 0;
+    this.lifeLog = [];
     this.squadEl.innerHTML = '';
     this.troopers = world.marines.map((m, i) => {
       // His rank's colour (meta/ranks.js) on the frame and the name.
       const el = h(`<div class="trooper" style="--rank:${tierOf(m.rank).color}"><div class="portrait">${portrait(m.tint, i)}<div class="point" hidden>POINT</div></div>
-        <div class="info"><div class="line"></div><div class="bar"><i class="trail"></i><i class="fill"></i></div><div class="breath"><i></i></div><div class="mag"></div></div></div>`);
+        <div class="info"><div class="line"><span class="who"></span><small class="role"></small><span class="status"></span></div>
+        <div class="bar"><i class="trail"></i><i class="fill"></i><b class="hpnum"></b></div>
+        <div class="ammo"><div class="mag"></div><small class="res"></small></div>
+        <div class="breath"><i></i></div><small class="wpn"></small></div></div>`);
       this.squadEl.appendChild(el);
-      return { m, el, line: el.querySelector('.line'), fill: el.querySelector('.fill'), trail: el.querySelector('.trail'), bar: el.querySelector('.bar'), breath: el.querySelector('.breath i'), mag: el.querySelector('.mag'), point: el.querySelector('.point'), lastHp: m.hp, key: '' };
+      return { m, el, who: el.querySelector('.who'), role: el.querySelector('.role'), status: el.querySelector('.status'), fill: el.querySelector('.fill'), trail: el.querySelector('.trail'), bar: el.querySelector('.bar'), hpnum: el.querySelector('.hpnum'), breath: el.querySelector('.breath i'), mag: el.querySelector('.mag'), res: el.querySelector('.res'), wpn: el.querySelector('.wpn'), point: el.querySelector('.point'), lastHp: m.hp, hpShown: -9, key: '' };
     });
     world.on('bark', ({ marine, text }) => this.bark(marine, text));
-    world.on('marine-hit', () => {});
     world.on('hit', ({ entity }) => {
       if (entity.kind !== 'marine') return;
       const t = this.troopers.find((q) => q.m === entity);
@@ -155,9 +164,7 @@ export class Hud {
       void t?.el.offsetWidth;
       t?.el.classList.add('hurt');
     });
-    world.on('alien-wake', ({ alien }) => { if (alien.visible) this.toast('CONTACT', 1.2); });
-    world.on('ambush', ({ prop }) => { if (prop) this.toast('AMBUSH', 1.4); });
-    world.on('uplink-start', () => this.toast('HOLD THE DECK', 2.2));
+    // Cards for finds and set pieces (the log carries the line as well).
     world.on('loot', ({ loot }) => {
       if (loot.type === 'food') this.lootCard('Supplies', 'Ration packs', `+${ENERGY.FOOD} energy for high alert`, '#e0a050');
       if (loot.type === 'drink') this.lootCard('Supplies', 'Energy drinks', `+${ENERGY.DRINK} energy for high alert`, '#e0a050');
@@ -167,49 +174,28 @@ export class Hud {
     });
     world.on('survivor-found', ({ survivor }) => this.lootCard('Survivor', survivor.name, 'Heading for the Kestrel - keep the route clear', '#7fc25a'));
     world.on('survivor-rescued', ({ survivor }) => this.lootCard('Civilian safe', survivor.name, 'Aboard the Kestrel. +200 cr on extraction', '#7fc25a'));
-    world.on('survivor-died', ({ friendly }) => this.toast(friendly ? 'FRIENDLY FIRE' : 'CIVILIAN LOST', 1.8));
+    world.on('keycard', () => this.lootCard('Keycard', 'Crew access: stores', 'Somewhere aboard there\'s a door for this.', '#d8c070'));
+    world.on('brood-dead', ({ bonus }) => this.lootCard('Brood mother', 'Killed', `The nest dies with her. +${bonus} cr`, '#c890e0'));
+    world.on('power-out', ({ deck }) => this.lootCard('Ship event', `Deck ${deck + 1}: power failure`, 'Torches only - you see less, and they hear more. Find the power junction to restore it.', '#e0a050'));
+    world.on('distress', ({ room }) => this.lootCard('Distress call', `A survivor on deck ${room.deck + 1}`, 'Marked on the tracker. Point at the beacon to answer it.', '#e0a050'));
+    world.on('distress-answered', ({ survivor, bonus }) => this.lootCard('Caller found', survivor.name, `Heading for the Kestrel. +${bonus} cr`, '#7fc25a'));
+    // What still shouts across the screen: a man down or taken, the horde, the ship cleared.
     world.on('downed', ({ marine }) => this.toast(`${marine.name} DOWN`, 1.6));
-    world.on('breakdown', ({ marine, mode }) => this.toast(`${marine.name} ${{ freeze: 'FROZE', flee: 'BOLTED', berserk: 'WENT BERSERK' }[mode]}`, 1.6));
-    world.on('dragged', ({ marine }) => this.toast(`${marine.name} DRAGGED`, 1.6));
-    // Set pieces.
-    world.on('sentry-online', () => this.toast('SENTRY ONLINE', 1.6));
-    world.on('sentry-dry', ({ sentry }) => this.toast(sentry.deployed ? 'TURRET DRY' : 'SENTRY DRY', 1.2));
-    world.on('defend', () => this.toast('TURRETS UP', 1.4));
+    world.on('taken', ({ marine }) => this.toast(`${marine.name} TAKEN`, 2));
     world.on('horde', () => this.toast('HERE THEY COME', 1.6));
     world.on('horde-over', () => this.toast('HORDE DOWN', 2));
-    world.on('keycard', () => this.lootCard('Keycard', 'Crew access: stores', 'Somewhere aboard there\'s a door for this.', '#d8c070'));
-    world.on('hatch', ({ count }) => this.toast(count > 1 ? 'THEY\'RE HATCHING' : 'ONE HATCHED', 1.4));
-    world.on('autodoc', ({ ok }) => { if (ok) this.toast('AUTODOC CYCLE', 1.4); });
+    world.on('ship-clear', () => this.toast('SHIP CLEAR', 2.4));
+    world.on('uplink-start', () => this.toast('HOLD THE DECK', 2.2));
     world.on('kit-refused', ({ item }) => {
       const k = KIT_BUTTONS.find((q) => q.id === item);
       this.toast(world.kit[k.kit] > 0 ? REFUSED[item] : k.none ?? `NO ${k.label.toUpperCase()}S LEFT`, 1.2);
     });
-    world.on('morale', ({ level, worse }) => {
-      if (worse && (level === 'shaken' || level === 'breaking')) this.toast(`SQUAD ${level.toUpperCase()}`, 1.8);
-      else if (!worse && level === 'holding') this.toast('SQUAD RALLIED', 1.4);
-    });
-    world.on('taken', ({ marine }) => this.toast(`${marine.name} TAKEN`, 2));
-    world.on('scream', ({ woke, called }) => { if (woke + called) this.toast('THE DECK IS AWAKE', 1.8); });
-    world.on('brood-dead', ({ bonus }) => this.lootCard('Brood mother', 'Killed', `The nest dies with her. +${bonus} cr`, '#c890e0'));
-    // Ship events.
-    world.on('power-out', ({ deck }) => {
-      this.toast('POWER FAILURE', 2);
-      this.lootCard('Ship event', `Deck ${deck + 1}: power failure`, 'Torches only - you see less, and they hear more. Find the power junction to restore it.', '#e0a050');
-    });
-    world.on('power-on', () => this.toast('POWER RESTORED', 1.6));
-    world.on('fire', () => this.toast('FIRE', 1.4));
-    world.on('distress', ({ room }) => this.lootCard('Distress call', `A survivor on deck ${room.deck + 1}`, 'Marked on the tracker. Point at the beacon to answer it.', '#e0a050'));
-    world.on('distress-answered', ({ survivor, bonus }) => this.lootCard('Caller found', survivor.name, `Heading for the Kestrel. +${bonus} cr`, '#7fc25a'));
-    world.on('ship-clear', () => this.toast('SHIP CLEAR', 2.4));
-    world.on('airlock-cycle', () => this.toast('LOCK CYCLED', 1.2));
-    setTimeout(() => this.toast('KESTREL 21 DOCKED - BOARDING', 2.4), 300);
+    world.journal?.add('Kestrel 21 docked: boarding', 'info');
     if (world.lead) {
-      setTimeout(() => this.toast(pad() ? 'YOU HAVE POINT · LEFT STICK WALKS · RIGHT STICK AIMS · RT FIRES · A USES' : 'YOU HAVE POINT · WASD WALKS · MOUSE AIMS · CLICK FIRES · E USES', 4.5), 2900);
-      world.on('control', ({ marine }) => this.toast(`${marine.name}: YOU HAVE POINT`, 2.4));
-      world.on('hold', ({ on }) => this.toast(on ? 'FOLLOWERS HOLD' : 'FOLLOWERS ON YOU', 1.2));
+      setTimeout(() => this.toast(pad() ? 'YOU HAVE POINT · LEFT STICK WALKS · RIGHT STICK AIMS · RT FIRES · A USES' : 'YOU HAVE POINT · WASD WALKS · MOUSE AIMS · CLICK FIRES · E USES', 4.5), 1400);
       world.on('use-refused', () => this.toast('NOTHING TO USE HERE', 0.9));
       world.on('downed', ({ marine }) => { if (marine === world.player) setTimeout(() => this.toast('YOU ARE DOWN - YOUR SQUAD IS COMING', 2.4), 1700); });
-    } else if (world.doctrine?.manual) setTimeout(() => this.toast('YOUR CALL: CLICK A SPOT OR AN OBJECT TO MOVE THE SQUAD', 4), 2900);
+    } else if (world.doctrine?.manual) setTimeout(() => this.toast('YOUR CALL: CLICK A SPOT OR AN OBJECT TO MOVE THE SQUAD', 4), 1400);
     world.on('won', (e) => { if (!this.campaign) this.showEnd(true, e); });
     world.on('lost', (e) => { if (!this.campaign) this.showEnd(false, e); });
   }
@@ -265,16 +251,27 @@ export class Hud {
       // Personal breath (Stamina stat): the squad runs only while everyone has some.
       t.breath.style.width = `${m.staminaMax ? Math.max(0, m.stamina / m.staminaMax) * 100 : 0}%`;
       t.breath.parentNode.classList.toggle('low', m.staminaMax && m.stamina / m.staminaMax < 0.3);
+      if (Math.round(m.hp) !== Math.round(t.lastHp)) { t.lastHp = m.hp; t.hpShown = w.time; }
+      t.hpnum.classList.toggle('show', m.alive && (m.hp < m.maxHp || w.time - t.hpShown < 2.5));
       const broke = m.breakdown && BREAK_TAGS[m.breakdown.phase === 'hide' ? 'hide' : m.breakdown.mode];
-      const status = !m.alive ? 'KIA' : m.down ? 'DOWN' : broke || (m.panicT > 0 ? 'PANIC' : m.reloadT > 0 ? 'RELOADING' : m.dry ? 'DRY' : '');
-      const wound = m.alive && !m.down && m.wound ? `<span class="tag wound">${m.wound === 'leg' ? 'LEG WOUND' : 'ARM WOUND'}</span>` : '';
+      const status = !m.alive ? 'KIA' : m.down ? 'DOWN' : broke || (m.panicT > 0 ? 'PANIC' : m.reloadT > 0 ? 'RELOAD' : m.dry ? 'DRY' : '');
       const key = `${m.alive}|${Math.round(m.hp)}|${m.mag}|${m.reserve}|${status}|${sq.leader === m}|${m.controlled}|${m.weapon.label}|${m.wound}`;
       if (key === t.key) continue;
       t.key = key;
-      // (Power fists: no ammo. A power sword carried as well goes after the gun's name.)
-      const ammo = m.weapon.melee ? '-' : m.mag + m.reserve;
-      const blade = m.loadout?.melee ? ` + ${MELEE[m.loadout.melee]?.label ?? m.loadout.melee}` : '';
-      t.line.innerHTML = `<span class="who">${m.rank} ${m.name}</span>${m.archetype ? ` <small class="role">${m.archetype}</small>` : ''} - HP: <b>${Math.max(0, Math.round(m.hp))}/${m.maxHp}</b> | AMMO: <b>${ammo}</b>${status ? `<span class="tag ${status === 'DOWN' ? 'down' : broke ? `broke ${m.breakdown.mode}` : ''}">${status}</span>` : ''}${wound}<span class="wpn" style="color:${RARITY[m.weapon.rarity ?? 'common'].color}">${m.weapon.label}${blade}</span>`;
+      t.who.textContent = `${m.rank} ${m.name}`;
+      t.role.textContent = m.archetype ?? '';
+      // Glyphs for what's wrong: reloading, dry, panic, a wound, down, dead.
+      const glyph = (cls, text, title) => `<span class="st ${cls}" title="${esc(title)}">${text}</span>`;
+      let st = '';
+      if (status === 'RELOAD') st += glyph('reload', '⟳', 'Changing mags');
+      else if (status === 'DRY') st += glyph('dry', 'DRY', 'No rounds left');
+      else if (status === 'PANIC') st += glyph('panic', '!', 'Panicking: firing wild');
+      else if (status === 'DOWN') st += glyph('down', 'DOWN', 'Down: stays down until a squad-mate gets him up');
+      else if (status === 'KIA') st += glyph('kia', 'KIA', 'Killed in action');
+      else if (broke) st += glyph(`broke ${m.breakdown.mode}`, broke, 'Broken down');
+      if (m.alive && !m.down && m.wound) st += glyph('wound', m.wound === 'leg' ? '✚ LEG' : '✚ ARM', m.wound === 'leg' ? 'A bad leg: slower, climbs worse' : 'A bad arm: worse aim and reloads');
+      t.status.innerHTML = st;
+      t.hpnum.textContent = `${Math.max(0, Math.round(m.hp))}/${m.maxHp}`;
       t.fill.style.width = `${pct}%`;
       t.trail.style.width = `${pct}%`;
       t.bar.classList.toggle('low', pct < 35);
@@ -283,12 +280,16 @@ export class Hud {
       t.point.hidden = sq.leader !== m && !m.controlled;
       t.point.textContent = m.controlled ? 'YOU' : 'POINT';
       t.point.classList.toggle('you', !!m.controlled);
-      // 20 pips show the magazine fill fraction for any weapon size.
+      // 20 pips show the magazine fill fraction for any weapon size; the reserve beside them.
       const pips = m.weapon.mag ? Math.ceil((m.mag / m.weapon.mag) * 20) : 0;
       t.mag.innerHTML = Array.from({ length: 20 }, (_, i) => `<span class="${i < pips ? '' : 'empty'}"></span>`).join('');
+      t.res.textContent = m.weapon.melee ? '' : `+${m.reserve}`;
+      const blade = m.loadout?.melee ? ` + ${MELEE[m.loadout.melee]?.label ?? m.loadout.melee}` : '';
+      t.wpn.textContent = `${m.weapon.label}${blade}`;
+      t.wpn.style.color = RARITY[m.weapon.rarity ?? 'common'].color;
     }
 
-    // The two controls.
+    // The controls.
     const b = this.buttons;
     const roe = w.settings.roe;
     b.cover.classList.toggle('on', sq.cover);
@@ -296,6 +297,7 @@ export class Hud {
     b.turn.classList.toggle('warn', sq.turnPending || w.doctrine?.override?.verb === 'turn');
     b.hold.classList.toggle('on', !!sq.followersHold);
     b.hold.querySelector('.lbl').textContent = sq.followersHold ? 'Follow' : 'Hold';
+    b.map.classList.toggle('on', !!this.game.map?.open);
     for (const k of Object.values(this.kitButtons)) {
       const n = w.kit[k.kit];
       if (n === k.last) continue;
@@ -304,6 +306,7 @@ export class Hud {
       k.el.classList.toggle('empty', n <= 0);
     }
     this.updateOrders();
+    this.updateLog();
 
     // A horde coming: the countdown.
     const horde = w.director.horde;
@@ -333,24 +336,20 @@ export class Hud {
     const lead = sq.leader;
     const obj = w.level.objective;
     const dist = lead ? Math.max(0, Math.round(Math.abs(obj.x - lead.x) + Math.abs(w.level.rooms[obj.room].y0 - lead.y))) : 0;
-    const ship = w.shipName ? `<small class="ship">${w.shipName} · THREAT ${w.level.threat}</small><br>` : '';
-    const objText = ship + (w.uplink ? 'OBJECTIVE:<br>UPLOAD NAV-LOCK.<br>HOLD THE COMMAND DECK.' : `OBJECTIVE:<br>REACH THE COMMAND DECK.<br>${dist}M TO GO.`);
+    const ship = w.shipName ? `<small class="ship">${esc(w.shipName)} · THREAT ${w.level.threat}</small><br>` : '';
+    const objText = ship + (w.uplink ? 'UPLOAD NAV-LOCK.<br>HOLD THE COMMAND DECK.' : `REACH THE COMMAND DECK.<br>${dist}M TO GO.`);
     if (this.objKey !== objText) { this.objEl.querySelector('.obj').innerHTML = objText; this.objKey = objText; }
     const up = this.objEl.querySelector('#uplink');
     up.style.display = w.uplink ? 'block' : 'none';
     if (w.uplink && sq.action?.type === 'uplink') up.firstChild.style.width = `${(sq.action.t / sq.action.dur) * 100}%`;
-    const life = w.lifesigns();
-    const found = w.survivors.filter((s) => s.identified || !s.alive);
-    const civ = w.survivors.length && found.length ? ` · CIVILIANS: <b>${w.survivors.filter((s) => s.state === 'rescued').length}/${w.survivors.length} SAFE</b>` : '';
-    // Standing orders (read-only: set in the briefing) and what the squad is doing about them.
-    // The orders themselves are on the orders bar; here, what the squad is doing about them.
+    this.updateStrip();
+
+    // The state line: fire discipline, and what the squad is doing about its orders.
     const d = w.doctrine?.cfg;
     const route = w.lead ? (you?.down ? '<b class="await">YOU ARE DOWN</b> · ' : sq.followersHold ? '<b class="await">FOLLOWERS HOLDING</b> · ' : `${Math.max(0, sq.order.length - 1)} ON YOU · `)
       : isManual(d) ? (sq.state === 'hold' && !w.doctrine.override ? '<b class="await">AWAITING ORDERS</b> · ' : 'MOVING ON YOUR ORDER · ') : '';
-    const energy = `ENERGY <i class="energy ${w.energy < ENERGY.MAX * 0.25 ? 'low' : ''}" title="High alert burns it; kills, vermin, food and drinks refill it"><b style="width:${(w.energy / ENERGY.MAX) * 100}%"></b></i>`;
-    const mor = w.morale.level.name;
-    const status = `${route}${sq.pace === 'run' && sq.leader?.moving ? 'RUNNING · ' : ''}${energy} · MORALE <b class="morale ${mor}" title="Kills and comrades back on their feet lift it; men lost and screams in the dark wear it down">${mor.toUpperCase()}</b> · ${w.stims} STIMS · ${w.kit.charges} CHARGES${w.kit.keycards ? ' · KEYCARD' : ''}${w.sentries.some((s) => s.ammo > 0) ? ' · SENTRY' : ''}`;
-    this.objEl.querySelector('.roe').innerHTML = `${civ ? `${civ.slice(3)} · ` : ''}LIFESIGNS: <b class="${life ? 'chaotic' : ''}">${life || 'CLEAR'}</b> · STATE: <b class="${roe}">${roe === 'alert' ? 'HIGH ALERT' : roe.toUpperCase()}</b><br><span class="orders">${status}</span>`;
+    const state = `${route}${sq.pace === 'run' && sq.leader?.moving ? 'RUNNING · ' : ''}STATE: <b class="${roe}">${roe === 'alert' ? 'HIGH ALERT' : roe.toUpperCase()}</b>`;
+    if (this.stateKey !== state) { this.objEl.querySelector('.roe').innerHTML = state; this.stateKey = state; }
 
     // Keep barks attached to their speakers; stack any that would overlap.
     const placed = [];
@@ -358,14 +357,71 @@ export class Hud {
       const m = el._marine;
       if (!m) continue;
       const p = this.view.toScreen(m.x, m.y + 2.6, m.z);
-      const w = el.offsetWidth || 160;
+      const w2 = el.offsetWidth || 160;
       let y = p.y;
-      while (placed.some((q) => Math.abs(q.x - p.x) < (q.w + w) / 2 + 6 && Math.abs(q.y - y) < 22)) y -= 24;
-      placed.push({ x: p.x, y, w });
+      while (placed.some((q) => Math.abs(q.x - p.x) < (q.w + w2) / 2 + 6 && Math.abs(q.y - y) < 22)) y -= 24;
+      placed.push({ x: p.x, y, w: w2 });
       el.style.left = `${p.x}px`;
       el.style.top = `${y}px`;
     }
     this.minimap.update(dt);
+  }
+
+  /** The strip of meters under the objective: lifesigns, danger, energy, morale, the kit. */
+  updateStrip() {
+    const w = this.world;
+    const S = this.objEl;
+    const life = w.lifesigns();
+    const t = w.time;
+    this.lifeLog.push({ t, life });
+    while (this.lifeLog.length > 2 && this.lifeLog[1].t < t - LIFE_TREND) this.lifeLog.shift();
+    const before = this.lifeLog[0].life;
+    const lifeEl = S.querySelector('.life');
+    lifeEl.querySelector('b').textContent = life || 'CLEAR';
+    lifeEl.querySelector('b').className = life ? 'hot' : 'clear';
+    lifeEl.querySelector('.trend').textContent = life < before ? '▼' : '';
+    const found = w.survivors.filter((s) => s.identified || !s.alive);
+    const civ = S.querySelector('.civ');
+    civ.hidden = !(w.survivors.length && found.length);
+    if (!civ.hidden) civ.querySelector('b').textContent = `${w.survivors.filter((s) => s.state === 'rescued').length}/${w.survivors.length}`;
+    // Danger: how hot the ship is against what brings the horde; a horde under way or spent pins it.
+    const dg = S.querySelector('.danger');
+    const f = w.level.mods?.hordes ?? 1;
+    const none = w.director.hordeSize <= 0 || f <= 0;
+    const hd = w.director.horde;
+    const heat = hd ? 1 : none ? 0 : Math.min(1, w.director.heat / (HORDE.START / f));
+    dg.querySelector('b').style.width = `${heat * 100}%`;
+    dg.classList.toggle('hot', heat > 0.75);
+    dg.classList.toggle('warm', heat > 0.4 && heat <= 0.75);
+    dg.classList.toggle('none', none);
+    dg.title = none ? 'No horde aboard this ship' : hd ? (hd.phase === 'warn' ? 'The horde is coming' : 'The horde is here') : `The ship is ${Math.round(heat * 100)}% of the way to calling its horde: noise heats it, quiet cools it`;
+    const en = S.querySelector('.energy');
+    en.querySelector('b').style.width = `${(w.energy / ENERGY.MAX) * 100}%`;
+    en.classList.toggle('low', w.energy < ENERGY.MAX * 0.25);
+    const mor = w.morale.level.name;
+    const me = S.querySelector('.mor');
+    if (me.textContent !== mor.toUpperCase()) { me.textContent = mor.toUpperCase(); me.className = `mor ${mor}`; }
+    S.querySelector('.stims b').textContent = w.stims;
+    S.querySelector('.charges b').textContent = w.kit.charges;
+    S.querySelector('.key').hidden = !w.kit.keycards;
+    S.querySelector('.sentry').hidden = !w.sentries.some((s) => s.ammo > 0);
+  }
+
+  /** The ticker: the ship's log as it grows, the last few lines, each fading after a while. */
+  updateLog() {
+    const j = this.world.journal;
+    if (!j) return;
+    const es = j.entries;
+    // (The log is capped: if it was trimmed under us, catch up from the newest few.)
+    if (this.logSeen > es.length) this.logSeen = Math.max(0, es.length - LOG_LINES);
+    while (this.logSeen < es.length) {
+      const e = es[this.logSeen++];
+      const el = h(`<div class="ln ${e.kind}">${esc(e.text)}</div>`);
+      el._t = this.world.time;
+      this.logEl.appendChild(el);
+      while (this.logEl.children.length > LOG_LINES) this.logEl.firstChild.remove();
+    }
+    for (const el of [...this.logEl.children]) if (this.world.time - el._t > LOG_SECS) el.remove();
   }
 
   /** Lead: the reticle on his line of aim - or on the hostile his aim is drawn to (sim/combat.js). */
@@ -433,7 +489,9 @@ export class Hud {
       });
     }
     const el = this.tiles[knob].el;
-    this.menuEl.style.left = `${el.offsetLeft + el.offsetWidth / 2}px`;
+    const bar = this.actionsEl.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    this.menuEl.style.left = `${(r.left + r.width / 2 - bar.left) / this.ui}px`;
   }
 
   bark(marine, text) {
@@ -459,6 +517,7 @@ export class Hud {
     this.lootT = setTimeout(() => el.classList.remove('show'), 3800);
   }
 
+  /** Big red words across the screen: only for what can't wait (a man down, the horde). */
   toast(text, secs = 1.5) {
     this.toastEl.textContent = text;
     this.toastEl.classList.add('show');
@@ -471,25 +530,15 @@ export class Hud {
   showStart(seed, { hasCampaign = false } = {}) {
     this.startEl.innerHTML = `<div class="box">
       <h1>HULL BREACH</h1><h2>DERELICT BOARDING ACTION · SQUAD ROGUELIKE</h2>
-      <div class="keys">
-        <kbd>C</kbd><span>cover: stop and crouch</span><kbd>T</kbd><span>turn back</span>
-        <kbd>Q E D</kbd><span>grenade, flare, defend</span><kbd>K</kbd><span>kit: use it or save it</span>
-        <kbd>R F G</kbd><span>route, fire discipline, pace</span><kbd>L H V</kbd><span>loot, stims, flashlights</span>
-        <kbd>1-3</kbd><span>choose at an encounter</span><kbd>Space</kbd><span>pause</span>
-        <kbd>P</kbd><span>pixel mode on/off</span><kbd>+ −</kbd><span>zoom (or wheel)</span>
-      </div>
-      <div class="keys pad"><b>Lead mode</b><span>pick it in the briefing: you walk one marine with a controller, up to three follow you</span>
-        <kbd>L stick</kbd><span>walk, run; up / down at a ladder</span><kbd>R stick · RT</kbd><span>aim, fire</span>
-        <kbd>A · B</kbd><span>use · followers hold / follow</span><kbd>LT · RB</kbd><span>cover · reload</span>
-        <kbd>X Y LB</kbd><span>grenade, flare, defend</span><kbd>D-pad</kbd><span>followers' orders; an encounter's options</span>
-        <kbd>keys</kbd><span>WASD walk · mouse aims · click fires · Shift cover · E use · R reload · T hold</span>
-      </div>
+      <p class="pitch">Four marines, a derelict, and whatever is still aboard. Board it, reach the command deck, hold it for the uplink, and get them home.</p>
       <div class="menu">
         ${hasCampaign ? '<button id="continue">CONTINUE CAMPAIGN</button>' : ''}
         <button id="newcamp" class="${hasCampaign ? 'alt' : ''}">NEW CAMPAIGN</button>
       </div>
       <div class="row"><input id="seed" value="${seed}" maxlength="10" aria-label="Ship seed" /><button id="deploy" class="alt">QUICK PLAY</button></div>
+      <div class="row helprow"></div>
     </div>`;
+    this.startEl.querySelector('.helprow').appendChild(helpButton(this.startEl, 'squad'));
     this.startEl.classList.add('show');
     this.root.classList.add('menu');
     const go = () => this.game.showQuickBriefing(this.startEl.querySelector('#seed').value.trim().toUpperCase() || seed);

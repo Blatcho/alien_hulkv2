@@ -10,20 +10,20 @@
 // left stick moves (up/down at a ladder climbs it), right stick aims, RT fires, LT crouches
 // everyone; the buttons are commands like the keys are: A use, B hold/follow, X grenade,
 // Y flare, LB defend, RB reload, D-pad the followers' orders (or an encounter's options),
-// Start pause, Back pixel mode. Without a pad: WASD/arrows walk, the mouse aims (from the
+// Start pause, Back the ship map (ui/map.js). Without a pad: WASD/arrows walk, the mouse aims (from the
 // marine), mouse 1 fires, Shift crouches, E uses, R reloads, T holds.
 export const KEYS = {
   KeyC: 'cover', KeyT: 'turn', Digit1: 'option1', Digit2: 'option2', Digit3: 'option3',
   KeyQ: 'grenade', KeyE: 'flare', KeyD: 'defend',
   KeyR: 'cycle:route', KeyF: 'cycle:roe', KeyG: 'cycle:pace', KeyL: 'cycle:loot', KeyH: 'cycle:stims', KeyV: 'cycle:light', KeyK: 'cycle:kit',
-  Space: 'pause', Escape: 'pause', KeyP: 'retro', KeyM: 'mute', Backquote: 'debug',
+  Space: 'pause', Escape: 'pause', Tab: 'map', KeyP: 'retro', KeyM: 'mute', Backquote: 'debug',
 };
 
 export const LEAD_KEYS = {
   KeyE: 'use', KeyR: 'reload', KeyT: 'hold', KeyC: 'cover', Digit1: 'option1', Digit2: 'option2', Digit3: 'option3',
   KeyQ: 'grenade', KeyF: 'flare', KeyG: 'defend',
   KeyX: 'cycle:roe', KeyH: 'cycle:stims', KeyV: 'cycle:light', KeyK: 'cycle:kit',
-  Space: 'pause', Escape: 'pause', KeyP: 'retro', KeyM: 'mute', Backquote: 'debug',
+  Space: 'pause', Escape: 'pause', Tab: 'map', KeyP: 'retro', KeyM: 'mute', Backquote: 'debug',
 };
 
 // Held down in lead mode: walking and crouching.
@@ -32,7 +32,7 @@ const HELD = { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right', ArrowUp: '
 // Standard gamepad layout (Xbox names): what each button does in lead mode.
 export const PAD_BUTTONS = {
   0: 'use', 1: 'hold', 2: 'grenade', 3: 'flare', 4: 'defend', 5: 'reload',
-  8: 'retro', 9: 'pause', 12: 'pad:up', 13: 'pad:down', 14: 'pad:left', 15: 'pad:right',
+  8: 'map', 9: 'pause', 12: 'pad:up', 13: 'pad:down', 14: 'pad:left', 15: 'pad:right',
 };
 const DEADZONE = 0.18;
 const TRIGGER = 0.4;

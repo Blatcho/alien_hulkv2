@@ -73,11 +73,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color:
 #interact .enc .auto { font-size: 10px; color: var(--ink-dim); margin-top: 3px; text-align: right; }
 @keyframes ringpulse { 50% { transform: scale(1.12); } }
 @keyframes spin { to { transform: rotate(360deg); } }
-#objective .orders .await { color: var(--warn); font-weight: normal; animation: ringpulse 1.2s ease-in-out infinite; display: inline-block; }
-#objective .orders { font-size: 11px; color: var(--ink-dim); letter-spacing: 1px; }
-#objective .energy { display: inline-block; width: 60px; height: 5px; margin-left: 4px; border: 1px solid #5a4422; vertical-align: middle; }
-#objective .energy b { display: block; height: 100%; background: #e0a050; }
-#objective .energy.low b { background: var(--danger); }
+#objective .await { color: var(--warn); font-weight: normal; animation: ringpulse 1.2s ease-in-out infinite; display: inline-block; }
 .trooper .line { font-size: 16px; text-shadow: 0 1px 0 #000, 0 0 6px rgba(0,0,0,.8); white-space: nowrap; }
 .trooper .line b { color: #fff; font-weight: normal; }
 .bar { width: 260px; height: 9px; margin-top: 5px; border: 1px solid #000; outline: 1px solid var(--edge); background: var(--hp-dark); position: relative; }
@@ -407,3 +403,176 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color:
 .intel .story { margin: 4px 0 6px; font-size: 12px; line-height: 1.35; color: #c9c2a6; }
 .intel .story b { color: #e8d9a0; font-weight: 600; }
 .intel .bl, .ship .bl { font-size: 12px; color: var(--ink-dim); margin: 4px 0 2px; text-transform: none; }
+
+/* ======================================================================================
+   The streamlined interface: squad cards, the message ticker, the status strip, the action
+   bar's clusters, the ship map, the launch screen and its help card. */
+
+/* ---------- squad cards (top-left): portrait, name, health, magazine, breath, a glyph for anything wrong */
+.trooper .info { width: 214px; }
+.trooper .line { display: flex; align-items: baseline; gap: 6px; font-size: 14px; white-space: nowrap; }
+.trooper .line .status { margin-left: auto; display: flex; gap: 3px; }
+.trooper .st { font-size: 10px; padding: 0 4px; border: 1px solid var(--warn); color: var(--warn); letter-spacing: 1px; }
+.trooper .st.reload { color: #9fc8e0; border-color: #4a6a7a; }
+.trooper .st.dry { color: #fff; border-color: var(--danger); background: #6a1f18; }
+.trooper .st.panic { color: #fff; border-color: var(--danger); animation: ringpulse 1s ease-in-out infinite; }
+.trooper .st.down { border-color: var(--danger); color: #fff; background: var(--danger); animation: ringpulse 1s ease-in-out infinite; display: inline-block; }
+.trooper .st.kia { border-color: #555; color: #888; }
+.trooper .st.wound { border-color: #a06040; color: #e0a080; }
+.trooper .st.broke { border-color: #c890e0; color: #e8c8f8; animation: ringpulse 1.2s ease-in-out infinite; display: inline-block; }
+.trooper .st.broke.berserk { border-color: #ff5030; color: #fff; background: #8a1f10; }
+.trooper .bar { width: 214px; margin-top: 4px; }
+.bar .hpnum { position: absolute; right: 3px; top: -1px; font-size: 9px; line-height: 9px; color: #fff; font-weight: normal; opacity: 0; transition: opacity .3s; text-shadow: 0 0 3px #000, 0 0 3px #000; letter-spacing: 0; }
+.bar .hpnum.show { opacity: 1; }
+.trooper .ammo { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.trooper .ammo .mag { margin-top: 0; }
+.trooper .res { font-size: 10px; color: #c9b27a; letter-spacing: 0; }
+.trooper .breath { width: 214px; margin-top: 3px; }
+.trooper .wpn { margin-top: 2px; font-size: 10px; max-width: 214px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- the message ticker (top-centre): the ship's log, a few lines at a time */
+#log { position: absolute; top: 14px; left: 50%; transform: translateX(-50%) scale(var(--ui, 1)); transform-origin: top center; width: 560px; display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; }
+#hud:has(#horde.show) #log { top: 92px; }
+#log .ln { font-size: 13px; letter-spacing: 1px; padding: 2px 10px; background: rgba(8,12,11,.8); border-left: 2px solid var(--ink-dim); color: var(--ink); text-transform: none; animation: logline 7s forwards; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#log .ln.warn { border-color: var(--warn); color: #f0d8a0; }
+#log .ln.danger { border-color: var(--danger); color: #ffb0a0; }
+#log .ln.good { border-color: var(--accent); color: #c8f0b0; }
+#log .ln.loot { border-color: #d9b860; color: #f0e0a0; }
+@keyframes logline { 0% { opacity: 0; transform: translateY(-6px); } 6% { opacity: 1; transform: none; } 82% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------- the status strip under the objective (bottom-right) */
+#objective { font-size: 19px; }
+#objective .strip { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 3px 9px; margin-top: 7px; font-size: 11px; }
+.mt { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-dim); letter-spacing: 1px; }
+.mt[hidden] { display: none; }
+.mt small { font-size: 9px; color: var(--ink-dim); letter-spacing: 2px; }
+.mt b { color: var(--ink); font-weight: normal; font-size: 13px; }
+.mt .meter { display: inline-block; width: 52px; height: 6px; border: 1px solid #3a4a44; background: rgba(0,0,0,.5); }
+.mt .meter b { display: block; height: 100%; width: 0; font-size: 0; }
+.mt.energy .meter b { background: #e0a050; }
+.mt.energy.low .meter b { background: var(--danger); }
+.mt.danger .meter b { background: #7fa070; transition: width .4s; }
+.mt.danger.warm .meter b { background: var(--warn); }
+.mt.danger.hot .meter b { background: var(--danger); }
+.mt.danger.hot { animation: ringpulse 1.2s ease-in-out infinite; }
+.mt.danger.none { opacity: .4; }
+.mt.life b.hot { color: var(--danger); }
+.mt.life b.clear { color: var(--accent); }
+.mt .trend { color: var(--accent); font-style: normal; font-size: 10px; }
+.mt .mor.steady { color: #9fe07a; } .mt .mor.shaken { color: #f0a050; } .mt .mor.breaking { color: var(--danger); }
+.mt.key, .mt.sentry { color: #d8c070; border: 1px solid #6a5a2a; padding: 0 4px; font-size: 10px; }
+.mt.sentry { color: #7fd0ff; border-color: #2a4a5a; }
+#objective .roe { font-size: 12px; margin-top: 4px; }
+
+/* ---------- the action bar's clusters: ACT, KIT, ORDERS */
+#actions { gap: 10px; padding: 5px 14px 6px; align-items: flex-end; }
+#actions .cluster { display: flex; flex-direction: column; gap: 3px; }
+#actions .cluster > small { font-size: 9px; letter-spacing: 2px; color: var(--ink-dim); }
+#actions .cluster.cl-kit, #actions .cluster.cl-ord { padding-left: 12px; border-left: 1px solid var(--edge); }
+#actions .acts { display: flex; gap: 10px; }
+#actions .kitbar { padding-left: 0; border-left: 0; }
+#actions .orders { margin-left: 0; padding-left: 0; border-left: 0; }
+.ord .k { align-items: center; gap: 4px; }
+.ord .k .ico { width: 12px; height: 12px; display: inline-block; flex: none; }
+.ord .k .ico svg { width: 12px; height: 12px; fill: none; stroke: var(--ink-dim); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; display: block; }
+.ord .k em { font-style: normal; flex: 1; }
+.act.on[data-id="map"] .ico { background: linear-gradient(#2a4a3a, #1a2e24); border-color: var(--accent); }
+
+/* ---------- the ship map (Tab / Back) */
+#map { position: absolute; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.6); z-index: 5; pointer-events: auto; text-transform: none; }
+#map.show { display: grid; }
+#map .mapbox { width: min(1500px, 94vw); height: min(860px, 90vh); display: flex; flex-direction: column; padding: 12px 16px; }
+#map .maptop { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--edge); padding-bottom: 6px; }
+#map h2 { margin: 0; font-size: 16px; letter-spacing: 4px; color: var(--accent); font-weight: normal; text-transform: uppercase; }
+#map .sub { font-size: 12px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 1px; }
+#map .close { margin-left: auto; font: inherit; background: none; border: 1px solid var(--edge); color: var(--ink-dim); padding: 4px 10px; cursor: pointer; text-transform: uppercase; }
+#map .mapcols { display: grid; grid-template-columns: 1fr 340px; gap: 14px; flex: 1; min-height: 0; margin-top: 10px; }
+#map .chart { position: relative; min-height: 0; background: rgba(4,8,8,.9); border: 1px solid var(--edge); overflow: hidden; }
+#map canvas { display: block; width: 100%; height: 100%; }
+#map .legend { position: absolute; left: 8px; bottom: 6px; display: flex; gap: 12px; flex-wrap: wrap; font-size: 10px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 1px; }
+#map .legend i { display: inline-block; width: 8px; height: 8px; margin-right: 4px; vertical-align: middle; }
+#map .legend .sq { background: #8fd070; } #map .legend .obj { background: #7fc25a; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+#map .legend .blip { background: #ff4a3a; border-radius: 50%; } #map .legend .cache { background: #d9b860; } #map .legend .surv { background: #7fc25a; border-radius: 50%; }
+#map .legend .door { background: #d9a32b; } #map .legend .dlock { background: #e0c060; } #map .legend .dweld { background: #c890e0; }
+#map .side { overflow: auto; font-size: 13px; color: var(--ink); padding-right: 4px; }
+#map .side h3 { font-size: 11px; letter-spacing: 3px; color: var(--accent); font-weight: normal; margin: 10px 0 4px; text-transform: uppercase; }
+#map .side p { margin: 2px 0; color: var(--ink-dim); line-height: 1.35; }
+#map .side p b { color: var(--ink); font-weight: normal; }
+#map .side b.hot { color: var(--danger); }
+#map .side .story { color: #c9c2a6; } #map .side .story b { color: #e8d9a0; }
+#map .side .obj { color: var(--ink); }
+#map .mods { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+#map .mods .mod { font-size: 11px; padding: 1px 6px; border: 1px solid var(--warn); color: var(--warn); }
+#map .mods .mod.plain { border-color: var(--edge); color: var(--ink-dim); }
+#map .log, .timeline { list-style: none; padding: 0; margin: 0; font-size: 12px; }
+#map .log li, .timeline li { display: grid; grid-template-columns: 44px 1fr; gap: 6px; padding: 1px 0; color: var(--ink-dim); }
+#map .log li span, .timeline li span { color: #6f7d74; }
+#map .log li.warn, .timeline li.warn { color: #f0d8a0; } #map .log li.danger, .timeline li.danger { color: #ffb0a0; }
+#map .log li.good, .timeline li.good { color: #c8f0b0; } #map .log li.loot, .timeline li.loot { color: #f0e0a0; }
+.timeline { max-height: 300px; overflow: auto; }
+
+/* ---------- the launch screen (ui/launch.js) */
+.launch .top { flex-wrap: nowrap; }
+.launch .top h1 { flex: none; white-space: nowrap; }
+.launch .top .stats { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.launch .top .tabs { display: flex; gap: 4px; margin-left: 12px; flex: none; }
+.launch .top .quit { flex: none; }
+.tabs button { font: inherit; font-size: 12px; letter-spacing: 2px; padding: 4px 12px; background: #1d2624; color: var(--ink-dim); border: 1px solid var(--edge); cursor: pointer; }
+.tabs button.on { color: #fff; border-color: var(--accent); background: #243029; }
+.helpbtn { font: inherit; font-size: 12px; letter-spacing: 2px; padding: 4px 10px; background: none; color: var(--ink-dim); border: 1px solid var(--edge); cursor: pointer; margin-left: 8px; }
+.helpbtn:hover { color: #fff; border-color: var(--edge-hi); }
+.help { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.6); z-index: 9; pointer-events: auto; text-transform: none; }
+.helpcard { width: min(1100px, 94vw); max-height: 90vh; overflow: auto; padding: 14px 18px; }
+.helptop { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--edge); padding-bottom: 6px; margin-bottom: 8px; }
+.helptop h2 { margin: 0; font-size: 14px; letter-spacing: 3px; color: var(--accent); font-weight: normal; text-transform: uppercase; }
+.helptop .close { font: inherit; background: none; border: 1px solid var(--edge); color: var(--ink-dim); padding: 3px 10px; cursor: pointer; }
+.helpcols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .helpcols { grid-template-columns: 1fr; } }
+.helpcols h3 { font-size: 12px; letter-spacing: 3px; color: var(--accent); font-weight: normal; margin: 4px 0 6px; text-transform: uppercase; }
+.helpcols h3 small { color: var(--ink-dim); letter-spacing: 0; margin-left: 8px; text-transform: none; }
+.offers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 980px) { .offers { grid-template-columns: 1fr; } }
+.offers .ship .sz b { color: #e8d9a0; font-weight: normal; }
+.offers .risk b { color: #fff; font-weight: normal; }
+.rt .chips { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 5px; }
+.chip { font-size: 10px; padding: 1px 6px; border: 1px solid #3a4a44; color: var(--ink-dim); }
+.chip b { color: #d8e8d0; font-weight: normal; }
+.chip.hi { border-color: #4e6e4a; color: #b8d8a8; }
+.chip.lo { border-color: #6a3a3a; color: #d89090; } .chip.lo b { color: #f0a0a0; }
+.chip.even { opacity: .7; }
+.launch .roster { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+.launch .rt .pf { width: 56px; height: 56px; }
+.launch .kestrel .rt .pf { width: 64px; height: 64px; }
+.launch h2 .barsmode { float: right; font: inherit; font-size: 10px; letter-spacing: 2px; background: none; border: 1px solid var(--edge); color: var(--ink-dim); padding: 2px 8px; cursor: pointer; }
+.launch h2 .barsmode:hover { color: #fff; border-color: var(--edge-hi); }
+.rt.dragging { opacity: .4; }
+.rt.over { outline: 2px dashed var(--accent); }
+.rt .slot[data-up] { cursor: pointer; }
+.line { display: flex; gap: 4px; flex-wrap: wrap; }
+.line .ln { font: inherit; display: flex; gap: 6px; align-items: baseline; padding: 4px 8px; background: rgba(10,14,14,.7); border: 1px solid var(--edge); color: #fff; cursor: pointer; font-size: 13px; }
+.line .ln b { font-weight: normal; font-size: 10px; letter-spacing: 1px; color: var(--accent); }
+.line .ln.you b { color: var(--warn); }
+.line .ln.empty { color: var(--ink-dim); }
+.line .ln:disabled { cursor: default; }
+.line .ln:not(:disabled):hover { border-color: var(--accent); }
+.cmdchoice.seg { grid-template-columns: 1fr 1fr; gap: 4px; }
+.cmdchoice.seg button { text-align: center; font-size: 14px; letter-spacing: 3px; padding: 7px; }
+.chiprow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.schip { font-size: 11px; padding: 2px 8px; border: 1px solid var(--edge); color: var(--ink-dim); }
+.schip b { color: var(--ink); font-weight: normal; }
+.schip.changed { border-color: #6a5a2a; color: #d9b860; } .schip.changed b { color: #f0e0a0; }
+.chiprow .change { margin-left: auto; font: inherit; font-size: 11px; letter-spacing: 2px; padding: 3px 10px; background: #1d2624; color: var(--ink); border: 1px solid var(--edge-hi); cursor: pointer; }
+.chiprow .change:hover { border-color: var(--accent); color: #fff; }
+.settings { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--edge); background: rgba(10,14,14,.5); }
+.settings h3 { font-size: 11px; letter-spacing: 3px; color: var(--accent); font-weight: normal; margin: 6px 0 6px; text-transform: uppercase; }
+.settings h3 small { color: var(--ink-dim); letter-spacing: 0; margin-left: 8px; text-transform: none; }
+.intel .obj { margin-top: 6px; font-size: 12px; color: var(--ink); }
+.intel .obj span { font-size: 10px; letter-spacing: 2px; color: var(--accent); margin-right: 6px; }
+.intel .pay { margin-top: 4px; font-size: 12px; color: #d88; letter-spacing: 1px; text-transform: uppercase; }
+.intel .pay b { color: #fff; font-weight: normal; }
+.screen .pitch { text-align: center; max-width: 520px; margin: 0 auto 6px; }
+.screen .helprow { margin-top: 12px; }
+.screen .helpbtn { background: none; color: var(--ink-dim); box-shadow: none; font-size: 12px; padding: 4px 12px; letter-spacing: 2px; border: 1px solid var(--edge); }
+.screen .helpbtn:hover { color: #fff; border-color: var(--edge-hi); }
+.screen .help .close { font-size: 12px; padding: 3px 10px; background: none; color: var(--ink-dim); box-shadow: none; border: 1px solid var(--edge); letter-spacing: 1px; }
+.command .top .tabs button, .command .top .helpbtn { text-transform: uppercase; }
