@@ -59,12 +59,12 @@ Useful URL parameters:
 | `D` | **Defend**: two sentry guns either side of the squad that stay and keep firing (one kit to start, more found aboard) | `K` | Kit order: use it or save it |
 | `1`–`3` | choose at an encounter | `Space` | pause |
 | `R` `F` `G` | next route, fire discipline, pace | `L` `H` `V` | next loot, stims, flashlights order |
-| `P` | pixel mode on/off (on by default) | `` ` `` | debug stats |
-| `+` `-` | zoom (or the mouse wheel / trackpad scroll) | | |
+| `Tab` | the **ship map**: the whole derelict deck by deck as the squad has seen it, the contract, what's been found and the ship's log; the run waits while it's open | `P` | pixel mode on/off (on by default) |
+| `+` `-` | zoom (or the mouse wheel / trackpad scroll) | `` ` `` | debug stats |
 
 | mouse | hover over a door, ladder, stairwell, crate, terminal, vent, door control, survivor, man down or fuel barrel the squad has seen, then click to send them | | |
 
-(Squad mode. For a controller and one marine of your own, see **Lead mode** below.)
+(Squad mode. For a controller and one marine of your own, see **Lead mode** below. The **CONTROLS** button on the title and launch screens shows both tables.)
 
 Everything you can click glows faintly in the scene, breathing slowly, so you can see it before the cursor finds it. The colour shows what it is:
 - **Blue:** doors, ladders and stairs (dimmer for an open door), with a smaller pip for door controls and vents.
@@ -76,7 +76,9 @@ Everything you can click glows faintly in the scene, breathing slowly, so you ca
 
 A glow appears only for rooms the squad knows, sits under the fog of war, and fades once the thing is done: searched, welded, rescued.
 
-The **kit buttons** next to Cover and Turn around show what's left of the grenades, flares and Defend kits. The **orders bar** beside them shows the seven standing orders. Click one to pick another option (or press its key to cycle it); the squad acknowledges and acts on it from then on. Fire carries the squad's energy meter, Pace its breath (the most winded trooper).
+The bar at the bottom has three clusters. **ACT** is Cover, Turn back and the map. **KIT** shows what's left of the grenades, flares and Defend kits. **ORDERS** is the seven standing orders: click one to pick another option (or press its key to cycle it); the squad acknowledges and acts on it from then on. Fire carries the squad's energy meter, Pace its breath (the most winded trooper).
+
+The rest of the HUD: each trooper's card top-left (name in his rank's colour, health, the magazine and reserve, breath, and a glyph for anything wrong - reloading, dry, panicking, a wound, down); the tracker top-right; a **ticker** top-centre that shows the last few lines of the ship's log (contacts, finds, doors welded, power failures, men down and back up - every notable thing, timed, the same log the map and the debrief show); and bottom-right the objective over a strip of meters: lifesigns (with an arrow when they've fallen lately), the ship's **danger** (how close the noise has brought it to calling its horde), energy, morale, stims and charges, a keycard and a sentry gun still firing. Only a man down or taken, the horde and the ship cleared still shout across the middle of the screen.
 
 Everything else is handled by the marines themselves: doors, ladders, fights and loot by their orders.
 
@@ -90,23 +92,16 @@ The briefing's **COMMAND** choice picks how a mission is run. **SQUAD** is the g
 | `RT` | fire, for as long as it's held | `LT` | cover: everyone crouches (slow, hard to hit) |
 | `A` | use whatever you're standing at: a crate, a terminal, a sealed or locked door, the command console, a man down | `B` | the followers hold where they are / fall in behind you again |
 | `X` `Y` `LB` | grenade, flare, defend | `RB` | reload |
-| D-pad | the followers' orders (fire discipline, stims, lights, kit) - or an encounter's options, `A` to pick | `Start` `Back` | pause, pixel mode |
+| D-pad | the followers' orders (fire discipline, stims, lights, kit) - or an encounter's options, `A` to pick | `Start` `Back` | pause, the ship map |
 
-Keyboard and mouse do the same: `WASD` / arrows walk, the mouse aims from your marine, mouse 1 fires, `Shift` cover, `E` use, `R` reload, `T` hold / follow, `Q` `F` `G` grenade, flare, defend, `X` `H` `V` `K` the followers' orders.
+Keyboard and mouse do the same: `WASD` / arrows walk, the mouse aims from your marine, mouse 1 fires, `Shift` cover, `E` use, `R` reload, `T` hold / follow, `Q` `F` `G` grenade, flare, defend, `X` `H` `V` `K` the followers' orders, `Tab` the map.
 
 Open doors, obstacles to vault or duck under and the outer lock are taken in your stride; a plain sealed door opens when you walk into it; welded, burning and locked doors, crates, terminals and the console wait for `A`. A prompt in the scene shows what `A` would do, and the reticle turns red on the hostile your aim has locked onto. Quick play carries the choice as `&ctrl=lead`; a campaign remembers it between missions.
 
 ## The campaign (roguelike layer)
 
-- **Command** (aboard the Kestrel, between runs):
-  - **Roster:** every trooper's archetype and stats.
-  - **Armoury:** equip weapons you brought home.
-  - **Upgrades:** armour plating, stims, suit cooling, neural link, tracker boost, salvage crew.
-  - **Recruiting:** choose one of three volunteers.
-  - **Memorial:** honours the fallen.
-- **Briefing:** pick four and their order (slot 1 walks point, slot 4 is the rear guard), and set the standing orders and the difficulty. In quick play, **Randomize troopers** brings a fresh set of eight candidates to choose from, each of a rolled rank.
-  - The squad summary shows who will be the tech and medic, who has the sharpest eyes, who sets the pace and who tires first.
-  - Ship intel says which stats the ship's anomalies call for.
+- **Launch** (aboard the Kestrel, between runs): one screen and one DEPLOY. The three derelicts on offer across the top; the troopers below as compact cards (rank, archetype, weapon, and the stats that stand out as chips - **CHIPS / BARS** switches to all eight); and beside them the **contract card** (the ship, its story, anomalies, what matters here, the objective and the pay), the **line-up** (the order you pick is the line: slot 1 walks point, slot 4 is the rear guard; click a slot or drag a card to move up) with who will be the tech and medic, who has the sharpest eyes, who sets the pace and who tires first, the **COMMAND** choice (Squad or Lead), and the run's **settings** folded into one line of chips (the standing orders and the difficulty, remembered from last time; CHANGE unfolds them). Quick play is the same screen with a hull picker instead of offers, and **Randomize troopers** for a fresh set of eight candidates, each of a rolled rank.
+  - The **KESTREL** tab is the shopping, out of the way of launching: the whole roster with their records, **recruiting** (one of three volunteers), the **armoury** (equip weapons you brought home: click a weapon, then a trooper), the **upgrades** (armour plating, stims, suit cooling, neural link, tracker boost, salvage crew) and the **memorial**.
   - **Difficulty** (remembered for next time):
     - **Enemies:** few, normal, many or swarm (0.6x to 1.9x the hostiles aboard).
     - **Strength:** weak, normal, tough or brutal (0.7x to 1.8x their health, 0.7x to 1.5x their damage).
@@ -116,6 +111,7 @@ Open doors, obstacles to vault or duck under and the outer lock are taken in you
 - **Board:** the squad walks from the docked Kestrel through the boarding tube into the airlock. The lock cycles behind them.
 - **Debrief:**
   - **Payout:** recovered credits, sold salvage, contract pay and rescue bounties. A wipe keeps only 25% insurance.
+  - **Timeline:** the notable lines of the ship's log, timed - who went down and when, what was found, what woke up.
   - **XP and rank:** from kills, survival and the objective. Promotions run Private, Corporal, Sergeant, Lieutenant, Captain.
   - **Permadeath:** the dead go to the memorial.
   - **Threat:** every extraction raises the threat level, which brings more hostiles, better loot and better pay.

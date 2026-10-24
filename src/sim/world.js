@@ -31,6 +31,7 @@ import { breakingPoint, updateBreakdowns } from './breakdown.js';
 import { Hazards, makeDestructibles } from './hazards.js';
 import { Kit } from './kit.js';
 import { updateMedic, updateMelee } from './melee.js';
+import { Journal } from './journal.js';
 import { Morale } from './morale.js';
 import { updateSentries } from './sentry.js';
 
@@ -149,6 +150,7 @@ export class World {
     this.tactics = new Tactics(this);
     this.encounters = new Encounters(this);
     this.shipEvents = new ShipEvents(this);
+    this.journal = new Journal(this); // the ship's log: what happened, when (HUD ticker, map, debrief)
     this.intel = false; // deck plans pulled from a terminal: every cache on the minimap
     // The squad runs itself by the doctrine chosen before deployment (sim/doctrine.js).
     this.doctrine = new Doctrine(this, doctrine ?? params.doctrine);
@@ -1215,6 +1217,7 @@ export class World {
       rescued: this.survivors.filter((s) => s.state === 'rescued').length, cleared: this.cleared,
       stash: this.stash, rewardMult: this.rewardMult,
       troopers: this.marines.map((m) => ({ id: m.trooperId, name: m.name, alive: m.alive, wound: m.wound ?? null, kills: m.kills, weaponItem: m.weaponItem, usage: { ...m.use } })),
+      journal: this.journal?.entries ?? [], // the ship's log, for the debrief's timeline (sim/journal.js)
     };
   }
 
