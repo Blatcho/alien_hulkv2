@@ -19,6 +19,8 @@ import { ICONS, portrait } from './icons.js';
 import { RARITY, affixText } from '../sim/loot.js';
 import { bodyPoint } from '../vis/sight.js';
 import { helpButton } from './help.js';
+import { recordHtml } from './record.js';
+import { UNLOCKS, recordSummary } from '../meta/record.js';
 import { Minimap } from './minimap.js';
 import { ORDER_TILES } from './orders.js';
 import { RELICS } from '../meta/relics.js';
@@ -536,7 +538,12 @@ export class Hud {
 
   // ------------------------------------------------------------------ screens
 
-  showStart(seed, { hasCampaign = false } = {}) {
+  /**
+   * The title. `daily` (meta/daily.js): {label, status: {plays, best}, streak}; `record`
+   * (meta/record.js): the service record, summed up in a line, the whole of it on RECORD.
+   */
+  showStart(seed, { hasCampaign = false, daily = null, record = null } = {}) {
+    const dailyLine = daily ? (daily.status.plays ? `today's best <b>${daily.status.best?.score ?? 0}</b> · ${daily.status.plays} attempt${daily.status.plays === 1 ? '' : 's'}${daily.streak > 1 ? ` · ${daily.streak} days running` : ''}` : `not yet run${daily.streak ? ` · ${daily.streak} day${daily.streak === 1 ? '' : 's'} running` : ''}`) : '';
     this.startEl.innerHTML = `<div class="box">
       <h1>HULL BREACH</h1><h2>DERELICT BOARDING ACTION · SQUAD ROGUELIKE</h2>
       <p class="pitch">Four marines, a derelict, and whatever is still aboard. Board it, reach the command deck, hold it for the uplink, and get them home.</p>
@@ -545,6 +552,8 @@ export class Hud {
         <button id="newcamp" class="${hasCampaign ? 'alt' : ''}">NEW CAMPAIGN</button>
       </div>
       <div class="row"><input id="seed" value="${seed}" maxlength="10" aria-label="Ship seed" /><button id="deploy" class="alt">QUICK PLAY</button></div>
+      ${daily ? `<div class="row dailyrow"><button id="daily" class="alt">DAILY DERELICT · ${daily.label}</button><small>${dailyLine}</small></div>` : ''}
+      <div class="row recordrow"><small>${recordSummary(record)}</small><button id="record" class="helpbtn">SERVICE RECORD</button></div>
       <div class="row helprow"></div>
     </div>`;
     this.startEl.querySelector('.helprow').appendChild(helpButton(this.startEl, 'squad'));
@@ -553,6 +562,11 @@ export class Hud {
     const go = () => this.game.showQuickBriefing(this.startEl.querySelector('#seed').value.trim().toUpperCase() || seed);
     this.startEl.querySelector('#deploy').addEventListener('click', go);
     this.startEl.querySelector('#seed').addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    this.startEl.querySelector('#daily')?.addEventListener('click', () => this.game.showDailyBriefing());
+    this.startEl.querySelector('#record').addEventListener('click', () => {
+      const open = this.startEl.querySelector('.recordbox');
+      if (open) open.remove(); else this.startEl.querySelector('.recordrow').insertAdjacentHTML('afterend', recordHtml(record));
+    });
     this.startEl.querySelector('#continue')?.addEventListener('click', () => this.game.showCommand());
     this.startEl.querySelector('#newcamp').addEventListener('click', () => {
       if (hasCampaign && !confirm('Start a new campaign? Your current squad, credits and armoury will be lost.')) return;
@@ -562,16 +576,30 @@ export class Hud {
 
   hideStart() { this.startEl.classList.remove('show'); this.root.classList.remove('menu'); }
 
+  /**
+   * The end of a quick-play run (the campaign has its debrief, ui/debrief.js). The game's
+   * endInfo() adds the daily's score (meta/daily.js) and what the run unlocked (meta/record.js).
+   */
   showEnd(won, { stats, time }) {
     const w = this.world;
     const alive = w.marines.filter((m) => m.alive).length;
     const mins = Math.floor(time / 60);
     const secs = String(Math.floor(time % 60)).padStart(2, '0');
     setTimeout(() => {
+      const info = this.game.endInfo?.() ?? null;
+      const daily = info?.daily ?? null;
+      const score = daily ? `<h2 class="sub">DAILY SCORE${daily.newBest ? ' · NEW BEST' : ''}</h2><table class="score">
+          ${daily.score.lines.map((l) => `<tr><td>${l.label}</td><td>${l.value}</td></tr>`).join('')}
+          <tr class="tot"><td>Total${daily.score.mult > 1 ? ` (x${daily.score.mult} heat)` : ''}</td><td>${daily.score.total}</td></tr>
+          <tr><td>Today's best</td><td>${daily.best}</td></tr>
+          <tr><td>Attempts today</td><td>${daily.plays}</td></tr>
+          <tr><td>Days running</td><td>${daily.streak}</td></tr>
+        </table>` : '';
+      const unlocked = info?.unlocks?.length ? `<p class="unl">UNLOCKED: ${info.unlocks.map((k) => UNLOCKS[k]?.label ?? k).join(', ')} - on the service record</p>` : '';
       this.endEl.className = `screen show ${won ? 'won' : 'lost'}`;
       this.endEl.innerHTML = `<div class="box panel">
-        <h1>${won ? 'NAV-LOCK SECURED' : 'SQUAD LOST'}</h1>
-        <h2>${won ? 'THE DERELICT IS OURS' : 'THE HULK CLAIMS FOUR MORE'} · SEED ${w.level.seed}</h2>
+        <h1>${daily ? (won ? 'DAILY: EXTRACTED' : 'DAILY: SQUAD LOST') : won ? 'NAV-LOCK SECURED' : 'SQUAD LOST'}</h1>
+        <h2>${won ? 'THE DERELICT IS OURS' : `THE HULK CLAIMS ${w.marines.length} MORE`} · ${daily ? `${daily.label} · ` : ''}SEED ${w.level.seed}</h2>
         <table>
           <tr><td>Time</td><td>${mins}:${secs}</td></tr>
           <tr><td>Troopers extracted</td><td>${won ? alive : 0} / ${w.marines.length}</td></tr>
@@ -581,9 +609,11 @@ export class Hud {
           <tr><td>Credits</td><td>${w.credits}</td></tr>
           <tr><td>Rooms explored</td><td>${stats.rooms + 1} / ${w.level.rooms.length}</td></tr>
         </table>
-        <div class="row"><button id="again">NEW SHIP</button><button class="alt" id="retry">RETRY SEED</button></div>
+        ${score}${unlocked}
+        <div class="row">${daily ? '<button id="retry">RUN IT AGAIN</button><button class="alt" id="menu">MAIN MENU</button>' : '<button id="again">NEW SHIP</button><button class="alt" id="retry">RETRY SEED</button>'}</div>
       </div>`;
-      this.endEl.querySelector('#again').addEventListener('click', () => this.game.newRun());
+      this.endEl.querySelector('#again')?.addEventListener('click', () => this.game.newRun());
+      this.endEl.querySelector('#menu')?.addEventListener('click', () => { location.search = ''; });
       this.endEl.querySelector('#retry').addEventListener('click', () => location.reload());
     }, won ? 900 : 1800);
   }

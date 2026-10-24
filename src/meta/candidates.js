@@ -82,8 +82,8 @@ function looks(rng, core, jitter = true) {
  * (meta/ranks.js), which brings its bonus points and the XP that rank stands for. Deterministic
  * for a given rng.
  */
-export function makeCandidate(rng, { archetype = null, name = null, jitter = true, rank = null } = {}) {
-  const arch = archetype ?? rng.pick(Object.keys(ARCHETYPES));
+export function makeCandidate(rng, { archetype = null, name = null, jitter = true, rank = null, archetypes = null } = {}) {
+  const arch = archetype ?? rng.pick(archetypes?.length ? archetypes : Object.keys(ARCHETYPES));
   const A = ARCHETYPES[arch];
   const core = rank?.bonus ? promoteCore(rng, rollCore(rng, arch, jitter), rank.bonus) : rollCore(rng, arch, jitter);
   const loadout = { ...A.loadout };

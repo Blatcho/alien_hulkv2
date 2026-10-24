@@ -24,7 +24,10 @@ import { contractFor } from './gen/contracts.js';
 import { candidatePool } from './meta/candidates.js';
 import { HULL_CLASSES, classFor, parseSeed, seedCode } from './gen/classes.js';
 import { storyFor } from './gen/stories.js';
-import { difficultyString, isDefaultDifficulty, parseDifficulty, withDifficulty } from './meta/difficulty.js';
+import { DEFAULT_DIFFICULTY, difficultyString, isDefaultDifficulty, parseDifficulty, withDifficulty } from './meta/difficulty.js';
+import { heatPay, heatSquad, heatString, parseHeat, withHeat } from './meta/heat.js';
+import { DAILY_IDS, dailySeed, dailySquad, dailyStatus, dailyStreak, dayKey, dayLabel, foldDaily, loadDaily, saveDaily, scoreRun } from './meta/daily.js';
+import { campaignStarted, issueWeapons, loadRecord, lockedHulls, recordRun, saveRecord, sectorCleared, unlockedArchetypes } from './meta/record.js';
 import { portraitMap } from './render/portraits.js';
 import { PRESETS, doctrineString, nextOrder, parseDoctrine } from './sim/doctrine.js';
 import { Interact } from './ui/interact.js';
@@ -67,6 +70,7 @@ class Game {
     }
     const seed = (params.seed ?? randomSeed()).toUpperCase();
     this.profile = loadProfile();
+    this.record = loadRecord(); // the service record (meta/record.js): every campaign, quick play and daily
     const run = loadRun();
     if (params.run && run && this.profile) {
       if (run.started) {
@@ -81,9 +85,10 @@ class Game {
     } else if (params.skipIntro || params.autoplay) this.startQuick(seed);
     else if (params.brief) this.showQuickBriefing(params.brief.toUpperCase());
     else if (params.command && this.profile) this.showCommand();
-    else this.hud.showStart(seed, { hasCampaign: !!this.profile });
+    else this.hud.showStart(seed, { hasCampaign: !!this.profile, daily: this.dailyInfo(), record: this.record });
     window.__game = {
       ready: !!this.world || true,
+      record: () => this.record,
       state: () => this.world?.state() ?? { status: 'menu' },
       stepFrames: (n) => { this.loop?.stepFrames(n); return this.world?.state(); },
       command: (c, arg) => this.command(c, arg),
@@ -122,37 +127,105 @@ class Game {
       hull, onHull: (k) => this.showQuickBriefing(k ? seedCode(k, seed) : seed),
       job, onJob: (k) => { this.quickJob = k; this.showQuickBriefing(code); },
       selected: pool.slice(0, 4).map((t) => t.id), doctrine: last?.doctrine ?? PRESETS.standard.doctrine,
-      difficulty: last?.difficulty, control: last?.control,
+      difficulty: last?.difficulty, control: last?.control, heat: last?.heat,
+      lockedHulls: lockedHulls(this.record), // (the service record's unlocks, meta/record.js)
       backLabel: 'MAIN MENU',
       onBack: () => { location.search = ''; },
       onReroll: () => {
         const fresh = poolFor(++roll);
         return { pool: fresh, portraits: portraitMap(this.assets, fresh) };
       },
-      onDeploy: (offer, ids, doctrine, difficulty, control) => {
-        try { localStorage.setItem('hullbreach.quick', JSON.stringify({ doctrine, difficulty, control })); } catch { /* private mode */ }
+      onDeploy: (offer, ids, doctrine, difficulty, control, heat) => {
+        try { localStorage.setItem('hullbreach.quick', JSON.stringify({ doctrine, difficulty, control, heat })); } catch { /* private mode */ }
         const diff = isDefaultDifficulty(difficulty) ? '' : `&diff=${difficultyString(difficulty)}`;
-        location.search = `?seed=${hull ? seedCode(hull, seed) : seed}&go=1&squad=${ids.join(',')}${roll ? `&pool=${roll}` : ''}&doc=${doctrineString(doctrine)}${diff}${control === 'lead' ? '&ctrl=lead' : ''}${job ? `&job=${job}` : ''}`;
+        location.search = `?seed=${hull ? seedCode(hull, seed) : seed}&go=1&squad=${ids.join(',')}${roll ? `&pool=${roll}` : ''}&doc=${doctrineString(doctrine)}${diff}${control === 'lead' ? '&ctrl=lead' : ''}${job ? `&job=${job}` : ''}${heat.length ? `&heat=${heatString(heat)}` : ''}`;
       },
     });
   }
 
-  /** A quick-play run from the URL: ?seed=&go=1[&squad=c0,c3,c5,c6&pool=2&doc=...&diff=...&ctrl=lead]. */
+  // ------------------------------------------------------------------ the daily derelict
+
+  /** Today (meta/daily.js): its seed, its label, how the player has done on it so far. */
+  dailyInfo() {
+    const day = dayKey();
+    const ledger = loadDaily();
+    return { day, label: dayLabel(day), seed: dailySeed(day), status: dailyStatus(ledger, day), streak: dailyStreak(ledger, day) };
+  }
+
+  /**
+   * The daily's briefing: the day's ship and its four troopers, the orders and difficulty
+   * fixed; the player's choices are the command and the heat (which multiplies the score).
+   */
+  showDailyBriefing() {
+    this.hud.hideStart();
+    this.hud.root.classList.add('menu');
+    const { day, label, seed } = this.dailyInfo();
+    const cls = classFor(seed);
+    const pool = dailySquad(seed).map((t) => ({ ...t, rank: rankFor(levelFor(t.xp)) }));
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem('hullbreach.quick') ?? 'null'); } catch { /* none */ }
+    this.briefing?.dispose();
+    this.briefing = new LaunchScreen(this.hud.root, {
+      heading: `DAILY DERELICT · ${label}`, pool, portraits: portraitMap(this.assets, pool), daily: true, fixed: true,
+      ship: { name: `Derelict ${seedCode(cls, seed)}`, size: HULL_CLASSES[cls].label, cls, blurb: HULL_CLASSES[cls].blurb, story: storyFor(seed, cls), threat: 0, modifiers: [], contract: contractFor(seed) },
+      selected: DAILY_IDS, doctrine: PRESETS.standard.doctrine, difficulty: DEFAULT_DIFFICULTY, control: last?.control, heat: last?.heat,
+      backLabel: 'MAIN MENU',
+      onBack: () => { location.search = ''; },
+      onDeploy: (offer, ids, doctrine, difficulty, control, heat) => {
+        try { localStorage.setItem('hullbreach.quick', JSON.stringify({ ...(last ?? {}), control, heat })); } catch { /* private mode */ }
+        location.search = `?seed=${seed}&go=1&squad=${ids.join(',')}&daily=${day}${control === 'lead' ? '&ctrl=lead' : ''}${heat.length ? `&heat=${heatString(heat)}` : ''}`;
+      },
+    });
+  }
+
+  /**
+   * A quick-play run from the URL: ?seed=&go=1[&squad=c0,c3,c5,c6&pool=2&doc=...&diff=...&ctrl=lead&heat=...].
+   * The daily (&daily=YYYY-MM-DD, meta/daily.js) runs with standard orders and normal difficulty, scored at the end.
+   */
   startQuick(code) {
-    const seed = parseSeed(code).seed;
+    const { seed, cls: hull } = parseSeed(code);
+    const daily = params.daily ?? null;
+    const heat = parseHeat(params.heat);
     const pool = candidatePool(seed, 8, params.pool);
-    const squad = (params.squad ?? []).map((id) => pool.find((t) => t.id === id)).filter(Boolean)
+    let squad = (params.squad ?? []).map((id) => pool.find((t) => t.id === id)).filter(Boolean)
       .map((t) => ({ ...t, rank: rankFor(levelFor(t.xp)) }));
+    // A skeleton crew (meta/heat.js) is three: the first three named, or the ship's first three.
+    if (heatSquad(heat) < 4) squad = (squad.length ? squad : pool.map((t) => ({ ...t, rank: rankFor(levelFor(t.xp)) }))).slice(0, heatSquad(heat));
     // No squad in the URL (tools, old links): the standard four at baseline stats.
-    const level = generateLevel(code, { mods: withDifficulty({}, parseDifficulty(params.diff)), contract: params.job ?? contractFor(seed).kind });
-    this.start(level, { squad: squad.length ? squad : null, doctrine: parseDoctrine(params.doc), control: params.ctrl === 'lead' ? 'lead' : 'squad' });
+    const mods = withHeat(withDifficulty({}, daily ? DEFAULT_DIFFICULTY : parseDifficulty(params.diff)), heat);
+    const level = generateLevel(code, { mods, contract: (daily ? null : params.job) ?? contractFor(seed).kind });
+    this.quick = { mode: daily ? 'daily' : 'quick', day: daily, cls: classFor(seed, hull), heat, lead: params.ctrl === 'lead' };
+    this.start(level, { squad: squad.length ? squad : null, doctrine: daily ? parseDoctrine(null) : parseDoctrine(params.doc), control: params.ctrl === 'lead' ? 'lead' : 'squad' });
+  }
+
+  /**
+   * A quick-play or daily run over: the service record takes it (meta/record.js), the daily's
+   * score goes in the ledger (meta/daily.js), and the end screen (ui/hud.js showEnd) reads both.
+   */
+  finishQuick() {
+    const q = this.quick ?? { mode: 'quick', heat: [], cls: null, lead: false, day: null };
+    const result = this.world.results();
+    let daily = null;
+    if (q.mode === 'daily' && q.day) {
+      const score = scoreRun(result, q.heat);
+      const before = dailyStatus(loadDaily(), q.day).best?.score ?? 0;
+      const ledger = foldDaily(loadDaily(), q.day, { score: score.total, won: score.won, kills: result.kills, time: Math.round(result.time), lead: q.lead, heat: q.heat });
+      saveDaily(ledger);
+      const s = dailyStatus(ledger, q.day);
+      daily = { day: q.day, label: dayLabel(q.day), score, best: s.best?.score ?? score.total, newBest: s.plays > 1 && score.total > before, plays: s.plays, streak: dailyStreak(ledger, q.day) };
+    }
+    const unlocks = recordRun(this.record, result, { mode: q.mode, cls: q.cls, heat: q.heat, lead: q.lead, score: daily?.score.total ?? 0 });
+    saveRecord(this.record);
+    this.endInfo = () => ({ daily, unlocks });
   }
 
   // ------------------------------------------------------------------ campaign flow
 
   newCampaign() {
     clearProfile();
-    this.profile = newProfile();
+    campaignStarted(this.record);
+    saveRecord(this.record);
+    this.profile = newProfile(undefined, { issue: issueWeapons(this.record) }); // (the record's weapons in the armoury)
     saveProfile(this.profile);
     this.showCommand();
   }
@@ -167,19 +240,21 @@ class Game {
     const offers = reachable(p.sector).map((n) => nodeOffer(p.sector, n.id, p.threat));
     this.launch = new LaunchScreen(this.hud.root, {
       profile: p, assets: this.assets, offers, sector: p.sector,
-      selected: deployable(p).map((t) => t.id), doctrine: p.doctrine ?? PRESETS.standard.doctrine, difficulty: p.difficulty, control: p.control,
+      selected: deployable(p).map((t) => t.id), doctrine: p.doctrine ?? PRESETS.standard.doctrine, difficulty: p.difficulty, control: p.control, heat: p.heat,
+      archetypes: unlockedArchetypes(this.record), // the recruits' pool (meta/record.js)
       backLabel: 'MAIN MENU',
       onBack: () => { location.search = ''; },
-      onDeploy: (offer, squad, doctrine, difficulty, control) => {
+      onDeploy: (offer, squad, doctrine, difficulty, control, heat) => {
         p.squad = squad;
         p.doctrine = doctrine;
         p.difficulty = difficulty;
         p.control = control;
-        // The difficulty rides in the ship's mods (meta/difficulty.js).
+        p.heat = heat;
+        // The difficulty and the heat ride in the ship's mods (meta/difficulty.js, meta/heat.js); the heat pays.
         // The underwriter's terms (meta/events.js 'wire'): the next job pays more and bites harder.
         const boon = p.boon ?? null;
-        const mods = withDifficulty({ ...offer.mods, contract: offer.contract?.kind ?? null, ...(boon ? { hostiles: (offer.mods.hostiles ?? 1) * 1.25 } : {}) }, difficulty);
-        saveRun({ seed: offer.seed, threat: offer.threat, mods, reward: +(offer.reward * (boon?.pay ?? 1)).toFixed(2), name: offer.name, squad, doctrine, difficulty, control, node: offer.node ?? null, bonuses: offer.bonuses ?? [] });
+        const mods = withHeat(withDifficulty({ ...offer.mods, contract: offer.contract?.kind ?? null, ...(boon ? { hostiles: (offer.mods.hostiles ?? 1) * 1.25 } : {}) }, difficulty), heat);
+        saveRun({ seed: offer.seed, threat: offer.threat, mods, reward: +(offer.reward * (boon?.pay ?? 1) * heatPay(heat)).toFixed(2), name: offer.name, cls: offer.cls, heat, squad, doctrine, difficulty, control, node: offer.node ?? null, bonuses: offer.bonuses ?? [] });
         this.profile.seedCounter++;
         saveProfile(this.profile);
         location.search = '?run=1';
@@ -201,13 +276,18 @@ class Game {
 
   debriefRun() {
     const result = this.world.results();
-    const debrief = applyRun(this.profile, result, { node: this.campaignRun?.node, bonuses: this.campaignRun?.bonuses });
+    const run = this.campaignRun ?? {};
+    const debrief = applyRun(this.profile, result, { node: run.node, bonuses: run.bonuses });
     saveProfile(this.profile);
     saveRun(null);
+    // The service record (meta/record.js) takes the run too, and may unlock something.
+    const unlocks = recordRun(this.record, result, { mode: 'campaign', cls: run.cls ?? parseSeed(run.seed ?? '').cls ?? null, heat: run.heat ?? [], lead: !!this.world.lead });
+    if (debrief.sector?.next) sectorCleared(this.record);
+    saveRecord(this.record);
     this.loop.paused = true;
     this.hud.root.classList.add('menu');
     new DebriefScreen(this.hud.root, {
-      profile: this.profile, debrief, result, shipName: this.campaignRun?.name,
+      profile: this.profile, debrief, result, shipName: run.name, unlocks,
       onContinue: () => { location.search = '?command=1'; },
     });
   }
@@ -219,6 +299,7 @@ class Game {
     const seed = level.seed;
     this.world = new World(level, { params, squad, upgrades, rewardMult, doctrine, control, relics });
     this.world.shipName = shipName;
+    if (!campaign) { const over = () => this.finishQuick(); this.world.on('won', over); this.world.on('lost', over); } // (before the HUD's own listeners: the end screen reads the result)
     this.input.setMode(this.world.lead ? 'lead' : 'squad');
     this.hud.campaign = campaign;
     this.view = new GameView(this.stage, this.world, this.assets, {

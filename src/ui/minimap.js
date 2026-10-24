@@ -32,7 +32,7 @@ export class Minimap {
   X(x) { return this.ox + x * this.sx; }
   Y(y) { return this.oy - y * this.sy; }
 
-  get range() { return TRACKER_BASE + 5 * (this.world?.upgrades?.tracker ?? 0); }
+  get range() { return (TRACKER_BASE + 5 * (this.world?.upgrades?.tracker ?? 0)) * (this.world?.level?.mods?.tracker ?? 1); } // (0: tracker dead, meta/heat.js)
 
   blips() {
     const w = this.world;

@@ -13,6 +13,7 @@ import { evaluateBonuses } from '../gen/contracts.js';
 import { advanceSector, makeSector, sectorCleared } from './sector.js';
 import { TREAT_COST, QUIRKS, earnQuirk, quirkMods } from './quirks.js';
 import { rollEvent } from './events.js';
+import { rollWeapon } from '../sim/loot.js';
 
 export { starterSquad };
 export const PROFILE_VERSION = 3;
@@ -54,14 +55,20 @@ export const trooperMods = (t) => quirkMods(statsToMods(t.stats, t.loadout?.weap
 
 // ------------------------------------------------------------------ profile
 
-export function newProfile(seed = Date.now().toString(36)) {
+/**
+ * A fresh campaign. `issue`: the weapons the service record has earned (meta/record.js
+ * issueWeapons), one of each in the armoury from the start.
+ */
+export function newProfile(seed = Date.now().toString(36), { issue = [] } = {}) {
+  const q = new Rng(seed, 'quartermaster');
   return {
     version: PROFILE_VERSION, seed, credits: 150, threat: 0, runs: 0, wins: 0, bestThreat: 0,
-    roster: starterSquad(seed), squad: null, memorial: [], stash: [],
+    roster: starterSquad(seed), squad: null, memorial: [], stash: issue.map((w) => rollWeapon(q, { cls: w.cls, rarity: w.rarity })),
     upgrades: { armor: 0, stims: 0, cooling: 0, neural: 0, tracker: 0, salvage: 0, medbay: 0 },
     totals: { kills: 0, rescued: 0, salvage: 0, credits: 0 }, seedCounter: 0,
     sector: makeSector(seed, 0), sectors: 0, // the map (meta/sector.js), and sectors cleared
     relics: [], pendingEvent: null, lastEvent: null, boon: null, // meta/relics.js, meta/events.js
+    heat: [], // the conditions last run under (meta/heat.js), remembered
   };
 }
 
@@ -77,13 +84,16 @@ export function deployable(profile) {
 
 export function recruitCost(profile) { return 90 + 30 * profile.roster.filter((t) => t.alive).length; }
 
-/** Three volunteers to choose from (stable until one of them signs on). */
-export function recruitOffers(profile) {
+/**
+ * Three volunteers to choose from (stable until one of them signs on), of the archetypes
+ * given (the service record's unlocked ones, meta/record.js; all of them by default).
+ */
+export function recruitOffers(profile, archetypes = null) {
   const rng = new Rng(`${profile.seed}/${profile.recruits ?? 0}`, 'recruit');
   const taken = new Set(profile.roster.map((t) => t.name));
   return [0, 1, 2].map(() => {
-    const t = makeCandidate(rng);
-    for (let k = 0; k < 10 && taken.has(t.name); k++) t.name = makeCandidate(rng).name;
+    const t = makeCandidate(rng, { archetypes });
+    for (let k = 0; k < 10 && taken.has(t.name); k++) t.name = makeCandidate(rng, { archetypes }).name;
     taken.add(t.name);
     return t;
   });
@@ -267,6 +277,7 @@ export function migrate(p) {
     p.pendingEvent ??= null;
     p.lastEvent ??= null;
     p.boon ??= null;
+    p.heat ??= [];
   }
   return p.version === PROFILE_VERSION ? p : null;
 }
