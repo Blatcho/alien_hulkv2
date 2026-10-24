@@ -61,7 +61,8 @@ describe('alien breeds', () => {
         }
       }
     }
-    expect([...types].sort()).toEqual(Object.keys(ALIEN_TYPES).sort());
+    // (The queen only ever sits in a boss hulk's nest - gen/contracts.js.)
+    expect([...types].sort()).toEqual(Object.keys(ALIEN_TYPES).filter((k) => !ALIEN_TYPES[k].royal).sort());
     expect(high.ceiling).toBeGreaterThan(5);
     expect(high.wall).toBeGreaterThan(2);
   });

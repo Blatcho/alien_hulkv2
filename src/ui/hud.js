@@ -103,6 +103,7 @@ export class Hud {
     this.lootEl = root.appendChild(h('<div id="lootcard" class="panel"><div class="tier"></div><div class="name"></div><div class="info"></div></div>'));
     this.toastEl = root.appendChild(h('<div id="toast"></div>'));
     this.hordeEl = root.appendChild(h('<div id="horde"><small>HORDE INBOUND</small><b></b></div>'));
+    this.fuseEl = root.appendChild(h('<div id="fuse"><small>REACTOR BLOWS IN</small><b></b></div>'));
     this.pausedEl = root.appendChild(h('<div id="paused">PAUSED</div>'));
     this.startEl = root.appendChild(h('<div class="screen title"></div>'));
     this.endEl = root.appendChild(h('<div class="screen"></div>'));
@@ -332,12 +333,16 @@ export class Hud {
     this.weaponEl.querySelector('.credits span').textContent = w.credits;
     this.weaponEl.querySelector('.credits small').textContent = salvage ? `CREDITS · +${salvage} SALVAGE` : 'CREDITS';
 
-    // Objective.
+    // Objective: the contract's (sim/contract.js), and how far to its goal.
     const lead = sq.leader;
-    const obj = w.level.objective;
-    const dist = lead ? Math.max(0, Math.round(Math.abs(obj.x - lead.x) + Math.abs(w.level.rooms[obj.room].y0 - lead.y))) : 0;
+    const goal = w.contract.goal() ?? w.level.objective;
+    const dist = lead ? Math.max(0, Math.round(Math.abs(goal.x - lead.x) + Math.abs(w.level.rooms[goal.room].y0 - lead.y))) : 0;
     const ship = w.shipName ? `<small class="ship">${esc(w.shipName)} · THREAT ${w.level.threat}</small><br>` : '';
-    const objText = ship + (w.uplink ? 'UPLOAD NAV-LOCK.<br>HOLD THE COMMAND DECK.' : `REACH THE COMMAND DECK.<br>${dist}M TO GO.`);
+    const o = w.contract.describe();
+    const objText = ship + esc(o.title) + (o.sub ? `<br>${esc(o.sub)}` : '') + (o.dist ? `<br>${dist}M TO GO.` : '');
+    const fuse = w.contract.fuse;
+    this.fuseEl.classList.toggle('show', fuse !== null && fuse > 0 && w.status === 'playing');
+    if (fuse !== null && fuse > 0) { const t = Math.ceil(fuse); if (this.fuseEl.lastChild.textContent !== String(t)) this.fuseEl.lastChild.textContent = t; }
     if (this.objKey !== objText) { this.objEl.querySelector('.obj').innerHTML = objText; this.objKey = objText; }
     const up = this.objEl.querySelector('#uplink');
     up.style.display = w.uplink ? 'block' : 'none';

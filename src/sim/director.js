@@ -77,6 +77,7 @@ export class Director {
 
   /** The horde's countdown starts (the ship's one horde: never again after this). */
   callHorde(size = this.hordeSize) {
+    this.hordesCalled = (this.hordesCalled ?? 0) + 1; // for the debrief's bonus (gen/contracts.js 'quiet')
     const w = this.world;
     this.hordeSize = 0;
     if (size <= 0) return null;

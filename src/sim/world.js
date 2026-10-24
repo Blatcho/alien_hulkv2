@@ -31,6 +31,7 @@ import { breakingPoint, updateBreakdowns } from './breakdown.js';
 import { Hazards, makeDestructibles } from './hazards.js';
 import { Kit } from './kit.js';
 import { updateMedic, updateMelee } from './melee.js';
+import { Contract } from './contract.js';
 import { Journal } from './journal.js';
 import { Morale } from './morale.js';
 import { updateSentries } from './sentry.js';
@@ -137,6 +138,7 @@ export class World {
     }
     this.survivors = (level.spawns.survivors ?? []).map((s) => {
       const e = makeSurvivor(this.rng, s.x, level.rooms[s.room].y0, s.room);
+      if (s.vip) { e.vip = true; e.name = level.contract?.vipName ?? e.name; } // the one the contract names (gen/contracts.js 'escort')
       e.z = e.lane;
       this.physics.addHitbox(e, 0.6, e.height, G.SURVIVOR);
       return e;
@@ -151,6 +153,7 @@ export class World {
     this.encounters = new Encounters(this);
     this.shipEvents = new ShipEvents(this);
     this.journal = new Journal(this); // the ship's log: what happened, when (HUD ticker, map, debrief)
+    this.contract = new Contract(this); // the job aboard (gen/contracts.js): the goal, the work, the walk home
     this.intel = false; // deck plans pulled from a terminal: every cache on the minimap
     // The squad runs itself by the doctrine chosen before deployment (sim/doctrine.js).
     this.doctrine = new Doctrine(this, doctrine ?? params.doctrine);
@@ -219,10 +222,11 @@ export class World {
 
   /** The brood mother, awake: a runner out of her every few seconds while the ship has any left. */
   birth(a, dt) {
-    if (a.born >= BROOD.MAX || this.reserve <= 0) return;
+    const cfg = typeof a.births === 'object' ? a.births : {}; // the queen births faster and longer
+    if (a.born >= (cfg.max ?? BROOD.MAX) || this.reserve <= 0) return;
     a.birthT -= dt;
     if (a.birthT > 0) return;
-    a.birthT = BROOD.EVERY;
+    a.birthT = cfg.every ?? BROOD.EVERY;
     this.reserve--;
     a.born++;
     const room = this.level.rooms[a.room];
@@ -488,6 +492,7 @@ export class World {
     this.director.update(dt);
     this.doctrine.update(dt);
 
+    this.contract.update(dt);
     if (!this.squad.alive) this.end('lost');
   }
 
@@ -628,8 +633,9 @@ export class World {
     if (e.kind === 'alien') {
       if (e.drag) letGo(this, e);
       if (e.births) {
-        this.credits += BROOD.BONUS;
-        this.emit('brood-dead', { alien: e, bonus: BROOD.BONUS });
+        const bonus = e.royal ? BROOD.QUEEN_BONUS : BROOD.BONUS;
+        this.credits += bonus;
+        this.emit('brood-dead', { alien: e, bonus });
       }
       this.stats.kills++;
       this.addEnergy(ENERGY.PER_KILL); // every kill puts some fight back in them
@@ -952,8 +958,7 @@ export class World {
         const console_ = room.props.find((q) => q.objective);
         if (!console_ || this.uplink) return false;
         sq.handled.add('objective');
-        sq.startUplink(console_);
-        return true;
+        return this.contract.begin(console_);
       }
       case 'door': {
         const d = L.portals[t.portal];
@@ -1127,10 +1132,10 @@ export class World {
       if (!m.alive || !m.down || !known(m.room)) continue;
       out.push({ id: `d${m.id}`, kind: 'downed', x: m.x, y: m.y + 0.5, room: m.room, marine: m.id, label: `Get ${m.name} up` });
     }
-    // Lead: the command deck's console is used by hand (the squad walks into it by itself).
-    if (this.lead && !this.uplink && known(L.objective.room)) {
+    // Lead: the contract's target is worked by hand (the squad walks up to it by itself).
+    if (this.lead && this.contract.worked && this.contract.phase === 'go' && !this.uplink && !this.contract.working && known(L.objective.room)) {
       const o = L.objective;
-      out.push({ id: 'objective', kind: 'objective', x: o.x, y: L.rooms[o.room].y0 + 1.1, room: o.room, label: 'Start the uplink' });
+      out.push({ id: 'objective', kind: 'objective', x: o.x, y: L.rooms[o.room].y0 + 1.1, room: o.room, label: this.contract.def.verb ?? 'Start the uplink' });
     }
     for (const b of this.props) {
       if (!b.alive || !b.explosive || !b.visible) continue;
@@ -1218,6 +1223,7 @@ export class World {
       stash: this.stash, rewardMult: this.rewardMult,
       troopers: this.marines.map((m) => ({ id: m.trooperId, name: m.name, alive: m.alive, wound: m.wound ?? null, kills: m.kills, weaponItem: m.weaponItem, usage: { ...m.use } })),
       journal: this.journal?.entries ?? [], // the ship's log, for the debrief's timeline (sim/journal.js)
+      contract: this.contract.results(), hordes: this.director.hordesCalled ?? 0, survivorsAboard: this.survivors.length,
     };
   }
 

@@ -105,6 +105,12 @@ export class Journal {
     on('equip', ({ marine, item }) => [`${name(marine)} takes the ${item?.name ?? 'weapon'}`, 'loot']);
     on('control', ({ marine }) => [`${name(marine)} has point`, 'info']);
     on('hold', ({ on: held }) => [held ? 'Followers holding' : 'Followers on you', 'info']);
+    on('contract', ({ kind, phase, why }) => (phase === 'return' ? ['Job done: back to the Kestrel', 'good'] : phase === 'failed' ? [`Contract failed: ${why ?? ''}`, 'danger'] : null));
+    on('work-start', ({ marine, dur }) => [`${name(marine)} at the target: ${Math.round(dur ?? 0)} s of work`, 'info']);
+    on('fuse-set', ({ seconds }) => [`Reactor charge set: ${Math.round(seconds ?? 0)} seconds`, 'danger']);
+    on('beacon-planted', () => ['Beacon planted: the nest is awake', 'warn']);
+    on('reactor-blown', () => ['The reactor went', 'danger']);
+    on('extracted', ({ done }) => [done ? 'Everyone aboard the Kestrel: job done' : 'Everyone aboard the Kestrel', 'good']);
     on('won', () => ['Extraction: the derelict is ours', 'good']);
     on('lost', () => ['Squad lost', 'danger']);
   }

@@ -75,7 +75,7 @@ describe('campaign profile', () => {
     for (const t of p.roster) { delete t.stats; delete t.core; delete t.archetype; t.trait = 'eagle'; t.perks = []; }
     p.roster[1].perks = ['tough', 'hunter'];
     const m = migrate(p);
-    expect(m.version).toBe(2);
+    expect(m.version).toBe(3);
     expect(m.roster).toHaveLength(4);
     const heavy = m.roster[1];
     expect(heavy.archetype).toBe('heavy');

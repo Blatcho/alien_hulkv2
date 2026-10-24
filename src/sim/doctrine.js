@@ -364,7 +364,13 @@ export class Doctrine {
     // keycard - or once they've chosen to leave it locked (until they're sent there).
     const welded = (pid) => w.level.portals[pid].welded && w.kit.charges <= 0;
     const locked = (pid) => this.lockedOut(w.level.portals[pid]);
-    return w.nav.route({ room: lead.room, x: lead.x }, goal, { blocked: (pid) => welded(pid) || locked(pid) || (goal.kind === 'explore' && this.intoObjective(pid)) });
+    return w.nav.route({ room: lead.room, x: lead.x }, goal, { blocked: (pid) => welded(pid) || locked(pid) || (goal.kind === 'explore' && this.savesObjective() && this.intoObjective(pid)) });
+  }
+
+  /** A sweep leaves the command deck for last only while the job is done there and still to do (sim/contract.js). */
+  savesObjective() {
+    const c = this.world.contract;
+    return !c || (c.phase === 'go' && (c.kind === 'uplink' || c.kind === 'blackbox'));
   }
 
   /** A locked door the squad can't (or won't) get through. */
@@ -393,20 +399,30 @@ export class Doctrine {
     // A sweep answers a distress call.
     const call = w.shipEvents?.distress;
     if (call && this.cfg.route === 'thorough') return (this.goal = { kind: 'distress', room: call.room, x: call.x });
-    if (this.cfg.route === 'thorough' && w.time < SWEEP_UNTIL) {
+    // The contract (sim/contract.js): its target, or home with the job done - or, with a crew
+    // to find and nobody in sight, nothing: then the ship is swept for them, however far.
+    const cg = w.contract?.goal();
+    const hunting = cg === null;
+    if ((this.cfg.route === 'thorough' && w.time < SWEEP_UNTIL) || hunting) {
       const behind = L.rooms[this.goal?.room]?.locked;
       if (this.goal?.kind === 'explore' && !L.rooms[this.goal.room].explored && (behind === undefined || !this.lockedOut(L.portals[behind]))) return this.goal;
       let best = null;
+      const saves = this.savesObjective();
       for (const r of L.rooms) {
-        if (r.explored || r.exterior || r.id === L.objective.room || r.type === 'airlock') continue;
+        if (r.explored || r.exterior || (saves && r.id === L.objective.room) || r.type === 'airlock') continue;
         const [a, b] = walkLimits(r);
         const to = { kind: 'explore', room: r.id, x: (a + b) / 2 };
         const route = this.route(to);
-        if (route && route.cost <= DETOUR && (!best || route.cost < best.cost)) best = { cost: route.cost, goal: to };
+        if (route && (hunting || route.cost <= DETOUR) && (!best || route.cost < best.cost)) best = { cost: route.cost, goal: to };
       }
       if (best) return (this.goal = best.goal);
     }
-    return (this.goal = { kind: 'objective', room: L.objective.room, x: L.objective.x });
+    if (cg) return (this.goal = cg);
+    // Nothing left to sweep and nobody found: the job can't be done. Home, for what credits are aboard.
+    if (hunting && w.contract.phase === 'go') w.contract.fail('the crew could not be found');
+    const d = L.rooms[L.dock ?? L.airlock];
+    const [a, b] = walkLimits(d);
+    return (this.goal = { kind: 'extract', room: d.id, x: (a + b) / 2 });
   }
 
   /** Is an override's job done? */

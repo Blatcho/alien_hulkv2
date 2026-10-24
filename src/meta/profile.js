@@ -9,9 +9,11 @@ import { ARCHETYPES, makeCandidate, normStats, starterSquad } from './candidates
 import { grow } from './growth.js';
 import { tierForLevel } from './ranks.js';
 import { statsToMods } from '../sim/stats.js';
+import { evaluateBonuses } from '../gen/contracts.js';
+import { advanceSector, makeSector, sectorCleared } from './sector.js';
 
 export { starterSquad };
-export const PROFILE_VERSION = 2;
+export const PROFILE_VERSION = 3;
 const STORE_KEY = 'hullbreach.profile.v1';
 const RUN_KEY = 'hullbreach.run.v1';
 
@@ -55,6 +57,7 @@ export function newProfile(seed = Date.now().toString(36)) {
     roster: starterSquad(seed), squad: null, memorial: [], stash: [],
     upgrades: { armor: 0, stims: 0, cooling: 0, neural: 0, tracker: 0, salvage: 0 },
     totals: { kills: 0, rescued: 0, salvage: 0, credits: 0 }, seedCounter: 0,
+    sector: makeSector(seed, 0), sectors: 0, // the map (meta/sector.js), and sectors cleared
   };
 }
 
@@ -120,16 +123,20 @@ export function equipFromStash(profile, trooperId, stashIndex) {
  * Fold a finished run into the profile. `result` comes from World.results().
  * Returns a debrief: credit lines, per-trooper XP/level changes, deaths.
  */
-export function applyRun(profile, result) {
+export function applyRun(profile, result, options = {}) {
   const won = result.status === 'won';
   const lines = [];
   const add = (label, value) => { if (value) lines.push({ label, value: Math.round(value) }); };
   const mult = result.rewardMult ?? 1;
+  const contract = result.contract ?? { kind: 'uplink', done: won };
   add('Credits recovered', result.credits);
   if (won) {
     add('Salvage sold', result.salvage * (1 + 0.15 * profile.upgrades.salvage));
-    add('Contract payout', (250 + 120 * profile.threat) * mult);
+    // The contract pays only done (gen/contracts.js): a squad that came home without it keeps what it found.
+    if (contract.done !== false) add(`Contract: ${contract.label ?? 'nav-lock'}`, (250 + 120 * profile.threat) * mult * (contract.pay ?? 1));
+    else lines.push({ label: `Contract failed${contract.failedWhy ? ` (${contract.failedWhy})` : ''}`, value: 0 });
     add('Civilians rescued', result.rescued * 200);
+    for (const b of evaluateBonuses(options.bonuses ?? [], result)) if (b.earned) add(`Bonus: ${b.label}`, b.pay);
     if (result.cleared) add('Ship cleared bonus', 0); // (already paid into credits during the run)
   } else {
     add('Insurance (25%)', -(result.credits * 0.75));
@@ -145,6 +152,17 @@ export function applyRun(profile, result) {
     profile.threat++;
     profile.bestThreat = Math.max(profile.bestThreat, profile.threat);
     profile.stash.push(...result.stash);
+  }
+  // The sector (meta/sector.js): the Kestrel moves on a win, the front advances either way;
+  // the boss hulk cleared opens the next sector.
+  let sector = null;
+  if (profile.sector && options.node !== undefined && options.node !== null) {
+    sector = advanceSector(profile.sector, options.node, won);
+    if (sector.cleared) {
+      profile.sectors = (profile.sectors ?? 0) + 1;
+      profile.sector = makeSector(profile.seed, profile.sectors);
+      sector.next = true;
+    }
   }
 
   const troopers = [];
@@ -170,7 +188,7 @@ export function applyRun(profile, result) {
     troopers.push({ id: t.id, name: t.name, xp, before, after, gains, usage: r.usage ?? {} });
   }
   profile.roster = profile.roster.filter((t) => t.alive);
-  return { won, lines, earned, troopers };
+  return { won, lines, earned, troopers, contract, sector };
 }
 
 // ------------------------------------------------------------------ migration
@@ -205,6 +223,12 @@ export function migrate(p) {
     }
     delete p.pendingPromotions;
     p.version = 2;
+  }
+  if (p.version === 2) {
+    // Version 3: the sector map (meta/sector.js). A campaign in flight starts its first sector now.
+    p.sector = makeSector(p.seed ?? 'kestrel', 0);
+    p.sectors = 0;
+    p.version = 3;
   }
   return p.version === PROFILE_VERSION ? p : null;
 }

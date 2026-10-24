@@ -3,7 +3,7 @@
 // (risk/reward twists) and a reward multiplier - a small, meaningful choice every run.
 // Modifiers are plain generator/sim knobs (level.mods). The seed code names the class.
 import { Rng } from '../core/rng.js';
-import { CLASS_KEYS, HULL_CLASSES, parseSeed, seedCode } from '../gen/classes.js';
+import { CLASS_KEYS, HULL_CLASSES, seedCode } from '../gen/classes.js';
 import { storyFor } from '../gen/stories.js';
 
 export const MODIFIERS = {
@@ -34,6 +34,38 @@ function draw(rng, entries, n) {
 }
 
 /**
+ * One offer: a ship of class `cls` from a bare seed, sized within its class, twisted by
+ * `twists` modifiers that suit it (the last run's come up less), with its story. A boss hulk
+ * (the sector's last node, meta/sector.js) is a hive ship with the queen aboard (mods.boss:
+ * gen/populate.js placeBrood) and pays like one.
+ */
+export function makeOffer(rng, cls, bare, { twists = 0, lastMods = [], boss = false, avoid = null } = {}) {
+  const C = HULL_CLASSES[cls];
+  const cols = boss ? C.cols[1] : rng.int(C.cols[0], C.cols[1]);
+  const decks = boss ? C.decks[1] : rng.int(C.decks[0], C.decks[1]);
+  const keys = boss ? ['hive'] : draw(rng, Object.keys(MODIFIERS).filter((k) => !C.modifiers?.never?.includes(k)).map((k) => [k, (C.modifiers?.bias?.[k] ?? 1) * (lastMods.includes(k) ? 0.4 : 1)]), twists);
+  const mods = { cls, cols, decks };
+  let reward = 1 + C.reward;
+  let danger = C.danger;
+  for (const k of keys) {
+    for (const [m, v] of Object.entries(MODIFIERS[k].mods)) mods[m] = typeof v === 'number' && typeof mods[m] === 'number' ? mods[m] * v : v;
+    reward += MODIFIERS[k].reward;
+    danger += MODIFIERS[k].danger;
+  }
+  if (boss) { mods.boss = true; mods.nests = (mods.nests ?? 1) * 1.3; reward += 0.5; danger += 2; }
+  const seed = seedCode(cls, bare);
+  const story = storyFor(bare, cls);
+  // A name not used elsewhere on the map (`avoid`), while the list holds out.
+  let name = rng.pick(NAMES);
+  for (let k = 0; k < 8 && avoid?.has(name); k++) name = rng.pick(NAMES);
+  avoid?.add(name);
+  return {
+    seed, bare, name: `${rng.pick(PREFIX[cls])} ${name}`,
+    cls, size: C.label, blurb: C.blurb, story: { key: story.key, title: story.title, blurb: story.blurb }, modifiers: keys, mods, reward: +reward.toFixed(2), danger,
+  };
+}
+
+/**
  * Three offers for the profile's next run (stable until one is taken): three different hull
  * classes, each sized within its class and twisted by the modifiers that suit it. No streaks:
  * the classes and modifiers of the last few runs (profile.recent, meta/profile.js) come up
@@ -47,27 +79,8 @@ export function shipOffers(profile) {
   const classes = draw(rng, CLASS_KEYS.map((k) => [k, (HULL_CLASSES[k].weight ?? 1) * (lately(k, 2) ? 0.3 : lately(k, 4) ? 0.6 : 1)]), 3);
   const lastMods = recent.length ? recent[recent.length - 1].modifiers ?? [] : [];
   const twists = rng.shuffle([0, 1, 2]);
-  return classes.map((cls, i) => {
-    const C = HULL_CLASSES[cls];
-    const cols = rng.int(C.cols[0], C.cols[1]);
-    const decks = rng.int(C.decks[0], C.decks[1]);
-    const n = twists[i];
-    const keys = draw(rng, Object.keys(MODIFIERS).filter((k) => !C.modifiers?.never?.includes(k)).map((k) => [k, (C.modifiers?.bias?.[k] ?? 1) * (lastMods.includes(k) ? 0.4 : 1)]), n);
-    const mods = { cls, cols, decks };
-    let reward = 1 + C.reward;
-    let danger = C.danger;
-    for (const k of keys) {
-      for (const [m, v] of Object.entries(MODIFIERS[k].mods)) mods[m] = typeof v === 'number' && typeof mods[m] === 'number' ? mods[m] * v : v;
-      reward += MODIFIERS[k].reward;
-      danger += MODIFIERS[k].danger;
-    }
-    const seed = seedCode(cls, `${profile.seed.slice(0, 3).toUpperCase()}${profile.seedCounter}${'ABC'[i]}${rng.int(100, 999)}`);
-    const story = storyFor(parseSeed(seed).seed, cls);
-    return {
-      seed,
-      name: `${rng.pick(PREFIX[cls])} ${rng.pick(NAMES)}`,
-      cls, size: C.label, blurb: C.blurb, story: { key: story.key, title: story.title, blurb: story.blurb }, modifiers: keys, mods, reward: +reward.toFixed(2), danger,
-      threat: profile.threat,
-    };
-  });
+  return classes.map((cls, i) => ({
+    ...makeOffer(rng, cls, `${profile.seed.slice(0, 3).toUpperCase()}${profile.seedCounter}${'ABC'[i]}${rng.int(100, 999)}`, { twists: twists[i], lastMods }),
+    threat: profile.threat,
+  }));
 }

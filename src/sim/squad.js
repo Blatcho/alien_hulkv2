@@ -385,7 +385,7 @@ export class Squad {
       }
       case 'objective':
         this.handled.add(f.key);
-        if (!w.uplink) this.startUplink(f.prop);
+        w.contract.begin(f.prop); // the job at the target (sim/contract.js): the uplink, or a spell of work
         return;
       case 'jump':
         this.startTraversal({ ...jumpPath(lead.x, room.y0, this.heading, PROPS[f.prop.kind].w), featureKey: f.key });
@@ -488,6 +488,14 @@ export class Squad {
     this.world.emit('door-work', { portal, marine: this.leader });
   }
 
+  /** The contract's work at its target (sim/contract.js): `by` does it over `dur` seconds, the others cover him. */
+  startWork(prop, dur, by) {
+    this.state = 'action';
+    this.action = { type: 'contract', prop, t: 0, dur, by };
+    this.assignTask(by, prop.x);
+    this.world.emit('work-start', { prop, marine: by, dur });
+  }
+
   startUplink(prop) {
     this.state = 'action';
     const tech = bestAt(this.order, 'int') ?? this.leader;
@@ -562,7 +570,7 @@ export class Squad {
       return;
     }
     if (a && a.by && (a.by.down || !a.by.alive)) a.by = this.leader; // he went down mid-job: the point man takes it
-    if (!a || this.engaged && a.type !== 'uplink' && !a.urgent) return;
+    if (!a || this.engaged && a.type !== 'uplink' && a.type !== 'contract' && !a.urgent) return;
     if (this.task?.phase === 'go') return; // the specialist is still on his way
     a.t += dt;
     if (a.t < a.dur) return;
@@ -579,6 +587,9 @@ export class Squad {
     } else if (a.type === 'uplink') {
       practice(a.by, 'int', 3);
       this.world.completeUplink();
+    } else if (a.type === 'contract') {
+      practice(a.by, this.world.contract.def.work?.stat ?? 'int', 3);
+      this.world.contract.complete(a.prop);
     } else if (a.type === 'encounter') {
       this.world.encounters.resolve(a.d, a.o);
     } else if (a.type === 'revive') {

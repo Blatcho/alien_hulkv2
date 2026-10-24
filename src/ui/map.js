@@ -37,7 +37,8 @@ export function mapModel(w) {
   return {
     seed: L.seed, name: w.shipName ?? `Derelict ${L.seed}`, cls: L.cls, story: L.story, modifiers: Object.keys(L.mods ?? {}).filter((k) => MODIFIERS[k]),
     threat: L.threat, decks, portals, blips, caches, survivors, sentries,
-    objective: { x: L.objective.x, y: L.rooms[L.objective.room].y0, room: L.objective.room, known: known(L.rooms[L.objective.room]) },
+    objective: (() => { const g = w.contract?.goal() ?? L.objective; return { x: g.x, y: L.rooms[g.room].y0, room: g.room, known: known(L.rooms[g.room]) }; })(),
+    job: w.contract?.describe() ?? null,
     squad: w.marines.filter((m) => m.alive).map((m) => ({ x: m.x, y: m.y, name: m.name, lead: m === lead, down: !!m.down })),
     explored: L.rooms.filter((r) => r.explored).length, rooms: L.rooms.length,
     lifesigns: w.lifesigns(), uplink: !!w.uplink,
@@ -170,7 +171,7 @@ export class MapOverlay {
       <h3>CONTRACT</h3>
       <p class="story"><b>${esc(M.story?.title ?? '')}.</b> ${esc(M.story?.blurb ?? '')}</p>
       <div class="mods">${mods}</div>
-      <p class="obj">${M.uplink ? 'Upload the nav-lock: hold the command deck.' : 'Reach the command deck and hold it for the uplink.'}</p>
+      <p class="obj">${esc(M.job ? `${M.job.title}${M.job.sub ? ` ${M.job.sub}` : ''}` : 'Reach the command deck and hold it for the uplink.')}</p>
       <h3>ABOARD</h3>
       <p>Lifesigns <b class="${M.lifesigns ? 'hot' : ''}">${M.lifesigns || 'clear'}</b> · civilians <b>${M.found.rescued}/${M.found.survivors}</b> safe</p>
       <p>Kit: ${kit}</p>

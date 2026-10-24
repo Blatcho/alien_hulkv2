@@ -76,7 +76,7 @@ export function makeAlien(rng, x, y, room, state = 'dormant', { type = 'drone', 
     surface, side, climbCool: 0, toWall: 0,
     // Habits (config PACK): stalking, hit-and-run, dragging, hearing, torch-shy; screamer, brood.
     stalks: T.stalk ?? 0, flees: T.flee ?? 0, drags: T.drag ?? 0, hear: T.hear ?? 1, shy: !!T.shy,
-    screams: !!T.screams, screamT: 0, screamed: 0, births: !!T.births, birthT: 2, born: 0,
+    screams: !!T.screams, screamT: 0, screamed: 0, births: T.births ?? false, birthT: 2, born: 0, royal: !!T.royal,
     prey: null, stalk: null, flee: null, drag: null, shyT: 0, suppressT: 0,
   };
 }
@@ -87,7 +87,7 @@ export function pickAlienType(rng, depth) {
   return rng.weighted(Object.entries(ALIEN_TYPES).map(([key, t]) => [key, t.weight + (t.deep - t.weight) * k]));
 }
 
-const CREW = ['HALLORAN', 'MBEKI', 'SATO', 'VARGA', 'OYELARAN', 'KOWALSKI', 'DUARTE', 'NYGARD', 'PRICE', 'ESTRADA'];
+export const CREW = ['HALLORAN', 'MBEKI', 'SATO', 'VARGA', 'OYELARAN', 'KOWALSKI', 'DUARTE', 'NYGARD', 'PRICE', 'ESTRADA'];
 const JUMPSUITS = ['#c46a2a', '#6a7f8f', '#8a8a3a', '#7a4a6a', '#3f7a6a'];
 
 export function makeSurvivor(rng, x, y, room) {

@@ -62,6 +62,7 @@ export class DebriefScreen {
           ${loot ? `<h2>RECOVERED</h2><ul class="loot">${loot}</ul>` : ''}
           ${timeline ? `<h2>TIMELINE <small>from the ship's log</small></h2><ul class="timeline">${timeline}</ul>` : ''}
           ${d.won ? `<p class="next">Threat level rises to <b>${p.threat}</b>. The next derelicts will be nastier - and pay better.</p>` : '<p class="next">The Kestrel waits for survivors that will not come. Recruit, re-arm, try again.</p>'}
+          ${d.sector ? `<p class="next">${d.sector.next ? '<b>Sector cleared.</b> The brood ship is dead in space; the next sector opens, deeper in.' : d.sector.moved ? 'The Kestrel moves on. ' : 'The Kestrel holds where it is. '}${d.sector.next ? '' : `The hive front advances${d.sector.lost ? ` - <b>${d.sector.lost}</b> derelict${d.sector.lost === 1 ? '' : 's'} lost to it` : ''}.`}</p>` : ''}
         </div>
         <div class="col">
           <h2>SQUAD</h2>
