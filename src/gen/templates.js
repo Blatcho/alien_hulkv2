@@ -37,6 +37,8 @@ export const PROPS = {
   body:         { w: 2.0, z: -0.35, interact: true, label: 'Dead crewman' },
   // Contracts (gen/contracts.js): where the beacon goes, and the beacon once planted.
   beacon_site:  { w: 1.0, z: -0.9, h: 0.5, label: 'Beacon site' },
+  // A field workshop (sim/fieldmods.js): one modification fitted to every weapon for the run.
+  workbench:    { w: 1.8, z: -1.4, h: 1.2, label: 'Field workshop' },
   beacon:       { w: 1.0, z: -0.9, h: 1.6, label: 'Beacon' },
   // Class rooms (gen/classes.js): a magazine's missiles, hydroponics troughs, specimen tanks, lab
   // benches, galley counters, promenade kiosks. h = the height of the box drawn without art.

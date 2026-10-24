@@ -176,7 +176,10 @@ class Game {
         p.difficulty = difficulty;
         p.control = control;
         // The difficulty rides in the ship's mods (meta/difficulty.js).
-        saveRun({ seed: offer.seed, threat: offer.threat, mods: withDifficulty({ ...offer.mods, contract: offer.contract?.kind ?? null }, difficulty), reward: offer.reward, name: offer.name, squad, doctrine, difficulty, control, node: offer.node ?? null, bonuses: offer.bonuses ?? [] });
+        // The underwriter's terms (meta/events.js 'wire'): the next job pays more and bites harder.
+        const boon = p.boon ?? null;
+        const mods = withDifficulty({ ...offer.mods, contract: offer.contract?.kind ?? null, ...(boon ? { hostiles: (offer.mods.hostiles ?? 1) * 1.25 } : {}) }, difficulty);
+        saveRun({ seed: offer.seed, threat: offer.threat, mods, reward: +(offer.reward * (boon?.pay ?? 1)).toFixed(2), name: offer.name, squad, doctrine, difficulty, control, node: offer.node ?? null, bonuses: offer.bonuses ?? [] });
         this.profile.seedCounter++;
         saveProfile(this.profile);
         location.search = '?run=1';
@@ -190,7 +193,7 @@ class Game {
       .map((t) => ({ ...t, mods: trooperMods(t), rank: rankFor(levelFor(t.xp)) }));
     const level = generateLevel(run.seed, { threat: run.threat, mods: run.mods });
     this.campaignRun = run;
-    this.start(level, { squad, upgrades: p.upgrades, rewardMult: run.reward, shipName: run.name, doctrine: run.doctrine, campaign: true, control: run.control });
+    this.start(level, { squad, upgrades: p.upgrades, rewardMult: run.reward, shipName: run.name, doctrine: run.doctrine, campaign: true, control: run.control, relics: p.relics ?? [] });
     const settle = () => setTimeout(() => this.debriefRun(), 1600);
     this.world.on('won', settle);
     this.world.on('lost', settle);
@@ -211,10 +214,10 @@ class Game {
 
   // ------------------------------------------------------------------ a run
 
-  start(level, { squad = null, upgrades = {}, rewardMult = 1, shipName = null, doctrine = null, campaign = false, control = 'squad' } = {}) {
+  start(level, { squad = null, upgrades = {}, rewardMult = 1, shipName = null, doctrine = null, campaign = false, control = 'squad', relics = [] } = {}) {
     this.hud.hideStart();
     const seed = level.seed;
-    this.world = new World(level, { params, squad, upgrades, rewardMult, doctrine, control });
+    this.world = new World(level, { params, squad, upgrades, rewardMult, doctrine, control, relics });
     this.world.shipName = shipName;
     this.input.setMode(this.world.lead ? 'lead' : 'squad');
     this.hud.campaign = campaign;

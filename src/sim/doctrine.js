@@ -330,6 +330,12 @@ export class Doctrine {
       return opt('putout').odds >= 0.4 ? 'putout' : 'through';
     }
     if (d.kind === 'turret') return opt('hack').odds >= 0.35 ? 'hack' : 'leave';
+    if (d.kind === 'workbench') {
+      // A mod for the run (sim/fieldmods.js): a quiet squad wants suppressors; a loud one hits harder; else whatever's first.
+      const mods = d.options.filter((o) => o.id !== 'leave' && !o.off);
+      const want = quiet ? ['suppressor', 'bipod', 'scope'] : this.cfg.roe === 'alert' || this.cfg.pace === 'fast' ? ['hollow', 'drum', 'quickmag'] : [];
+      return (want.map((k) => mods.find((o) => o.id === k)).find(Boolean) ?? mods[0])?.id ?? 'leave';
+    }
     if (d.kind === 'autodoc') return w.squad.order.some((m) => m.wound || m.hp < m.maxHp * 0.7) ? 'treat' : 'leave';
     if (d.kind === 'eggs') return this.cfg.kit !== 'save' && !opt('burn').off ? 'burn' : quiet ? 'sneak' : 'shoot';
     if (d.kind === 'cryopod') {

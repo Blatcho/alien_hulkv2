@@ -10,7 +10,8 @@ import { STATS } from '../core/config.js';
 import { HULL_CLASSES } from '../gen/classes.js';
 import { BONUSES, CONTRACTS, contractText } from '../gen/contracts.js';
 import { DIFFICULTY, fitDifficulty } from '../meta/difficulty.js';
-import { buyUpgrade, deployable, equipFromStash, levelFor, rankFor, recruit, recruitOffers, saveProfile } from '../meta/profile.js';
+import { buyUpgrade, deployable, equipFromStash, fit, levelFor, rankFor, recruit, recruitOffers, saveProfile, treatQuirk } from '../meta/profile.js';
+import { EVENTS, applyEvent, eventOptions } from '../meta/events.js';
 import { MODIFIERS } from '../meta/ships.js';
 import { portraitMap } from '../render/portraits.js';
 import { KNOBS, LEAD_KNOBS, PRESETS, disabledOptions, fitOrders, isManual } from '../sim/doctrine.js';
@@ -80,6 +81,17 @@ export class LaunchScreen {
 
   rosterPool() { return this.profile.roster.filter((t) => t.alive).map((t) => ({ ...t, rank: rankFor(levelFor(t.xp)) })); }
 
+  /** Something happened aboard since the last run (meta/events.js): one card, answered before launching. */
+  eventHtml() {
+    const ev = this.profile?.pendingEvent;
+    if (!ev || !EVENTS[ev.key]) return '';
+    const def = EVENTS[ev.key];
+    const opts = eventOptions(this.profile, ev);
+    return `<div class="kevent"><h2>ABOARD THE KESTREL <small>${esc(def.title)}</small></h2><p>${esc(def.text)}</p>
+      <div class="evopts">${opts.map((o) => `<button data-ev="${o.id}" ${o.off ? 'disabled' : ''}><b>${esc(o.label)}</b>${o.note ? `<small>${esc(o.note)}</small>` : ''}</button>`).join('')}</div>
+      ${this.eventLine ? `<p class="evline">${esc(this.eventLine)}</p>` : ''}</div>`;
+  }
+
   /** Portraits from the 3D model via a throwaway renderer (same look as in-game). */
   renderPortraits() {
     const missing = [...this.profile.roster, ...(this.offersOpen ? this.recruitPool : [])].filter((t) => !this.portraits.has(t.id));
@@ -115,7 +127,8 @@ export class LaunchScreen {
     const hintKeys = new Set([...(ship.modifiers ?? []).flatMap((k) => HINTS[k] ?? []), ...(HULL_CLASSES[ship.cls]?.hints ?? [])]);
     const hulls = o.onHull ? `<div class="hulls"><button data-hull="" class="${!o.hull ? 'on' : ''}" title="Whatever the seed makes of it">AUTO</button>${Object.entries(HULL_CLASSES).map(([k, c]) => `<button data-hull="${k}" class="${o.hull === k ? 'on' : ''}" title="${esc(c.blurb)}">${esc(c.label)}</button>`).join('')}</div>` : '';
     const C = CONTRACTS[ship.contract?.kind] ?? CONTRACTS.uplink;
-    const pay = this.campaign ? `<div class="pay">PAY <b>${Math.round(contractPay(ship.threat, ship.reward) * (C.pay ?? 1))} cr</b> on extraction · danger ${'▮'.repeat(1 + (ship.danger ?? 0))}${'▯'.repeat(Math.max(0, 4 - (ship.danger ?? 0)))}</div>` : '';
+    const boon = this.profile?.boon ?? null;
+    const pay = this.campaign ? `<div class="pay">PAY <b>${Math.round(contractPay(ship.threat, ship.reward * (boon?.pay ?? 1)) * (C.pay ?? 1))} cr</b> on extraction · danger ${'▮'.repeat(1 + (ship.danger ?? 0) + (boon?.danger ?? 0))}${'▯'.repeat(Math.max(0, 4 - (ship.danger ?? 0) - (boon?.danger ?? 0)))}${boon ? ' · <span class="boon">the underwriter\'s terms</span>' : ''}</div>` : '';
     const bonuses = (ship.bonuses ?? []).filter((k) => BONUSES[k]).map((k) => `<span class="bonus" title="${esc(BONUSES[k].text)}">+${BONUSES[k].pay} cr ${esc(BONUSES[k].label)}</span>`).join('');
     const jobs = o.onJob ? `<div class="hulls jobs"><button data-job="" class="${!o.job ? 'on' : ''}" title="Whatever the seed makes of it">AUTO</button>${Object.entries(CONTRACTS).filter(([, c]) => !c.boss).map(([k, c]) => `<button data-job="${k}" class="${o.job === k ? 'on' : ''}" title="${esc(c.text)}">${esc(c.label)}</button>`).join('')}</div>` : '';
     return `<h2>CONTRACT${o.onHull ? ' <small>the hull and the job: auto rolls them from the seed</small>' : ''}</h2>${hulls}${jobs}<div class="intel">
@@ -180,7 +193,7 @@ export class LaunchScreen {
   render() {
     const o = this.o;
     if (this.campaign) this.pool = this.rosterPool();
-    this.selected = this.selected.filter((id) => this.pool.some((t) => t.id === id));
+    this.selected = this.selected.filter((id) => this.pool.some((t) => t.id === id && fit(t)));
     const chosen = this.selected.map((id) => this.pool.find((t) => t.id === id));
     const p = this.profile;
     const stats = this.campaign
@@ -190,9 +203,9 @@ export class LaunchScreen {
     const ready = chosen.length >= this.need;
     const deployText = ready ? 'DEPLOY ▶' : this.lead ? 'PICK YOUR MARINE' : `PICK ${this.need - chosen.length} MORE`;
     const slots = this.lead ? LEAD_SLOTS : SLOTS;
-    const cards = this.pool.map((t) => trooperCard(t, { slot: this.selected.indexOf(t.id), slots, lead: this.lead, img: this.portraits.get(t.id), bars: this.bars, cls: 'pick', drag: true })).join('');
+    const cards = this.pool.map((t) => trooperCard(t, { slot: this.selected.indexOf(t.id), slots, lead: this.lead, img: this.portraits.get(t.id), bars: this.bars, cls: `pick ${fit(t) ? '' : 'unfit'}`, drag: true })).join('');
     const command = Object.entries(COMMAND).map(([k, c]) => `<button data-control="${k}" class="${this.control === k ? 'on' : ''}" title="${esc(c.text)}">${c.label}</button>`).join('');
-    const launch = `${this.campaign ? this.offersHtml() : ''}
+    const launch = `${this.campaign ? this.eventHtml() + this.offersHtml() : ''}
       <div class="cols">
         <div class="col">
           <h2>TROOPERS <small>${this.lead ? 'click to add or remove · the first you pick is you, up to three more follow' : 'click to add or remove · the order you pick is the line'}</small>
@@ -239,6 +252,7 @@ export class LaunchScreen {
     el.querySelectorAll('[data-control]').forEach((b) => b.addEventListener('click', () => { this.control = b.dataset.control; this.render(); }));
     el.querySelectorAll('[data-hull]').forEach((b) => b.addEventListener('click', () => this.o.onHull?.(b.dataset.hull || null)));
     el.querySelectorAll('[data-job]').forEach((b) => b.addEventListener('click', () => this.o.onJob?.(b.dataset.job || null)));
+    el.querySelectorAll('[data-ev]').forEach((b) => b.addEventListener('click', () => { const r = applyEvent(this.profile, b.dataset.ev); if (r) { this.eventLine = r.line; this.save(); this.renderPortraits(); } this.render(); }));
     el.querySelector('.barsmode').addEventListener('click', () => { this.bars = !this.bars; try { localStorage.setItem(BARS_KEY, this.bars ? 'on' : 'off'); } catch { /* private mode */ } this.render(); });
     el.querySelector('.change').addEventListener('click', () => { this.settingsOpen = !this.settingsOpen; this.render(); });
     el.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
@@ -267,6 +281,7 @@ export class LaunchScreen {
       onTrooper: (id) => { if (this.armed === null) return; equipFromStash(p, id, this.armed); this.armed = null; this.save(); this.render(); },
       onStash: (i) => { this.armed = this.armed === i ? null : i; this.render(); },
       onUpgrade: (k) => { if (buyUpgrade(p, k)) { this.save(); this.render(); } },
+      onTreat: (id, key) => { if (treatQuirk(p, id, key)) { this.save(); this.render(); } },
       onRecruitToggle: () => {
         this.offersOpen = !this.offersOpen;
         if (this.offersOpen) { this.recruitPool = recruitOffers(p); this.renderPortraits(); }
@@ -287,6 +302,8 @@ export class LaunchScreen {
 
   toggle(id) {
     const i = this.selected.indexOf(id);
+    const t = this.pool.find((q) => q.id === id);
+    if (i < 0 && t && !fit(t)) return; // resting a wound: sits this one out
     if (i >= 0) this.selected.splice(i, 1);
     else if (this.selected.length < 4) this.selected.push(id);
     this.render();

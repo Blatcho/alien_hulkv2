@@ -34,6 +34,7 @@ import { updateMedic, updateMelee } from './melee.js';
 import { Contract } from './contract.js';
 import { Journal } from './journal.js';
 import { Morale } from './morale.js';
+import { RELICS, applyRelic, applyRelics } from '../meta/relics.js';
 import { updateSentries } from './sentry.js';
 
 // Lead mode: how far (m) the player reaches to use something, and what he'd use first when two
@@ -42,7 +43,7 @@ const USE_REACH = 2.4;
 const USE_RANK = { downed: 0, objective: 1, crate: 2, terminal: 2, door: 3, fire: 3, ladder: 4, stairs: 4, doorctl: 6, vent: 6 };
 
 // Labels for the set pieces in the scene (interactables).
-const ODDITY = { turret: 'Hack the sentry', autodoc: 'Use the autodoc', eggs: 'Deal with the eggs', cryopod: 'Check the cryo pod' };
+const ODDITY = { turret: 'Hack the sentry', autodoc: 'Use the autodoc', eggs: 'Deal with the eggs', cryopod: 'Check the cryo pod', workbench: 'Use the workshop' };
 
 export const TUNING = {
   uplinkTime: 14,
@@ -62,7 +63,7 @@ export class World {
    *                steer) and the rest follow him; the doctrine still runs the followers.
    * @param player  lead: which of `squad` the player is (index; default the first)
    */
-  constructor(level, { params = {}, events = new EventBus(), tuning = {}, squad = null, upgrades = {}, rewardMult = 1, doctrine = null, control = 'squad', player = 0 } = {}) {
+  constructor(level, { params = {}, events = new EventBus(), tuning = {}, squad = null, upgrades = {}, rewardMult = 1, doctrine = null, control = 'squad', player = 0, relics = [] } = {}) {
     resetIds();
     this.level = level;
     this.params = params;
@@ -174,6 +175,19 @@ export class World {
     this.on('scream-cut', () => this.barks.say(lead(), 'scream_cut', 0.8));
     this.on('birth', ({ alien }) => { if (alien.visible) this.barks.say(lead(), 'birth'); });
     this.on('brood-dead', () => this.barks.say(lead(), 'brood_dead'));
+    // The campaign's relics (meta/relics.js) and what this run finds; what happens to each man,
+    // for the quirks he may pick up (meta/quirks.js).
+    this.relics = new Set();
+    this.relicsFound = [];
+    this.fieldMods = [];
+    this.flags = { dragged: false, brood: false };
+    applyRelics(this, relics);
+    this.on('downed', ({ marine }) => { marine.downs = (marine.downs ?? 0) + 1; });
+    this.on('dragged', ({ marine }) => { marine.draggedN = (marine.draggedN ?? 0) + 1; this.flags.dragged = true; });
+    this.on('lucky', ({ marine }) => { marine.escapesUsed = (marine.escapesUsed ?? 0) + 1; });
+    this.on('loot', ({ marine }) => { if (marine) marine.searches = (marine.searches ?? 0) + 1; });
+    this.on('birth', ({ alien }) => { if (alien.visible) this.flags.brood = true; });
+    this.on('horde-over', () => { for (const m of this.marines) if (m.alive && m.hp < m.maxHp * 0.3) m.lowAfterHorde = true; });
     this.on('horde-warning', () => this.barks.say(lead(), 'horde_warn'));
     this.on('horde', () => this.barks.later(0.8, lead(), 'horde_on'));
     this.on('horde-over', () => this.barks.say(lead(), 'horde_over'));
@@ -636,6 +650,8 @@ export class World {
         const bonus = e.royal ? BROOD.QUEEN_BONUS : BROOD.BONUS;
         this.credits += bonus;
         this.emit('brood-dead', { alien: e, bonus });
+        if (e.royal) { applyRelic(this, 'queens_tooth'); this.relicsFound.push('queens_tooth'); this.emit('relic', { key: 'queens_tooth', prop: null, marine: source }); }
+        this.flags.brood = true;
       }
       this.stats.kills++;
       this.addEnergy(ENERGY.PER_KILL); // every kill puts some fight back in them
@@ -757,6 +773,12 @@ export class World {
         break;
       }
       case 'stim': this.stims++; text = 'Stim-pack.'; break;
+      case 'relic': {
+        // A relic (meta/relics.js): applies now, and goes home with the squad.
+        const r = RELICS[loot.key];
+        if (r) { applyRelic(this, loot.key); this.relicsFound.push(loot.key); text = `${r.label}. ${r.text}`; this.emit('relic', { key: loot.key, prop, marine }); } else text = 'A sealed case - empty.';
+        break;
+      }
       case 'keycard':
         this.kit.keycards++;
         text = 'A crew keycard - ACCESS: STORES. Somewhere there\'s a door for this.';
@@ -1221,7 +1243,8 @@ export class World {
       credits: this.credits, salvage: this.salvage.reduce((s, t) => s + t.value, 0), salvageItems: this.salvage,
       rescued: this.survivors.filter((s) => s.state === 'rescued').length, cleared: this.cleared,
       stash: this.stash, rewardMult: this.rewardMult,
-      troopers: this.marines.map((m) => ({ id: m.trooperId, name: m.name, alive: m.alive, wound: m.wound ?? null, kills: m.kills, weaponItem: m.weaponItem, usage: { ...m.use } })),
+      troopers: this.marines.map((m) => ({ id: m.trooperId, name: m.name, alive: m.alive, wound: m.wound ?? null, kills: m.kills, weaponItem: m.weaponItem, usage: { ...m.use }, downs: m.downs ?? 0, dragged: m.draggedN ?? 0, escapesUsed: m.escapesUsed ?? 0, searches: m.searches ?? 0, lowAfterHorde: !!m.lowAfterHorde })),
+      flags: { ...this.flags, horde: (this.director.hordesCalled ?? 0) > 0 }, relics: [...this.relicsFound], fieldMods: [...this.fieldMods],
       journal: this.journal?.entries ?? [], // the ship's log, for the debrief's timeline (sim/journal.js)
       contract: this.contract.results(), hordes: this.director.hordesCalled ?? 0, survivorsAboard: this.survivors.length,
     };

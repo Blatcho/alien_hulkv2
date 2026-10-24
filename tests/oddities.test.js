@@ -48,7 +48,7 @@ describe('generation', () => {
         const side = L.rooms.find((r) => r.locked === door.id);
         expect(side.portals).toEqual([door.id]);
         expect(L.mainPath).not.toContain(side.id);
-        expect(side.props.some((p) => p.loot?.type === 'weapon' || p.loot?.type === 'treasure')).toBe(true);
+        expect(side.props.some((p) => ['weapon', 'treasure', 'relic'].includes(p.loot?.type))).toBe(true);
         // ...and its keycard on a dead crewman on the way, nearer the airlock.
         const card = props(L, (p) => p.loot?.type === 'keycard');
         expect(card.length).toBe(1);
@@ -256,6 +256,6 @@ describe('cryo pods', () => {
     expect(prop.known).toBe(false);
     expect(d.options.some((o) => o.id === 'shoot')).toBe(false);
     choose(w, d, 'open');
-    expect(w.salvage.length).toBe(1);
+    expect(w.salvage.length + w.relicsFound.length).toBe(1); // salvage - or, now and then, a relic
   });
 });

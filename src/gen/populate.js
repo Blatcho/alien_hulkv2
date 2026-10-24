@@ -7,6 +7,7 @@ import { bfs, walkLimits } from './layout.js';
 import { ceilingSpans, doorInWall, portalEnds, wallFace } from './level.js';
 import { CREW, pickAlienType } from '../sim/entities.js';
 import { CONTRACTS } from './contracts.js';
+import { rollRelic } from '../meta/relics.js';
 import { rollTreasure, rollWeapon } from '../sim/loot.js';
 import { NavGraph } from '../nav/graph.js';
 
@@ -412,6 +413,7 @@ function placeOddities(level, rng) {
   const story = level.story ?? {};
   const C = HULL_CLASSES[level.cls]?.oddities ?? {};
   const O = { turret: 0.55, cryopod: 0.45, storeroom: 0.6, ...C, ...(story.oddities ?? {}), pods: { ...(C.pods ?? {}), ...(story.oddities?.pods ?? {}) } };
+  const relicsHere = new Set(); // (no relic twice in one ship)
   // A sentry gun on standby.
   if (rng.chance(O.turret)) {
     const room = pick(inside.filter((r) => r.dist >= 2 && !r.nest && ['armory', 'engineering', 'storage', 'cargo', 'corridor', 'barracks', 'magazine', 'promenade'].includes(r.type)));
@@ -428,7 +430,14 @@ function placeOddities(level, rng) {
   if (rng.chance(O.cryopod)) {
     const room = pick(inside.filter((r) => r.dist >= 2 && !r.nest && ['medbay', 'quarters', 'storage', 'lab', 'specimens', 'barracks'].includes(r.type)));
     const pod = rng.weighted(Object.entries(POD).map(([k, w]) => [k, w * (O.pods[k] ?? 1)]));
-    if (room) add(room, 'cryopod', { encounter: 'cryopod', pod, ...(pod === 'cache' ? { loot: { type: 'treasure', item: rollTreasure(rng, threat) } } : {}) });
+    // (A sealed cache holds salvage - or, now and then, a relic: meta/relics.js.)
+    const cache = pod === 'cache' ? (rng.chance(0.3) ? { type: 'relic', key: rollRelic(rng, relicsHere) } : { type: 'treasure', item: rollTreasure(rng, threat) }) : null;
+    if (room) add(room, 'cryopod', { encounter: 'cryopod', pod, ...(cache ? { loot: cache } : {}) });
+  }
+  // A field workshop: one modification for every weapon, the squad's pick of three (sim/fieldmods.js).
+  if (rng.chance(O.workbench ?? 0.7)) {
+    const room = pick(inside.filter((r) => r.dist >= 1 && !r.nest && ['engineering', 'armory', 'cargo', 'storage', 'magazine', 'reactor'].includes(r.type)));
+    if (room) add(room, 'workbench', { encounter: 'workbench' });
   }
   // A locked storeroom off the route, and the dead crewman with its keycard on the way there.
   if (rng.chance(O.storeroom)) {
@@ -439,9 +448,15 @@ function placeOddities(level, rng) {
       const door = level.portals[side.portals[0]];
       door.locked = true;
       side.locked = door.id;
-      const prize = (O.prize ? O.prize === 'weapon' : rng.chance(0.5)) ? { type: 'weapon', item: rollWeapon(rng, { luck: 1.1 + threat * 0.15 }) } : { type: 'treasure', item: rollTreasure(rng, threat + 1) };
+      const prize = rng.chance(0.35) ? { type: 'relic', key: rollRelic(rng, relicsHere) }
+        : (O.prize ? O.prize === 'weapon' : rng.chance(0.5)) ? { type: 'weapon', item: rollWeapon(rng, { luck: 1.1 + threat * 0.15 }) } : { type: 'treasure', item: rollTreasure(rng, threat + 1) };
       const box = side.props.find((p) => p.loot && p.loot.type !== 'ambush');
-      if (box) box.loot = prize; else add(side, 'safe', { loot: prize });
+      if (box) box.loot = prize;
+      else if (!add(side, 'safe', { loot: prize })) {
+        // Packed wall to wall: the strongbox stands where the widest bit of clutter did.
+        const spot = side.props.filter((p) => !p.loot && !p.encounter).sort((a, b) => PROPS[b.kind].w - PROPS[a.kind].w)[0];
+        if (spot) Object.assign(spot, { kind: 'safe', z: PROPS.safe.z, loot: prize });
+      }
     }
   }
   // The crew who didn't make it - where the story put them, carrying what it says.

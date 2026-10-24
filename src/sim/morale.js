@@ -53,7 +53,9 @@ export class Morale {
   }
 
   check() {
-    const level = this.levelOf(this.value);
+    let level = this.levelOf(this.value);
+    // The queen's tooth (meta/relics.js): the squad never breaks.
+    if (level.name === 'breaking' && this.world.relics?.has('queens_tooth')) level = MORALE.LEVELS.find((l) => l.name === 'shaken') ?? level;
     if (level === this.level) return;
     const worse = level.min < this.level.min;
     this.level = level;

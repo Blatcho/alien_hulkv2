@@ -127,9 +127,9 @@ describe('the three ways', () => {
     w.on('breakdown-over', (e) => { over = e; });
     run(w, BREAK.MIN + BREAK.CALM);
     expect(over?.marine).toBe(m);
-    // And on they go (whichever way their orders take them next).
+    // And on they go (whichever way their orders take them next - after a search, if the room has one).
     let walked = 0;
-    for (let i = 0; i < 4 * 60; i++) { const x = w.squad.leader.x; w.step(STEP); walked += Math.abs(w.squad.leader.x - x); }
+    for (let i = 0; i < 30 * 60 && walked <= 1; i++) { const x = w.squad.leader.x; w.step(STEP); walked += Math.abs(w.squad.leader.x - x); }
     expect(walked).toBeGreaterThan(1);
   });
 
