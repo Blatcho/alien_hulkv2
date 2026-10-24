@@ -35,6 +35,9 @@ export const PROPS = {
   eggs:         { w: 1.6, z: -0.9, label: 'Egg cluster' },
   cryopod:      { w: 1.3, z: -1.4, label: 'Cryo pod' },
   body:         { w: 2.0, z: -0.35, interact: true, label: 'Dead crewman' },
+  // Contracts (gen/contracts.js): where the beacon goes, and the beacon once planted.
+  beacon_site:  { w: 1.0, z: -0.9, h: 0.5, label: 'Beacon site' },
+  beacon:       { w: 1.0, z: -0.9, h: 1.6, label: 'Beacon' },
   // Class rooms (gen/classes.js): a magazine's missiles, hydroponics troughs, specimen tanks, lab
   // benches, galley counters, promenade kiosks. h = the height of the box drawn without art.
   missile:      { w: 2.6, z: -1.0, h: 1.3, hp: 50, wreck: 'rubble' },

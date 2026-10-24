@@ -8,6 +8,7 @@
 // tab holds the shopping (ui/kestrel.js): roster, recruits, armoury, upgrades, memorial.
 import { STATS } from '../core/config.js';
 import { HULL_CLASSES } from '../gen/classes.js';
+import { BONUSES, CONTRACTS, contractText } from '../gen/contracts.js';
 import { DIFFICULTY, fitDifficulty } from '../meta/difficulty.js';
 import { buyUpgrade, deployable, equipFromStash, levelFor, rankFor, recruit, recruitOffers, saveProfile } from '../meta/profile.js';
 import { MODIFIERS } from '../meta/ships.js';
@@ -16,6 +17,7 @@ import { KNOBS, LEAD_KNOBS, PRESETS, disabledOptions, fitOrders, isManual } from
 import { esc, rolesHtml, trooperCard } from './cards.js';
 import { helpButton } from './help.js';
 import { bindKestrel, kestrelHtml } from './kestrel.js';
+import { renderSector } from './sector.js';
 import { allDefault, presetOf, sameOrders, settingsChips } from './settings.js';
 
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -90,6 +92,12 @@ export class LaunchScreen {
   // ------------------------------------------------------------------ pieces
 
   offersHtml() {
+    if (this.o.sector) {
+      const s = this.o.sector;
+      const n = this.offers.length;
+      return `<h2>THE SECTOR <small>sector ${(s.index ?? 0) + 1} · ${n === 1 ? 'one derelict in reach' : `${n} derelicts in reach`} · the hive front advances a column every run · the boss hulk at the end</small></h2>
+        <div class="sector"></div>`;
+    }
     return `<h2>CHOOSE DERELICT <small>three on offer; the one you take decides the next three</small></h2>
       <div class="offers">${this.offers.map((o, i) => `<button class="ship ${this.pick === i ? 'on' : ''}" data-ship="${i}">
         <div class="sn">${esc(o.name)}</div>
@@ -106,15 +114,19 @@ export class LaunchScreen {
     const o = this.o;
     const hintKeys = new Set([...(ship.modifiers ?? []).flatMap((k) => HINTS[k] ?? []), ...(HULL_CLASSES[ship.cls]?.hints ?? [])]);
     const hulls = o.onHull ? `<div class="hulls"><button data-hull="" class="${!o.hull ? 'on' : ''}" title="Whatever the seed makes of it">AUTO</button>${Object.entries(HULL_CLASSES).map(([k, c]) => `<button data-hull="${k}" class="${o.hull === k ? 'on' : ''}" title="${esc(c.blurb)}">${esc(c.label)}</button>`).join('')}</div>` : '';
-    const pay = this.campaign ? `<div class="pay">PAY <b>${contractPay(ship.threat, ship.reward)} cr</b> on extraction · danger ${'▮'.repeat(1 + (ship.danger ?? 0))}${'▯'.repeat(Math.max(0, 4 - (ship.danger ?? 0)))}</div>` : '';
-    return `<h2>CONTRACT${o.onHull ? ' <small>the hull: auto rolls it from the seed</small>' : ''}</h2>${hulls}<div class="intel">
+    const C = CONTRACTS[ship.contract?.kind] ?? CONTRACTS.uplink;
+    const pay = this.campaign ? `<div class="pay">PAY <b>${Math.round(contractPay(ship.threat, ship.reward) * (C.pay ?? 1))} cr</b> on extraction · danger ${'▮'.repeat(1 + (ship.danger ?? 0))}${'▯'.repeat(Math.max(0, 4 - (ship.danger ?? 0)))}</div>` : '';
+    const bonuses = (ship.bonuses ?? []).filter((k) => BONUSES[k]).map((k) => `<span class="bonus" title="${esc(BONUSES[k].text)}">+${BONUSES[k].pay} cr ${esc(BONUSES[k].label)}</span>`).join('');
+    const jobs = o.onJob ? `<div class="hulls jobs"><button data-job="" class="${!o.job ? 'on' : ''}" title="Whatever the seed makes of it">AUTO</button>${Object.entries(CONTRACTS).filter(([, c]) => !c.boss).map(([k, c]) => `<button data-job="${k}" class="${o.job === k ? 'on' : ''}" title="${esc(c.text)}">${esc(c.label)}</button>`).join('')}</div>` : '';
+    return `<h2>CONTRACT${o.onHull ? ' <small>the hull and the job: auto rolls them from the seed</small>' : ''}</h2>${hulls}${jobs}<div class="intel">
       <div class="sn">${esc(ship.name)}</div>
       <div class="sz">${esc(ship.size ?? '')} · threat ${ship.threat ?? 0}</div>
       ${ship.blurb ? `<div class="bl">${esc(ship.blurb)}</div>` : ''}
       ${ship.story ? `<div class="story"><b>${esc(ship.story.title)}.</b> ${esc(ship.story.blurb)}</div>` : ''}
       <div class="mods">${(ship.modifiers ?? []).map((k) => `<span title="${esc(MODIFIERS[k].text)}">${MODIFIERS[k].label}</span>`).join('') || '<span class="plain">No known anomalies</span>'}</div>
       ${hintKeys.size ? `<div class="hint">Matters here: ${[...hintKeys].map((k) => `<b>${STATS.LABEL[k]}</b>`).join(', ')}</div>` : ''}
-      <div class="obj"><span>OBJECTIVE</span> ${esc(ship.contract?.text ?? 'Reach the command deck and hold it for the nav-lock uplink.')}</div>
+      <div class="obj"><span>${esc((C.label ?? 'Objective').toUpperCase())}</span> ${esc(contractText(ship.contract ? { ...C, ...ship.contract } : null))}</div>
+      ${bonuses ? `<div class="bonuses"><span>BONUS</span> ${bonuses}</div>` : ''}
       ${pay}
     </div>`;
   }
@@ -204,6 +216,8 @@ export class LaunchScreen {
       ${this.tab === 'kestrel' ? kestrel : launch}
     </div>`;
     this.el.querySelector('.help-slot').replaceWith(helpButton(this.el, this.control));
+    const sectorEl = this.el.querySelector('.sector');
+    if (sectorEl) renderSector(sectorEl, this.o.sector, { reachable: new Set(this.offers.map((q) => q.node)), selected: this.offers[this.pick]?.node ?? null, onPick: (id) => { const i = this.offers.findIndex((q) => q.node === id); if (i >= 0) { this.pick = i; this.render(); } } });
     this.bind(chosen);
   }
 
@@ -224,6 +238,7 @@ export class LaunchScreen {
     el.querySelectorAll('[data-up]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.moveUp(b.dataset.up); }));
     el.querySelectorAll('[data-control]').forEach((b) => b.addEventListener('click', () => { this.control = b.dataset.control; this.render(); }));
     el.querySelectorAll('[data-hull]').forEach((b) => b.addEventListener('click', () => this.o.onHull?.(b.dataset.hull || null)));
+    el.querySelectorAll('[data-job]').forEach((b) => b.addEventListener('click', () => this.o.onJob?.(b.dataset.job || null)));
     el.querySelector('.barsmode').addEventListener('click', () => { this.bars = !this.bars; try { localStorage.setItem(BARS_KEY, this.bars ? 'on' : 'off'); } catch { /* private mode */ } this.render(); });
     el.querySelector('.change').addEventListener('click', () => { this.settingsOpen = !this.settingsOpen; this.render(); });
     el.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {

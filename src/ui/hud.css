@@ -576,3 +576,39 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color:
 .screen .helpbtn:hover { color: #fff; border-color: var(--edge-hi); }
 .screen .help .close { font-size: 12px; padding: 3px 10px; background: none; color: var(--ink-dim); box-shadow: none; border: 1px solid var(--edge); letter-spacing: 1px; }
 .command .top .tabs button, .command .top .helpbtn { text-transform: uppercase; }
+
+/* ---------- contracts (gen/contracts.js) and the sector (meta/sector.js) */
+#fuse { position: absolute; top: 14px; left: 50%; transform: translateX(-50%) scale(var(--ui, 1)); transform-origin: top center; display: none; flex-direction: column; align-items: center; padding: 6px 22px 4px;
+  background: rgba(40,20,4,.88); border: 2px solid #e08030; box-shadow: 0 0 22px rgba(224,128,48,.55); color: #ffe0c0; animation: hordepulse .9s ease-in-out infinite; }
+#fuse.show { display: flex; }
+#fuse small { font-size: 12px; letter-spacing: 5px; color: #ffb070; }
+#fuse b { font-weight: normal; font-size: 40px; line-height: 1; letter-spacing: 2px; text-shadow: 0 0 14px rgba(255,160,60,.8); }
+#hud:has(#fuse.show) #log { top: 92px; }
+.intel .bonuses { margin-top: 5px; font-size: 11px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.intel .bonuses > span:first-child { font-size: 10px; letter-spacing: 2px; color: var(--accent); margin-right: 2px; }
+.intel .bonus { padding: 1px 6px; border: 1px solid #6a5a2a; color: #d9b860; }
+.hulls.jobs { margin-top: -2px; }
+.sector { border: 1px solid var(--edge); background: rgba(4,8,8,.85); padding: 4px; }
+.sectormap { display: block; width: 100%; height: auto; font-family: inherit; }
+.sectormap .front { fill: rgba(140,30,30,.18); }
+.sectormap .frontlbl { fill: #c05040; font-size: 11px; letter-spacing: 3px; }
+.sectormap .edge { fill: none; stroke: #3a4a44; stroke-width: 1.5; }
+.sectormap .edge.lit { stroke: var(--accent); stroke-width: 2; }
+.sectormap .edge.done { stroke: #5f8f5a; }
+.sectormap .kestrel path { fill: #e7eadf; }
+.sectormap .kestrel text { fill: var(--ink-dim); font-size: 9px; letter-spacing: 2px; }
+.sectormap .node rect { fill: rgba(10,14,14,.9); stroke: var(--edge); stroke-width: 1; }
+.sectormap .node text { fill: var(--ink-dim); font-size: 11px; }
+.sectormap .node .nm { fill: #c9d2c4; font-size: 12px; letter-spacing: 1px; }
+.sectormap .node .dg { fill: #b08070; font-size: 10px; }
+.sectormap .node.open { cursor: pointer; }
+.sectormap .node.open rect { stroke: var(--edge-hi); }
+.sectormap .node.open .nm { fill: #fff; }
+.sectormap .node.open:hover rect { stroke: var(--accent); }
+.sectormap .node.selected rect { stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 6px rgba(127,194,90,.6)); }
+.sectormap .node.visited rect { stroke: #5f8f5a; stroke-dasharray: 3 2; }
+.sectormap .node.visited text { fill: #6f8f6a; }
+.sectormap .node.lost rect { stroke: #5a2a2a; }
+.sectormap .node.lost text { fill: #7a4a4a; }
+.sectormap .node.boss rect { stroke: #c890e0; }
+.sectormap .node.boss .nm { fill: #e8c8f8; }

@@ -107,10 +107,13 @@ Open doors, obstacles to vault or duck under and the outer lock are taken in you
     - **Strength:** weak, normal, tough or brutal (0.7x to 1.8x their health, 0.7x to 1.5x their damage).
     - **Ship size:** small, medium or large, within the hull class's own range. Large ships are longer, have an extra deck and carry more hostiles to fill them.
     - **Hordes:** off, rare, normal or often. Off means no horde aboard; Often means less noise brings it, and it nearly always comes. The Enemies setting scales the horde too.
-- **Choose a derelict:** one of three offers of three different hull classes, each with a size, modifiers, a pay multiplier and the story its seed tells. Modifiers include *Infested*, *Blackout*, *Treasure hauler*, *Armoury ship*, *Distress call*, *Hive ship*, *Restless* and *Fuel leak*; each class favours some and never carries others (no *Treasure hauler* corvettes). No streaks: one offer is always plain, one has a twist, one has two, and the classes and modifiers of the last few runs come up less.
+- **Choose a derelict:** the nodes in reach on the sector map (quick play rolls one from its seed), each with a hull class, a size, modifiers, a pay multiplier, a contract and the story its seed tells. Modifiers include *Infested*, *Blackout*, *Treasure hauler*, *Armoury ship*, *Distress call*, *Hive ship*, *Restless* and *Fuel leak*; each class favours some and never carries others (no *Treasure hauler* corvettes). No streaks: one offer is always plain, one has a twist, one has two, and the classes and modifiers of the last few runs come up less.
+- **The sector:** the campaign's map. A dozen derelicts on branching routes, column by column, from where the Kestrel sits to the **boss hulk** at the far end: a brood ship with the **queen** in her nest (a hall two decks tall where the ship has one), twice a brood mother's size, birthing runners faster and longer, and worth a big bonus dead. The nodes in reach are the next column on from the Kestrel; every run moves it one column. Behind it the **hive front** advances a column every run, win or lose: derelicts it reaches are gone, and a Kestrel it catches up with runs for the next column with no choice of ship. The boss hulk cleared, the sector is done and the next one opens, deeper in (threat carries on, the front resets).
+- **Contracts:** every derelict has a job, named on its node and the contract card: the **nav-lock** (reach the command deck and hold it for the upload - the original); the **black box** (pull it from the bridge console, carry it back to the Kestrel); **scuttle** (set a charge on the reactor, then get everyone back aboard the Kestrel in the 110 seconds before it goes - whoever is still aboard the derelict dies with it); the **beacon** (plant it in the deepest nest - they wake - and get home); **crew rescue** (find the crew still alive aboard, two to four of them, and get them home; the squad sweeps the ship for them); **escort** (one named survivor knows what we came for: find them and get them home alive); and the boss hulk's **queen** (kill her, then everyone out). Every job but the nav-lock ends with the walk back to the Kestrel, and the run is won when everyone on his feet is aboard (anyone down is carried from the dock, left behind anywhere else). A job that can't be finished - the crew dead - fails: the squad still extracts for what it found, but not the contract's pay. Quick play rolls the job from the seed, or takes `&job=` (a picker on the briefing).
+- **Bonus objectives:** two per node, extra pay the debrief checks: clear the ship, every civilian home, nobody lost, no horde called, done inside ten minutes.
 - **Board:** the squad walks from the docked Kestrel through the boarding tube into the airlock. The lock cycles behind them.
 - **Debrief:**
-  - **Payout:** recovered credits, sold salvage, contract pay and rescue bounties. A wipe keeps only 25% insurance.
+  - **Payout:** recovered credits, sold salvage, the contract's pay (only done; the harder jobs pay more), the bonuses earned and rescue bounties. A wipe keeps only 25% insurance.
   - **Timeline:** the notable lines of the ship's log, timed - who went down and when, what was found, what woke up.
   - **XP and rank:** from kills, survival and the objective. Promotions run Private, Corporal, Sergeant, Lieutenant, Captain.
   - **Permadeath:** the dead go to the memorial.
@@ -281,7 +284,7 @@ You can adjust each order yourself:
    - Treasure salvage.
    - Food and energy drinks (energy for high alert).
    - Survivors to identify and send back to the Kestrel.
-7. **Finish.** Reach the command deck and hold it while the navigation uplink completes.
+7. **Finish.** Do the job (the contract, above) and, for every job but the nav-lock, get everyone back aboard the Kestrel. The HUD's objective says what to do now and how far; a reactor charge counts down across the top of the screen.
 
 ## Architecture
 

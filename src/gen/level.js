@@ -8,6 +8,7 @@
 import { Rng } from '../core/rng.js';
 import { WORLD } from '../core/config.js';
 import { HULL_CLASSES, classFor, parseSeed, seedCode, shipSize } from './classes.js';
+import { contractFor } from './contracts.js';
 import { storyFor } from './stories.js';
 import { buildLayout, layoutScore } from './layout.js';
 import { populate } from './populate.js';
@@ -27,12 +28,16 @@ export function generateLevel(seed, opts = {}) {
     const L = buildLayout(new Rng(bare, `layout-${attempt}`), { ...size, cls, hallRng: new Rng(bare, `hall-${attempt}`) });
     if (!L) continue;
     found++;
-    const score = layoutScore(L);
+    // (A boss hulk wants a hall two decks tall for the queen's nest.)
+    const score = layoutScore(L) + (mods.boss && L.rooms.some((r) => r.tall) ? 50 : 0);
     if (!best || score > best.score) best = { L, score, attempt };
   }
   if (!best) throw new Error(`no valid layout for seed ${seed}`);
   // threat = campaign difficulty tier; mods = ship modifiers (see meta/ships.js)
   const level = { seed: seedCode(cls, bare), bare, attempt: best.attempt, threat: opts.threat ?? 0, mods, heading: 1, mirror: false, story: storyFor(bare, cls), ...best.L };
+  // The job aboard (gen/contracts.js): named by the offer (a sector node) or quick play's roll;
+  // the nav-lock when nobody names one (tools, tests, old links).
+  level.contract = contractFor(bare, { want: mods.contract ?? opts.contract ?? 'uplink', boss: !!mods.boss, threat: level.threat });
   populate(level, (name) => new Rng(bare, name));
   addDock(level);
   if (HULL_CLASSES[cls].dockSide === 'either' && new Rng(bare, 'mirror').chance(0.5)) mirrorLevel(level);
@@ -69,6 +74,7 @@ function mirrorLevel(level) {
     }
   }
   if (level.objective) level.objective.x = mx(level.objective.x);
+  if (level.boss) level.boss.x = mx(level.boss.x);
   for (const e of level.events ?? []) if (e.x !== undefined) e.x = mx(e.x);
   for (const b of level.breaches ?? []) { b.x = mx(b.x); [b.a, b.b] = [b.b, b.a]; }
   level.spans = level.spans.map(([c0, c1]) => [level.cols - 1 - c1, level.cols - 1 - c0]);

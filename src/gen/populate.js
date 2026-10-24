@@ -5,7 +5,8 @@ import { LOOT, PROPS, ROOM_TYPES } from './templates.js';
 import { HULL_CLASSES, sectionOf, zoneWeight } from './classes.js';
 import { bfs, walkLimits } from './layout.js';
 import { ceilingSpans, doorInWall, portalEnds, wallFace } from './level.js';
-import { pickAlienType } from '../sim/entities.js';
+import { CREW, pickAlienType } from '../sim/entities.js';
+import { CONTRACTS } from './contracts.js';
 import { rollTreasure, rollWeapon } from '../sim/loot.js';
 import { NavGraph } from '../nav/graph.js';
 
@@ -259,13 +260,104 @@ function placeBreeds(level, rng) {
  * too heavy for the ceiling). Own RNG stream.
  */
 function placeBrood(level, rng) {
-  if (!rng.chance(Math.min(0.8, BROOD.CHANCE + (level.threat ?? 0) * 0.12))) return;
+  const boss = level.contract?.kind === 'queen' || !!level.mods?.boss;
+  if (!boss && !rng.chance(Math.min(0.8, BROOD.CHANCE + (level.threat ?? 0) * 0.12))) return;
   const nests = level.rooms.filter((r) => r.nest && level.spawns.aliens.some((s) => s.room === r.id)).sort((a, b) => b.dist - a.dist);
+  if (boss) {
+    // The queen's nest: the hall two decks tall if the ship has one, else the deepest nest, else the deepest room.
+    const inside = level.rooms.filter((r) => !r.exterior && r.type !== 'airlock' && r.type !== 'cockpit');
+    const room = level.rooms.find((r) => r.tall) ?? nests[0] ?? inside.sort((a, b) => b.dist - a.dist)[0];
+    room.nest = true;
+    const [wl, wr] = walkLimits(room);
+    let s = level.spawns.aliens.find((q) => q.room === room.id);
+    if (!s) { s = { room: room.id, x: (wl + wr) / 2, y: room.y0, surface: 'floor', side: 0, type: 'drone' }; level.spawns.aliens.push(s); }
+    Object.assign(s, { type: 'queen', surface: 'floor', side: 0, x: Math.min(wr - 2, Math.max(wl + 2, s.x)), y: room.y0 });
+    level.boss = { room: room.id, x: s.x };
+    return;
+  }
   if (!nests.length) return;
   const room = nests[0];
   const s = level.spawns.aliens.find((q) => q.room === room.id);
   const [wl, wr] = walkLimits(room);
   Object.assign(s, { type: 'brood', surface: 'floor', side: 0, x: Math.min(wr - 1.5, Math.max(wl + 1.5, s.x)), y: room.y0 });
+}
+
+/**
+ * The contract (gen/contracts.js) made true aboard: its target placed and marked as the
+ * objective (the squad walks to it and works it: sim/contract.js), the crew it needs put
+ * aboard, the command deck's console left as the objective only for the jobs done there.
+ */
+function placeContract(level, rng) {
+  const c = level.contract;
+  if (!c) return;
+  let id = Math.max(0, ...level.rooms.flatMap((r) => r.props.map((p) => p.id))) + 1;
+  const inside = level.rooms.filter((r) => !r.exterior && r.type !== 'airlock' && r.type !== 'cockpit');
+  const byDepth = (rooms) => rooms.slice().sort((a, b) => b.dist - a.dist);
+  const place = (room, kind, extra = {}) => {
+    const x = freeSpot(level, room, PROPS[kind].w, rng) ?? (() => {
+      const filler = room.props.find((p) => FILLER.includes(p.kind));
+      if (!filler) return null;
+      const fx = filler.x;
+      room.props.splice(room.props.indexOf(filler), 1);
+      return fx;
+    })();
+    if (x === null) return null;
+    const p = { id: id++, kind, x, z: PROPS[kind].z, room: room.id, ...extra };
+    room.props.push(p);
+    room.props.sort((a, b) => a.x - b.x);
+    return p;
+  };
+  const console_ = level.rooms[level.objective.room].props.find((p) => p.kind === 'control_panel');
+  const target = (p) => { level.objective = { room: p.room, x: p.x - 0.4 }; if (console_) console_.objective = false; };
+  switch (c.kind) {
+    case 'reactor': {
+      // The reactor room (else engineering, else the deepest room), its clutter cleared for the core if need be.
+      let p = null;
+      for (const room of [...byDepth(inside.filter((r) => r.type === 'reactor')), ...byDepth(inside.filter((r) => r.type === 'engineering')), ...byDepth(inside.filter((r) => r.type !== 'reactor' && r.type !== 'engineering'))]) {
+        const clutter = room.props.filter((q) => !q.encounter && !q.loot && !q.obstacle && q.kind !== 'body' && q.kind !== 'reactor');
+        for (let k = 0; k <= clutter.length && !p; k++) {
+          p = place(room, 'reactor', { objective: true, contract: true, label: 'Reactor core' });
+          if (!p && k < clutter.length) room.props.splice(room.props.indexOf(clutter[k]), 1);
+        }
+        if (p) break;
+      }
+      if (p) target(p); else Object.assign(c, CONTRACTS.uplink, { kind: 'uplink' });
+      return;
+    }
+    case 'beacon': {
+      // The deepest nest with room for it; failing every nest, the deepest room that has.
+      let p = null;
+      for (const room of [...byDepth(inside.filter((r) => r.nest)), ...byDepth(inside.filter((r) => !r.nest))]) {
+        p = place(room, 'beacon_site', { objective: true, contract: true });
+        if (p) { room.nest = true; break; }
+      }
+      if (p) target(p); else Object.assign(c, CONTRACTS.uplink, { kind: 'uplink' });
+      return;
+    }
+    case 'rescue': case 'escort': {
+      const need = c.kind === 'rescue' ? c.crew : 1;
+      const sv = level.spawns.survivors;
+      const taken = new Set(sv.map((s) => s.room));
+      // (Somewhere the squad can reach without a key: not a storeroom, not the sealed medbay.)
+      const rooms = byDepth(inside.filter((r) => r.dist >= 2 && !r.nest && r.type !== 'reactor' && r.locked === undefined && r.sealed === undefined && !taken.has(r.id)));
+      while (sv.length < need && rooms.length) {
+        const r = rooms.splice(rng.int(0, Math.min(rooms.length - 1, 3)), 1)[0];
+        const [wl, wr] = walkLimits(r);
+        sv.push({ room: r.id, x: rng.float(wl + 0.8, wr - 0.8) });
+      }
+      if (c.kind === 'rescue') c.crew = Math.min(c.crew, sv.length);
+      else {
+        const deep = sv.slice().sort((a, b) => level.rooms[b.room].dist - level.rooms[a.room].dist)[0];
+        if (deep) { deep.vip = true; c.vipName = rng.pick(CREW); } else Object.assign(c, CONTRACTS.uplink, { kind: 'uplink' });
+      }
+      if (console_) console_.objective = false;
+      return;
+    }
+    case 'queen':
+      if (console_) console_.objective = false;
+      return;
+    default: // uplink, blackbox: the command deck's console
+  }
 }
 
 /**
@@ -557,6 +649,7 @@ export function populate(level, rngFor) {
   placeBrood(level, rngFor('brood'));
   placeRations(level, rngFor('rations'));
   placeOddities(level, rngFor('oddities'));
+  placeContract(level, rngFor('contract'));
   placeEvents(level, rngFor('events'));
   placeBreaches(level, rngFor('breaches'));
   placeHorde(level, rngFor('horde'));

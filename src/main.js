@@ -19,7 +19,8 @@ import { Sfx } from './audio/sfx.js';
 import {
   applyRun, clearProfile, deployable, levelFor, loadProfile, loadRun, newProfile, rankFor, saveProfile, saveRun, trooperMods,
 } from './meta/profile.js';
-import { shipOffers } from './meta/ships.js';
+import { nodeOffer, reachable } from './meta/sector.js';
+import { contractFor } from './gen/contracts.js';
 import { candidatePool } from './meta/candidates.js';
 import { HULL_CLASSES, classFor, parseSeed, seedCode } from './gen/classes.js';
 import { storyFor } from './gen/stories.js';
@@ -107,6 +108,7 @@ class Game {
     this.hud.root.classList.add('menu');
     const { cls: hull, seed } = parseSeed(code);
     const cls = classFor(seed, hull);
+    const job = this.quickJob ?? params.job ?? null; // the contract the player picked, else the seed's roll (gen/contracts.js)
     // The ship's candidates - or a fresh set each time the player rerolls (carried as &pool=).
     let roll = 0;
     const poolFor = (r) => candidatePool(seed, 8, r).map((t) => ({ ...t, rank: rankFor(levelFor(t.xp)) }));
@@ -116,8 +118,9 @@ class Game {
     this.briefing?.dispose();
     this.briefing = new LaunchScreen(this.hud.root, {
       heading: 'QUICK PLAY · BRIEFING', pool, portraits: portraitMap(this.assets, pool),
-      ship: { name: `Derelict ${seedCode(cls, seed)}`, size: HULL_CLASSES[cls].label, cls, blurb: HULL_CLASSES[cls].blurb, story: storyFor(seed, cls), threat: 0, modifiers: [] },
+      ship: { name: `Derelict ${seedCode(cls, seed)}`, size: HULL_CLASSES[cls].label, cls, blurb: HULL_CLASSES[cls].blurb, story: storyFor(seed, cls), threat: 0, modifiers: [], contract: contractFor(seed, { want: job }) }, // (no job named: the seed's roll)
       hull, onHull: (k) => this.showQuickBriefing(k ? seedCode(k, seed) : seed),
+      job, onJob: (k) => { this.quickJob = k; this.showQuickBriefing(code); },
       selected: pool.slice(0, 4).map((t) => t.id), doctrine: last?.doctrine ?? PRESETS.standard.doctrine,
       difficulty: last?.difficulty, control: last?.control,
       backLabel: 'MAIN MENU',
@@ -129,7 +132,7 @@ class Game {
       onDeploy: (offer, ids, doctrine, difficulty, control) => {
         try { localStorage.setItem('hullbreach.quick', JSON.stringify({ doctrine, difficulty, control })); } catch { /* private mode */ }
         const diff = isDefaultDifficulty(difficulty) ? '' : `&diff=${difficultyString(difficulty)}`;
-        location.search = `?seed=${hull ? seedCode(hull, seed) : seed}&go=1&squad=${ids.join(',')}${roll ? `&pool=${roll}` : ''}&doc=${doctrineString(doctrine)}${diff}${control === 'lead' ? '&ctrl=lead' : ''}`;
+        location.search = `?seed=${hull ? seedCode(hull, seed) : seed}&go=1&squad=${ids.join(',')}${roll ? `&pool=${roll}` : ''}&doc=${doctrineString(doctrine)}${diff}${control === 'lead' ? '&ctrl=lead' : ''}${job ? `&job=${job}` : ''}`;
       },
     });
   }
@@ -141,7 +144,7 @@ class Game {
     const squad = (params.squad ?? []).map((id) => pool.find((t) => t.id === id)).filter(Boolean)
       .map((t) => ({ ...t, rank: rankFor(levelFor(t.xp)) }));
     // No squad in the URL (tools, old links): the standard four at baseline stats.
-    const level = generateLevel(code, { mods: withDifficulty({}, parseDifficulty(params.diff)) });
+    const level = generateLevel(code, { mods: withDifficulty({}, parseDifficulty(params.diff)), contract: params.job ?? contractFor(seed).kind });
     this.start(level, { squad: squad.length ? squad : null, doctrine: parseDoctrine(params.doc), control: params.ctrl === 'lead' ? 'lead' : 'squad' });
   }
 
@@ -160,8 +163,10 @@ class Game {
     this.hud.root.classList.add('menu');
     const p = this.profile;
     this.launch?.dispose();
+    // The sector (meta/sector.js): the derelicts in reach of where the Kestrel sits.
+    const offers = reachable(p.sector).map((n) => nodeOffer(p.sector, n.id, p.threat));
     this.launch = new LaunchScreen(this.hud.root, {
-      profile: p, assets: this.assets, offers: shipOffers(p),
+      profile: p, assets: this.assets, offers, sector: p.sector,
       selected: deployable(p).map((t) => t.id), doctrine: p.doctrine ?? PRESETS.standard.doctrine, difficulty: p.difficulty, control: p.control,
       backLabel: 'MAIN MENU',
       onBack: () => { location.search = ''; },
@@ -171,9 +176,7 @@ class Game {
         p.difficulty = difficulty;
         p.control = control;
         // The difficulty rides in the ship's mods (meta/difficulty.js).
-        saveRun({ seed: offer.seed, threat: offer.threat, mods: withDifficulty(offer.mods, difficulty), reward: offer.reward, name: offer.name, squad, doctrine, difficulty, control });
-        // What was played lately: the next offers steer away from it (meta/ships.js).
-        this.profile.recent = [...(this.profile.recent ?? []), { cls: offer.cls, modifiers: offer.modifiers ?? [] }].slice(-4);
+        saveRun({ seed: offer.seed, threat: offer.threat, mods: withDifficulty({ ...offer.mods, contract: offer.contract?.kind ?? null }, difficulty), reward: offer.reward, name: offer.name, squad, doctrine, difficulty, control, node: offer.node ?? null, bonuses: offer.bonuses ?? [] });
         this.profile.seedCounter++;
         saveProfile(this.profile);
         location.search = '?run=1';
@@ -195,7 +198,7 @@ class Game {
 
   debriefRun() {
     const result = this.world.results();
-    const debrief = applyRun(this.profile, result);
+    const debrief = applyRun(this.profile, result, { node: this.campaignRun?.node, bonuses: this.campaignRun?.bonuses });
     saveProfile(this.profile);
     saveRun(null);
     this.loop.paused = true;

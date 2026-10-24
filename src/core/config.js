@@ -230,6 +230,8 @@ export const ALIEN_TYPES = {
   screamer: { label: 'Screamer', scale: 0.95, hp: 75, speed: 0.85, damage: [8, 13],  attackTime: 0.8,  leap: 0,   climb: 0.15, stagger: 1.2,  force: 0.8, tint: '#d89ab0', weight: 0,  deep: 5,  screams: true },
   // The brood mother (BROOD): never picked at random - one at most, in a nest deep in the ship.
   brood:   { label: 'Brood mother', scale: 1.75, hp: 480, speed: 0.5, damage: [30, 44], attackTime: 1.3, leap: 0, climb: 0,    stagger: 0.22, force: 2.5, tint: '#7a5a8e', weight: 0,  deep: 0,  births: true },
+  // The queen (gen/contracts.js 'queen'): the boss hulk's brood mother, twice the size, births faster and longer, dies hard.
+  queen:   { label: 'Queen',        scale: 2.3,  hp: 1150, speed: 0.42, damage: [40, 58], attackTime: 1.45, leap: 0, climb: 0,   stagger: 0.1,  force: 3,   tint: '#8e3a7a', weight: 0,  deep: 0,  births: { every: 5, max: 16 }, royal: true },
 };
 
 // Pack habits (sim/alien.js). FLANK: a climber whose packmate is already closing on the squad
@@ -255,7 +257,7 @@ export const SCREAM = { RANGE: 24, WINDUP: 1.1, CALL: [1, 2], EVERY: 14, MAX: 3,
 
 // The brood mother: placed (CHANCE, more with threat) in the deepest nest. Awake, she births a
 // runner from the ship's reserve every EVERY seconds, MAX in all. BONUS credits for killing her.
-export const BROOD = { CHANCE: 0.3, EVERY: 8, MAX: 6, BONUS: 120 };
+export const BROOD = { CHANCE: 0.3, EVERY: 8, MAX: 6, BONUS: 120, QUEEN_BONUS: 400 };
 
 // The spitter's acid: it keeps to RANGE, spits every EVERY seconds (a WINDUP, then a lob that
 // lands FLIGHT seconds later), DAMAGE to whoever it hits and a POOL that burns anyone standing in
