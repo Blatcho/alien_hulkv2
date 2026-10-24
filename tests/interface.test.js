@@ -123,7 +123,7 @@ describe('the cards', () => {
 describe('the settings chips', () => {
   it('fold the orders and the difficulty into one line, flagging what is not the default', () => {
     const chips = settingsChips(PRESETS.standard.doctrine, DEFAULT_DIFFICULTY);
-    expect(chips.map((c) => c.k)).toEqual(['orders', 'enemies', 'strength', 'ship', 'hordes']);
+    expect(chips.map((c) => c.k)).toEqual(['orders', 'enemies', 'strength', 'ship', 'hordes', 'heat']);
     expect(chips[0].value).toBe('Manual');
     expect(allDefault(chips)).toBe(true);
     const hot = settingsChips(PRESETS.assault.doctrine, { ...DEFAULT_DIFFICULTY, enemies: 'swarm' });

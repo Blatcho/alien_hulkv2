@@ -89,6 +89,9 @@ export class World {
     this.credits = 0;
     this.stims = SQUAD.STIMS;
     this.kit = { charges: KIT.CHARGES, grenades: KIT.GRENADES, flares: KIT.FLARES, defend: KIT.DEFEND, keycards: 0 };
+    // Short rations (meta/heat.js): half of everything issued, before the upgrades and relics add theirs.
+    const rations = level.mods?.rations ?? 1;
+    if (rations !== 1) { this.stims = Math.floor(this.stims * rations); for (const k of ['charges', 'grenades', 'flares']) this.kit[k] = Math.floor(this.kit[k] * rations); }
     this.sentries = []; // hacked turrets and the squad's own Defend guns, fighting for it (sim/sentry.js)
     this.stimT = 0;
     this.reserve = level.hostiles?.reserve ?? 0; // hostiles not yet on the board
@@ -116,7 +119,7 @@ export class World {
     this.marines = Array.from({ length: troopers ? troopers.length : SQUAD.SIZE },
       (_, i) => makeMarine(i, spawn.x, y0, spawn.room, troopers?.[i], { hpBonus: 10 * this.upgrades.armor }));
     this.stims += this.upgrades.stims;
-    this.staminaMax = PACE.STAMINA_MAX * (1 + 0.2 * this.upgrades.cooling);
+    this.staminaMax = PACE.STAMINA_MAX * (1 + 0.2 * this.upgrades.cooling) * (level.mods?.breath ?? 1); // (thin air, meta/heat.js)
     this.stamina = this.staminaMax; // the squad's breath = its most winded man (updateMeters)
     for (const m of this.marines) { m.staminaMax = this.staminaMax * m.mods.stamina; m.stamina = m.staminaMax; m.facing = level.heading ?? 1; }
     for (const m of this.marines) this.physics.addHitbox(m, 0.8, m.height, G.MARINE);
@@ -1245,6 +1248,7 @@ export class World {
       stash: this.stash, rewardMult: this.rewardMult,
       troopers: this.marines.map((m) => ({ id: m.trooperId, name: m.name, alive: m.alive, wound: m.wound ?? null, kills: m.kills, weaponItem: m.weaponItem, usage: { ...m.use }, downs: m.downs ?? 0, dragged: m.draggedN ?? 0, escapesUsed: m.escapesUsed ?? 0, searches: m.searches ?? 0, lowAfterHorde: !!m.lowAfterHorde })),
       flags: { ...this.flags, horde: (this.director.hordesCalled ?? 0) > 0 }, relics: [...this.relicsFound], fieldMods: [...this.fieldMods],
+      heat: [...(this.level.mods?.heat ?? [])], // the conditions the run was played under (meta/heat.js)
       journal: this.journal?.entries ?? [], // the ship's log, for the debrief's timeline (sim/journal.js)
       contract: this.contract.results(), hordes: this.director.hordesCalled ?? 0, survivorsAboard: this.survivors.length,
     };

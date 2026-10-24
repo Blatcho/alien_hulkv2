@@ -7,6 +7,7 @@ import { tierForLevel } from '../meta/ranks.js';
 import { archetypeChip, statBars } from './statbars.js';
 import { RARITY } from '../sim/loot.js';
 import { clock } from '../sim/journal.js';
+import { UNLOCKS } from '../meta/record.js';
 
 const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -19,12 +20,13 @@ function learning(t, gains = {}) {
 }
 
 export class DebriefScreen {
-  constructor(root, { profile, debrief, result, shipName, onContinue }) {
+  constructor(root, { profile, debrief, result, shipName, unlocks = [], onContinue }) {
     this.root = root;
     this.profile = profile;
     this.debrief = debrief;
     this.result = result;
     this.shipName = shipName;
+    this.unlocks = unlocks; // what this run earned on the service record (meta/record.js)
     this.onContinue = onContinue;
     this.el = root.appendChild(h('<div class="command debrief"></div>'));
     this.render();
@@ -49,6 +51,7 @@ export class DebriefScreen {
     // The timeline: what the ship's log (sim/journal.js) called notable.
     const notable = (r.journal ?? []).filter((e) => e.kind !== 'info').slice(-40);
     const timeline = notable.map((e) => `<li class="${e.kind}"><span>${clock(e.t)}</span>${esc(e.text)}</li>`).join('');
+    const unlocked = this.unlocks.filter((k) => UNLOCKS[k]).map((k) => `<li><b>${esc(UNLOCKS[k].label)}</b> <small>${esc(UNLOCKS[k].text)} · ${esc(UNLOCKS[k].deed)}</small></li>`).join('');
     const loot = [...r.stash, ...(r.status === 'won' ? r.salvageItems : [])]
       .map((it) => `<li style="color:${it.type === 'weapon' ? RARITY[it.rarity].color : '#e0b040'}">${esc(it.name)}${it.type === 'treasure' ? ` <small>${it.value} cr</small>` : ''}</li>`).join('');
 
@@ -59,6 +62,7 @@ export class DebriefScreen {
         <div class="col">
           <h2>PAYOUT</h2>
           <table class="pay">${lines}<tr class="tot"><td>Total</td><td>${d.earned >= 0 ? '+' : ''}${d.earned}</td></tr><tr><td>Balance</td><td>${p.credits} cr</td></tr></table>
+          ${unlocked ? `<h2>UNLOCKED <small>on the service record, for every campaign to come</small></h2><ul class="unlocks">${unlocked}</ul>` : ''}
           ${loot ? `<h2>RECOVERED</h2><ul class="loot">${loot}</ul>` : ''}
           ${timeline ? `<h2>TIMELINE <small>from the ship's log</small></h2><ul class="timeline">${timeline}</ul>` : ''}
           ${d.won ? `<p class="next">Threat level rises to <b>${p.threat}</b>. The next derelicts will be nastier - and pay better.</p>` : '<p class="next">The Kestrel waits for survivors that will not come. Recruit, re-arm, try again.</p>'}

@@ -4,12 +4,15 @@
 // a card or click its slot badge to move it up), and beside them the contract card, who does
 // what, how you command (SQUAD: they run themselves by your orders, you point and click; LEAD:
 // you walk one marine, the others follow), and the run's settings folded into one line of
-// chips (orders and difficulty, remembered) that unfolds on CHANGE. In the campaign a KESTREL
-// tab holds the shopping (ui/kestrel.js): roster, recruits, armoury, upgrades, memorial.
+// chips (orders and difficulty, remembered) that unfolds on CHANGE, and the heat (meta/heat.js):
+// conditions switched on for pay. In the campaign a KESTREL tab holds the shopping
+// (ui/kestrel.js): roster, recruits, armoury, upgrades, memorial. The daily derelict
+// (meta/daily.js) is the same screen with its orders and difficulty fixed.
 import { STATS } from '../core/config.js';
 import { HULL_CLASSES } from '../gen/classes.js';
 import { BONUSES, CONTRACTS, contractText } from '../gen/contracts.js';
 import { DIFFICULTY, fitDifficulty } from '../meta/difficulty.js';
+import { HEAT, HEAT_KEYS, fitHeat, heatDanger, heatPay, heatPayText, heatSquad } from '../meta/heat.js';
 import { buyUpgrade, deployable, equipFromStash, fit, levelFor, rankFor, recruit, recruitOffers, saveProfile, treatQuirk } from '../meta/profile.js';
 import { EVENTS, applyEvent, eventOptions } from '../meta/events.js';
 import { MODIFIERS } from '../meta/ships.js';
@@ -41,10 +44,12 @@ export const contractPay = (threat, reward = 1) => Math.round((250 + 120 * (thre
 export class LaunchScreen {
   /**
    * @param {object} o
-   *   Campaign: profile, assets, offers (meta/ships.js shipOffers), onDeploy(offer, ids, doctrine, difficulty, control).
+   *   Campaign: profile, assets, offers (meta/ships.js shipOffers), archetypes (the recruits' pool, meta/record.js),
+   *   onDeploy(offer, ids, doctrine, difficulty, control, heat).
    *   Quick play: heading, ship {name, size, cls, blurb, story, threat, modifiers}, pool, portraits (Map id -> url),
-   *   hull, onHull(cls), onReroll() -> {pool, portraits}, onDeploy(null, ids, doctrine, difficulty, control).
-   *   Both: selected (ids, in order), doctrine, difficulty, control, onBack(), backLabel.
+   *   hull, onHull(cls), lockedHulls {cls: deed}, onReroll() -> {pool, portraits}, onDeploy(null, ids, doctrine, difficulty, control, heat).
+   *   The daily: daily (scored), fixed (no orders or difficulty to change).
+   *   Both: selected (ids, in order), doctrine, difficulty, control, heat, onBack(), backLabel.
    */
   constructor(root, o) {
     this.o = o;
@@ -61,6 +66,7 @@ export class LaunchScreen {
     this.doctrine = fitOrders({ ...(o.doctrine ?? PRESETS.standard.doctrine) });
     this.preset = presetOf(this.doctrine);
     this.difficulty = fitDifficulty(o.difficulty);
+    this.heat = fitHeat(o.heat);
     this.control = o.control === 'lead' ? 'lead' : 'squad';
     this.tab = 'launch';
     this.settingsOpen = false;
@@ -73,7 +79,8 @@ export class LaunchScreen {
   }
 
   get lead() { return this.control === 'lead'; }
-  get max() { return Math.min(4, this.pool.length); }
+  /** How many board: four, or what the heat allows (a skeleton crew is three). */
+  get max() { return Math.min(heatSquad(this.heat), this.pool.length); }
   /** How many must be picked: the four (squad), or just yourself (lead). */
   get need() { return this.lead ? 1 : this.max; }
   /** The derelict this launch is for. */
@@ -125,10 +132,18 @@ export class LaunchScreen {
     if (!ship) return '';
     const o = this.o;
     const hintKeys = new Set([...(ship.modifiers ?? []).flatMap((k) => HINTS[k] ?? []), ...(HULL_CLASSES[ship.cls]?.hints ?? [])]);
-    const hulls = o.onHull ? `<div class="hulls"><button data-hull="" class="${!o.hull ? 'on' : ''}" title="Whatever the seed makes of it">AUTO</button>${Object.entries(HULL_CLASSES).map(([k, c]) => `<button data-hull="${k}" class="${o.hull === k ? 'on' : ''}" title="${esc(c.blurb)}">${esc(c.label)}</button>`).join('')}</div>` : '';
+    // Hulls the service record hasn't unlocked yet (meta/record.js) stay on the picker, locked, with their deed.
+    const locked = o.lockedHulls ?? {};
+    const hulls = o.onHull ? `<div class="hulls"><button data-hull="" class="${!o.hull ? 'on' : ''}" title="Whatever the seed makes of it">AUTO</button>${Object.entries(HULL_CLASSES).map(([k, c]) => `<button data-hull="${k}" class="${o.hull === k ? 'on' : ''} ${locked[k] ? 'locked' : ''}" ${locked[k] ? 'disabled' : ''} title="${esc(locked[k] ? `Locked - on the service record: ${locked[k]}` : c.blurb)}">${esc(c.label)}${locked[k] ? ' <i>locked</i>' : ''}</button>`).join('')}</div>` : '';
     const C = CONTRACTS[ship.contract?.kind] ?? CONTRACTS.uplink;
     const boon = this.profile?.boon ?? null;
-    const pay = this.campaign ? `<div class="pay">PAY <b>${Math.round(contractPay(ship.threat, ship.reward * (boon?.pay ?? 1)) * (C.pay ?? 1))} cr</b> on extraction · danger ${'▮'.repeat(1 + (ship.danger ?? 0) + (boon?.danger ?? 0))}${'▯'.repeat(Math.max(0, 4 - (ship.danger ?? 0) - (boon?.danger ?? 0)))}${boon ? ' · <span class="boon">the underwriter\'s terms</span>' : ''}</div>` : '';
+    // The heat (meta/heat.js) multiplies the pay (the daily's score) and adds its pips of danger.
+    const hp = heatPay(this.heat);
+    const danger = (ship.danger ?? 0) + (boon?.danger ?? 0) + heatDanger(this.heat);
+    const pips = `${'▮'.repeat(1 + Math.min(5, danger))}${'▯'.repeat(Math.max(0, 4 - danger))}`;
+    const heatNote = hp > 1 ? ` · <span class="boon">heat x${hp}</span>` : '';
+    const pay = this.campaign ? `<div class="pay">PAY <b>${Math.round(contractPay(ship.threat, ship.reward * (boon?.pay ?? 1) * hp) * (C.pay ?? 1))} cr</b> on extraction · danger ${pips}${boon ? ' · <span class="boon">the underwriter\'s terms</span>' : ''}${heatNote}</div>`
+      : o.daily ? `<div class="pay">SCORE <b>x${hp}</b> with the heat on · danger ${pips}</div>` : '';
     const bonuses = (ship.bonuses ?? []).filter((k) => BONUSES[k]).map((k) => `<span class="bonus" title="${esc(BONUSES[k].text)}">+${BONUSES[k].pay} cr ${esc(BONUSES[k].label)}</span>`).join('');
     const jobs = o.onJob ? `<div class="hulls jobs"><button data-job="" class="${!o.job ? 'on' : ''}" title="Whatever the seed makes of it">AUTO</button>${Object.entries(CONTRACTS).filter(([, c]) => !c.boss).map(([k, c]) => `<button data-job="${k}" class="${o.job === k ? 'on' : ''}" title="${esc(c.text)}">${esc(c.label)}</button>`).join('')}</div>` : '';
     return `<h2>CONTRACT${o.onHull ? ' <small>the hull and the job: auto rolls them from the seed</small>' : ''}</h2>${hulls}${jobs}<div class="intel">
@@ -144,6 +159,15 @@ export class LaunchScreen {
     </div>`;
   }
 
+  /** The heat (meta/heat.js): the conditions, each a toggle, with what it does and what it pays. */
+  heatHtml() {
+    const what = this.o.daily ? 'score' : 'pay';
+    const note = this.campaign ? 'conditions for pay: every one on makes the job worse and the contract pay better'
+      : this.o.daily ? 'conditions for score: every one on multiplies the day\'s score' : 'conditions: every one on makes the job worse';
+    return `<h2>HEAT <small>${note}</small></h2>
+      <div class="heat">${HEAT_KEYS.map((k) => { const H = HEAT[k]; return `<button data-heat="${k}" class="hc ${this.heat.includes(k) ? 'on' : ''}" title="${esc(H.text)}"><b>${esc(H.label)}</b><small>${esc(H.text)}</small><i>${heatPayText(k, what)} · danger +${H.danger}</i></button>`; }).join('')}</div>`;
+  }
+
   /** The line: one chip per slot (click to move up), then who does what. */
   lineHtml(chosen) {
     const slots = this.lead ? LEAD_SLOTS : SLOTS;
@@ -156,7 +180,9 @@ export class LaunchScreen {
   }
 
   settingsHtml() {
-    const chips = settingsChips(this.doctrine, this.difficulty, this.control, this.preset);
+    // The daily (meta/daily.js): standard orders and normal difficulty, the same for everyone.
+    if (this.o.fixed) return '<h2>SETTINGS <small>fixed for the daily: standard orders, normal difficulty - everyone runs the same ship</small></h2>';
+    const chips = settingsChips(this.doctrine, this.difficulty, this.control, this.preset, this.heat);
     const row = `<div class="chiprow">${chips.map((c) => `<span class="schip ${c.changed ? 'changed' : ''}" title="${esc(c.title)}">${esc(c.label)} <b>${esc(c.value)}</b></span>`).join('')}
       <button class="change">${this.settingsOpen ? 'DONE' : allDefault(chips) ? 'CHANGE' : 'CHANGE'}</button></div>`;
     if (!this.settingsOpen) return `<h2>SETTINGS <small>remembered from last time</small></h2>${row}`;
@@ -193,7 +219,7 @@ export class LaunchScreen {
   render() {
     const o = this.o;
     if (this.campaign) this.pool = this.rosterPool();
-    this.selected = this.selected.filter((id) => this.pool.some((t) => t.id === id && fit(t)));
+    this.selected = this.selected.filter((id) => this.pool.some((t) => t.id === id && fit(t))).slice(0, this.max);
     const chosen = this.selected.map((id) => this.pool.find((t) => t.id === id));
     const p = this.profile;
     const stats = this.campaign
@@ -215,6 +241,7 @@ export class LaunchScreen {
         </div>
         <div class="col">
           ${this.contractHtml()}
+          ${this.heatHtml()}
           ${this.lineHtml(chosen)}
           <h2>COMMAND <small>${esc(COMMAND[this.control].text)}</small></h2>
           <div class="cmdchoice seg">${command}</div>
@@ -254,7 +281,12 @@ export class LaunchScreen {
     el.querySelectorAll('[data-job]').forEach((b) => b.addEventListener('click', () => this.o.onJob?.(b.dataset.job || null)));
     el.querySelectorAll('[data-ev]').forEach((b) => b.addEventListener('click', () => { const r = applyEvent(this.profile, b.dataset.ev); if (r) { this.eventLine = r.line; this.save(); this.renderPortraits(); } this.render(); }));
     el.querySelector('.barsmode').addEventListener('click', () => { this.bars = !this.bars; try { localStorage.setItem(BARS_KEY, this.bars ? 'on' : 'off'); } catch { /* private mode */ } this.render(); });
-    el.querySelector('.change').addEventListener('click', () => { this.settingsOpen = !this.settingsOpen; this.render(); });
+    el.querySelector('.change')?.addEventListener('click', () => { this.settingsOpen = !this.settingsOpen; this.render(); });
+    el.querySelectorAll('[data-heat]').forEach((b) => b.addEventListener('click', () => {
+      const k = b.dataset.heat;
+      this.heat = this.heat.includes(k) ? this.heat.filter((q) => q !== k) : fitHeat([...this.heat, k]);
+      this.render(); // (a skeleton crew trims the line to three)
+    }));
     el.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
       this.preset = b.dataset.preset;
       this.doctrine = { ...PRESETS[this.preset].doctrine };
@@ -270,7 +302,7 @@ export class LaunchScreen {
     el.querySelector('.reroll')?.addEventListener('click', () => this.reroll());
     el.querySelector('.deploy').addEventListener('click', () => {
       if (this.selected.length < this.need) return;
-      this.o.onDeploy(this.campaign ? this.offers[this.pick] : null, [...this.selected], { ...this.doctrine }, { ...this.difficulty }, this.control);
+      this.o.onDeploy(this.campaign ? this.offers[this.pick] : null, [...this.selected], { ...this.doctrine }, { ...this.difficulty }, this.control, [...this.heat]);
     });
     void chosen;
   }
@@ -284,7 +316,7 @@ export class LaunchScreen {
       onTreat: (id, key) => { if (treatQuirk(p, id, key)) { this.save(); this.render(); } },
       onRecruitToggle: () => {
         this.offersOpen = !this.offersOpen;
-        if (this.offersOpen) { this.recruitPool = recruitOffers(p); this.renderPortraits(); }
+        if (this.offersOpen) { this.recruitPool = recruitOffers(p, this.o.archetypes ?? null); this.renderPortraits(); }
         this.render();
       },
       onRecruitPick: (id) => {
@@ -305,7 +337,7 @@ export class LaunchScreen {
     const t = this.pool.find((q) => q.id === id);
     if (i < 0 && t && !fit(t)) return; // resting a wound: sits this one out
     if (i >= 0) this.selected.splice(i, 1);
-    else if (this.selected.length < 4) this.selected.push(id);
+    else if (this.selected.length < this.max) this.selected.push(id);
     this.render();
   }
 

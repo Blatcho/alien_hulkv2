@@ -42,7 +42,8 @@ Useful URL parameters:
 | Parameter | Effect |
 |---|---|
 | `?brief=AB12CD` | Quick play: the briefing for ship AB12CD (pick 4 of its 8 candidates, set orders and difficulty). A bare seed rolls the hull class; `?brief=STN-AB12CD` names it (see [Hulls](#hulls-the-derelicts)), and the briefing's hull picker rewrites the code. |
-| `?seed=AB12CD&go=1` | Quick play straight in. `&squad=c0,c3,c5,c6&doc=direct.normal.steady.way.critical.on` choose the squad and orders (`&pool=2` picks from the second rerolled set of candidates), and `&diff=many.tough.large.often` the difficulty (enemies, strength, ship size, hordes). With no `squad`, the four have baseline stats. |
+| `?seed=AB12CD&go=1` | Quick play straight in. `&squad=c0,c3,c5,c6&doc=direct.normal.steady.way.critical.on` choose the squad and orders (`&pool=2` picks from the second rerolled set of candidates), `&diff=many.tough.large.often` the difficulty (enemies, strength, ship size, hordes), and `&heat=lights_out.skeleton_crew` the heat (see [Heat](#heat-conditions-for-pay)). With no `squad`, the four have baseline stats. |
+| `&daily=2026-10-24` | With `seed` and `go`: the daily derelict's run for that day (the title screen's DAILY DERELICT button builds it): standard orders, normal difficulty, scored at the end. |
 | `&autoplay=1` | No player input: encounters resolve at once (tests and attract mode). |
 | `&retro=0` | Full-resolution rendering instead of pixel mode (`&retro=1` forces pixel mode). Without it, the game uses the player's last choice (`P`), and pixel mode the first time. |
 | `&debug=1` | Shows frame stats. |
@@ -107,6 +108,7 @@ Open doors, obstacles to vault or duck under and the outer lock are taken in you
     - **Strength:** weak, normal, tough or brutal (0.7x to 1.8x their health, 0.7x to 1.5x their damage).
     - **Ship size:** small, medium or large, within the hull class's own range. Large ships are longer, have an extra deck and carry more hostiles to fill them.
     - **Hordes:** off, rare, normal or often. Off means no horde aboard; Often means less noise brings it, and it nearly always comes. The Enemies setting scales the horde too.
+  - **Heat** (see [Heat](#heat-conditions-for-pay)): the conditions switched on for pay, a row of toggles beside the contract card, remembered too.
 - **Choose a derelict:** the nodes in reach on the sector map (quick play rolls one from its seed), each with a hull class, a size, modifiers, a pay multiplier, a contract and the story its seed tells. Modifiers include *Infested*, *Blackout*, *Treasure hauler*, *Armoury ship*, *Distress call*, *Hive ship*, *Restless* and *Fuel leak*; each class favours some and never carries others (no *Treasure hauler* corvettes). No streaks: one offer is always plain, one has a twist, one has two, and the classes and modifiers of the last few runs come up less.
 - **The sector:** the campaign's map. A dozen derelicts on branching routes, column by column, from where the Kestrel sits to the **boss hulk** at the far end: a brood ship with the **queen** in her nest (a hall two decks tall where the ship has one), twice a brood mother's size, birthing runners faster and longer, and worth a big bonus dead. The nodes in reach are the next column on from the Kestrel; every run moves it one column. Behind it the **hive front** advances a column every run, win or lose: derelicts it reaches are gone, and a Kestrel it catches up with runs for the next column with no choice of ship. The boss hulk cleared, the sector is done and the next one opens, deeper in (threat carries on, the front resets).
 - **Contracts:** every derelict has a job, named on its node and the contract card: the **nav-lock** (reach the command deck and hold it for the upload - the original); the **black box** (pull it from the bridge console, carry it back to the Kestrel); **scuttle** (set a charge on the reactor, then get everyone back aboard the Kestrel in the 110 seconds before it goes - whoever is still aboard the derelict dies with it); the **beacon** (plant it in the deepest nest - they wake - and get home); **crew rescue** (find the crew still alive aboard, two to four of them, and get them home; the squad sweeps the ship for them); **escort** (one named survivor knows what we came for: find them and get them home alive); and the boss hulk's **queen** (kill her, then everyone out). Every job but the nav-lock ends with the walk back to the Kestrel, and the run is won when everyone on his feet is aboard (anyone down is carried from the dock, left behind anywhere else). A job that can't be finished - the crew dead - fails: the squad still extracts for what it found, but not the contract's pay. Quick play rolls the job from the seed, or takes `&job=` (a picker on the briefing).
@@ -125,6 +127,33 @@ Open doors, obstacles to vault or duck under and the outer lock are taken in you
   - **Permadeath:** the dead go to the memorial.
   - **Threat:** every extraction raises the threat level, which brings more hostiles, better loot and better pay.
 - **Saving:** the campaign is saved in the browser. Reloading mid-run abandons the operation; there is no save-scumming.
+
+### Heat (conditions for pay)
+
+A roguelike's heat: conditions the player switches on for a run, campaign and quick play alike, each one making the job worse and the pay better. They fold into the ship's mods like the difficulty, so a run is still seed + mods and replays the same; the debrief and the service record note what was on.
+
+| Condition | What it does | Pay | Danger |
+|---|---|---|---|
+| **Lights out** | Main power is dead: flashlights only | +20% | +1 |
+| **Short rations** | Half the stims, charges, grenades and flares (before the upgrades and relics add theirs) | +15% | +1 |
+| **Thin air** | Everyone is winded at 60% of their breath | +15% | +1 |
+| **Tracker dead** | No motion tracker: what you see is what you know | +25% | +1 |
+| **Wide awake** | The ship never settles: ambushes come twice as often | +20% | +1 |
+| **Skeleton crew** | Three troopers board, not four | +30% | +2 |
+
+The pay bonuses add up (everything on is x2.25) and multiply the contract's pay; on the daily derelict they multiply the score instead. The contract card shows the pay and the danger with the heat in.
+
+### The daily derelict
+
+One ship a day, the same for everyone: its seed comes from the date, its four troopers are the seed's first four candidates, the orders are standard and the difficulty normal. The player's choices are the command (squad or lead) and the heat. The run is scored at the end - kills, credits and salvage, the contract done, civilians and troopers home, time saved, times the heat; a squad lost keeps only its kills and what it had in hand - and the day's best, the attempts and the streak of days are kept in the browser. The title screen's DAILY DERELICT button opens its briefing.
+
+### The service record (unlocks across campaigns)
+
+What the player has done across every campaign, quick play and daily, kept outside the profile (a new campaign doesn't touch it): runs, extractions, kills, civilians home, ships cleared, hordes survived, queens killed, relics found, the most kills by one trooper, the most heat extracted under, extractions by hull. Deeds unlock things, once and for good; the title screen sums the record up and SERVICE RECORD lists every unlock with its deed, the debrief and the end screen announce new ones.
+
+- **Archetypes** the campaign can recruit (volunteers and the stowaway's kind aside, the recruits are drawn from the unlocked ones): the **Medic** (bring five civilians home), the **Gunner** (come home from three hordes), the **Duelist** (a hundred and fifty kills), the **Brawler** (clear a ship of every hostile). Quick play and the daily draw from every archetype, so a shared seed is the same ship and the same candidates for everyone.
+- **Issue weapons** in a new campaign's armoury from the start: a **Mk.II carbine** (three extractions), a **Mk.II marksman rifle** (twenty kills by one trooper on one run), a **Mk.III breacher** (extract with three heat conditions on), a **Mk.III heavy repeater** (kill a queen).
+- **Hulls** on the quick-play picker: the **Research vessel** (extract from a liner) and the **Station** (extract from a corvette and a freighter). The AUTO roll and a named seed code (`STN-AB12CD`) always work, so shared links do too.
 
 ## Hulls (the derelicts)
 

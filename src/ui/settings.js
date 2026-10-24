@@ -2,6 +2,7 @@
 // orders (a preset, or custom) and the difficulty, each remembered from the last run, so the
 // rows of buttons stay folded away until something needs changing.
 import { DEFAULT_DIFFICULTY, DIFFICULTY, fitDifficulty } from '../meta/difficulty.js';
+import { fitHeat, heatPay } from '../meta/heat.js';
 import { KNOBS, LEAD_KNOBS, PRESETS, isManual } from '../sim/doctrine.js';
 import { tileOf } from './orders.js';
 
@@ -15,7 +16,7 @@ export const presetOf = (d) => (isManual(d) ? 'standard' : Object.keys(PRESETS).
  * `preset` is the one the player started from, "adjusted" when the knobs have moved since)
  * and the four difficulty knobs. Lead mode: the followers' four orders instead of a preset.
  */
-export function settingsChips(doctrine, difficulty, control = 'squad', preset = presetOf(doctrine)) {
+export function settingsChips(doctrine, difficulty, control = 'squad', preset = presetOf(doctrine), heat = []) {
   const chips = [];
   if (control === 'lead') {
     for (const k of LEAD_KNOBS) {
@@ -31,6 +32,9 @@ export function settingsChips(doctrine, difficulty, control = 'squad', preset = 
   for (const [k, knob] of Object.entries(DIFFICULTY)) {
     chips.push({ k, label: knob.label, value: knob.options[f[k]], changed: f[k] !== DEFAULT_DIFFICULTY[k], title: `${knob.label}: ${knob.options[f[k]]}` });
   }
+  // The heat (meta/heat.js): how many conditions are on, and what they pay.
+  const h = fitHeat(heat);
+  chips.push({ k: 'heat', label: 'Heat', value: h.length ? `${h.length} on (+${Math.round((heatPay(h) - 1) * 100)}%)` : 'Off', changed: h.length > 0, title: h.length ? `Heat: ${h.length} condition${h.length === 1 ? '' : 's'} on, x${heatPay(h)} pay` : 'Heat: nothing on' });
   return chips;
 }
 
