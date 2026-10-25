@@ -73,6 +73,14 @@ Open `viewer.html` in the dev server (`npm run dev`) to inspect models and clips
 - Materials: `M_Base`, `M_Glow` (eyes/gill slits).
 - Budget: 5k triangles or fewer.
 
+### `queen.glb`: the brood queen (original design)
+- The boss hulk's mother (core/config.js ALIEN_TYPES.queen), built at her **true size** - about 3.3 m to the crest, 4.6 m from the mandibles to the ovipositor, facing −Y - and drawn by the engine at scale 1 (`modelScale`) while the sim keeps her 2.3 for the hitbox. The alien's family (bone-white chitin over dark violet flesh, yellow eyes and gill slits, scythes over grasping hands, digitigrade legs) in a queen's build: a crowned skull with a fan of crest plates and swept horns, four legs carrying a bloated egg-sac abdomen that drags behind her, its segments studded with glowing eggs, ending in an ovipositor.
+- Clips (she never climbs or leaps): `idle`, `lurk` (brooding, low over the clutch), `skitter` (a heavy four-legged walk, meta `speed`), `attack` (two scythe swings, about 2.2 s), `hit` and `die` (one-shots; `die` ends flat on the deck).
+- Sockets: `socket_head` (above the crown, barks), `socket_mouth`.
+- Materials: `M_Base`, `M_Glow` (eyes, gill slits), `M_GlowPink` (the eggs).
+- Budget: 12k triangles or fewer (one aboard, at most).
+- Without `queen.glb` in the manifest the engine falls back to `alien.glb` scaled by 2.3, as before.
+
 ### `critter.glb`: small six-legged vermin (neutral life form)
 - About 0.5 m long.
 - Clips: `idle`, `scurry` (meta `speed`), `die`.

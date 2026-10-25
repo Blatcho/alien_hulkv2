@@ -49,6 +49,7 @@ Useful URL parameters:
 | `&debug=1` | Shows frame stats. |
 | `&nofog=1` | Turns off fog-of-war. |
 | `&god=1` | Makes the squad invulnerable. |
+| `&boss=1` | Quick play boards a boss hulk: the queen in her nest, and her contract. |
 | `&sfx=synth` | Procedural sound only (no recorded effects). |
 
 ## Controls
@@ -382,5 +383,6 @@ See [tools/blender/README.md](tools/blender/README.md) for the full asset contra
 - Animation clips are keyed in script and exported as one GLB per asset family.
 - On the move a trooper's legs always walk or run at the speed he's going. A reload, a shove, a hand signal or a burst plays on his upper body only (the clip split at the hips), so nobody glides along the deck in a standing pose.
 - The bolt pistol and minigun share the other weapons' grip points; the power sword rides the left hand and the power fists both hands. The minigun's barrel cluster has its own bone, which the game spins. Power fields use the emissive `M_Power` material.
+- The queen has art of her own (`queen.glb`, `tools/blender/queen.py`): the alien's family at her true size, four legs under an egg-sac abdomen studded with glowing eggs, a crowned skull. The engine draws her at scale 1 while the sim keeps her 2.3 for the hitbox, and falls back to the alien scaled up if her file is missing.
 - `npm run assets` needs Blender. Where only Python is available, `pip install bpy` (Blender as a Python module) and `BLENDER=tools/bpy-blender npm run assets` run the same scripts (`BPY_PYTHON` picks the Python that has `bpy`). The module exports without meshopt compression, so the build then packs each GLB with `gltfpack` (a devDependency), keeping node names, materials and float precision. Previews also need EGL (`libegl1`, `EGL_PLATFORM=surfaceless`).
 - Room pieces are merged per room at load time, keeping draw calls low.

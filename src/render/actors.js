@@ -38,6 +38,9 @@ const SPIN_RATE = 38;
 const LEGS = new Set(['hips', 'thigh_L', 'shin_L', 'foot_L', 'thigh_R', 'shin_R', 'foot_R']);
 const legTrack = (t) => LEGS.has(t.name.slice(0, t.name.lastIndexOf('.')).replace(/\./g, '_'));
 
+/** How big to draw it: its own model's scale when it has one (the queen's queen.glb is true size), else the sim's. */
+const renderScale = (e, asset) => (e.model && asset === e.model && e.modelScale != null ? e.modelScale : e.scale ?? 1);
+
 function placeholder(kind, tint) {
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: tint ?? (kind === 'alien' ? 0x5a2a44 : 0x6a6a5a), flatShading: true, roughness: 0.7 });
@@ -73,13 +76,14 @@ export class Actors {
   view(e) {
     let v = this.views.get(e.id);
     if (v) return v;
-    const asset = e.kind;
+    // A type with art of its own (the queen, e.model) when it's built; else the kind's model, scaled.
+    const asset = e.model && this.assets?.gltf.has(e.model) ? e.model : e.kind;
     const has = this.assets?.gltf.has(asset);
     const inst = has ? this.assets.character(asset, { tint: e.tint, loadout: e.loadout }) : placeholder(e.kind, e.tint);
     inst.root.traverse((o) => { if (o.isMesh) o.castShadow = false; });
     this.scene.add(inst.root);
     const clipMeta = new Map((inst.meta.clips ?? []).map((c) => [c.name, c]));
-    inst.root.scale.setScalar(e.scale ?? 1);
+    inst.root.scale.setScalar(renderScale(e, asset));
     inst.allSockets = { ...inst.sockets };
     const bones = {};
     let spinBone = null;
@@ -89,7 +93,7 @@ export class Actors {
     });
     // Per-entity phase so loops (breathing, walk cycles) never play in lockstep.
     const seed = ((e.id * 2654435761) >>> 0) / 4294967296;
-    v = { e, ...inst, clipMeta, bones, seed, action: null, clipName: null, upper: null, upperName: null, yaw: e.facing > 0 ? Math.PI / 2 : -Math.PI / 2,
+    v = { e, ...inst, asset, clipMeta, bones, seed, action: null, clipName: null, upper: null, upperName: null, yaw: e.facing > 0 ? Math.PI / 2 : -Math.PI / 2,
       spinBone, spinRest: spinBone?.quaternion.clone() };
     this.views.set(e.id, v);
     return v;
@@ -202,7 +206,7 @@ export class Actors {
           if (nominal) {
             // Taller troopers take longer strides (slower cadence); gait.cadence adds personal rhythm.
             const actual = Math.hypot(e.x - e.prevX, e.y - e.prevY) / STEP;
-            const stride = (meta?.speed || nominal) * (e.scale ?? 1);
+            const stride = (meta?.speed || nominal) * renderScale(e, v.asset);
             const want = actual < 0.05 ? 0 : THREE.MathUtils.clamp((actual / stride) * (e.gait?.cadence ?? 1), 0.3, 2.5);
             // Ease cadence changes (followers speeding up to close gaps) instead of snapping.
             v.cadence = want === 0 ? 0 : (v.cadence ?? want) + (want - (v.cadence ?? want)) * Math.min(1, dt * 6);

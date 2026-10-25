@@ -192,8 +192,8 @@ class Game {
     // A skeleton crew (meta/heat.js) is three: the first three named, or the ship's first three.
     if (heatSquad(heat) < 4) squad = (squad.length ? squad : pool.map((t) => ({ ...t, rank: rankFor(levelFor(t.xp)) }))).slice(0, heatSquad(heat));
     // No squad in the URL (tools, old links): the standard four at baseline stats.
-    const mods = withHeat(withDifficulty({}, daily ? DEFAULT_DIFFICULTY : parseDifficulty(params.diff)), heat);
-    const level = generateLevel(code, { mods, contract: (daily ? null : params.job) ?? contractFor(seed).kind });
+    const mods = withHeat(withDifficulty(params.boss ? { boss: true } : {}, daily ? DEFAULT_DIFFICULTY : parseDifficulty(params.diff)), heat);
+    const level = generateLevel(code, { mods, contract: params.boss ? 'queen' : (daily ? null : params.job) ?? contractFor(seed).kind });
     this.quick = { mode: daily ? 'daily' : 'quick', day: daily, cls: classFor(seed, hull), heat, lead: params.ctrl === 'lead' };
     this.start(level, { squad: squad.length ? squad : null, doctrine: daily ? parseDoctrine(null) : parseDoctrine(params.doc), control: params.ctrl === 'lead' ? 'lead' : 'squad' });
   }

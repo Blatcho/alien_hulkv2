@@ -1,0 +1,54 @@
+{
+  "name": "queen",
+  "file": "queen.glb",
+  "clips": [
+    {
+      "name": "idle",
+      "loop": true,
+      "duration": 2.8
+    },
+    {
+      "name": "lurk",
+      "loop": true,
+      "duration": 3.2
+    },
+    {
+      "name": "skitter",
+      "loop": true,
+      "duration": 0.8,
+      "speed": 2.045
+    },
+    {
+      "name": "attack",
+      "loop": true,
+      "duration": 2.2,
+      "swing": 1.1
+    },
+    {
+      "name": "hit",
+      "loop": false,
+      "duration": 0.4
+    },
+    {
+      "name": "die",
+      "loop": false,
+      "duration": 1.8
+    }
+  ],
+  "sockets": [
+    "socket_head",
+    "socket_mouth"
+  ],
+  "bounds": {
+    "min": [
+      -1.1029348373413086,
+      0.016702257096767426,
+      -3.95194149017334
+    ],
+    "max": [
+      1.1029348373413086,
+      3.4010226726531982,
+      2.021418333053589
+    ]
+  }
+}

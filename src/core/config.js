@@ -231,7 +231,8 @@ export const ALIEN_TYPES = {
   // The brood mother (BROOD): never picked at random - one at most, in a nest deep in the ship.
   brood:   { label: 'Brood mother', scale: 1.75, hp: 480, speed: 0.5, damage: [30, 44], attackTime: 1.3, leap: 0, climb: 0,    stagger: 0.22, force: 2.5, tint: '#7a5a8e', weight: 0,  deep: 0,  births: true },
   // The queen (gen/contracts.js 'queen'): the boss hulk's brood mother, twice the size, births faster and longer, dies hard.
-  queen:   { label: 'Queen',        scale: 2.3,  hp: 1150, speed: 0.42, damage: [40, 58], attackTime: 1.45, leap: 0, climb: 0,   stagger: 0.1,  force: 3,   tint: '#8e3a7a', weight: 0,  deep: 0,  births: { every: 5, max: 16 }, royal: true },
+  // Her own art (queen.glb, tools/blender/queen.py), built at her true size: drawn at scale 1 while the sim keeps the 2.3.
+  queen:   { label: 'Queen',        scale: 2.3,  hp: 1150, speed: 0.42, damage: [40, 58], attackTime: 1.45, leap: 0, climb: 0,   stagger: 0.1,  force: 3,   tint: null,      weight: 0,  deep: 0,  births: { every: 5, max: 16 }, royal: true, model: 'queen', modelScale: 1 },
 };
 
 // Pack habits (sim/alien.js). FLANK: a climber whose packmate is already closing on the squad
