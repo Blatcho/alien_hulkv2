@@ -22,5 +22,6 @@ export const params = {
   ctrl: q.get('ctrl') || null,                          // quick play: 'lead' = you walk the first marine (sim/world.js)
   heat: q.get('heat') || null,                          // quick play: the heat on (meta/heat.js), 'lights_out.thin_air'
   daily: q.get('daily') || null,                        // the daily derelict (meta/daily.js): its day, 'YYYY-MM-DD'
+  boss: flag('boss'),         // quick play: a boss hulk - the queen's nest and her contract (gen/populate.js placeBrood)
   synthSfx: q.get('sfx') === 'synth',                   // procedural sound only (no recorded effects)
 };

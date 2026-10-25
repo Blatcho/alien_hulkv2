@@ -14,7 +14,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const SCRIPTS = join(ROOT, 'tools', 'blender');
 const OUT = join(ROOT, 'public', 'assets', 'models');
 const PREVIEW = join(ROOT, 'tools', 'out', 'previews');
-const ASSETS = ['marine', 'alien', 'critter', 'survivor', 'props', 'roomkit', 'dock'];
+const ASSETS = ['marine', 'alien', 'queen', 'critter', 'survivor', 'props', 'roomkit', 'dock'];
 
 function findBlender() {
   if (process.env.BLENDER) return process.env.BLENDER;

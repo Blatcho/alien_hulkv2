@@ -71,6 +71,7 @@ export function makeAlien(rng, x, y, room, state = 'dormant', { type = 'drone', 
     target: null, steps: null, stepI: 0, repathT: rng.next() * ALIEN.REPATH,
     trav: null, vent: null, attackT: 0, leap: null, staggerT: 0, wakeT: 0,
     deadT: 0, scale: T.scale, height: 1.5 * T.scale, lane: (rng.next() - 0.5) * 0.9,
+    model: T.model ?? null, modelScale: T.modelScale ?? null, // its own GLB (the queen), drawn at this scale instead of `scale`
     speed: ALIEN.SPEED * T.speed, damage: T.damage, attackTime: T.attackTime, leapRange: T.leap,
     climbs: T.climb, staggerMul: T.stagger, force: T.force, tint: T.tint, ranged: !!T.ranged, spitT: 0.5,
     surface, side, climbCool: 0, toWall: 0,
