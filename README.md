@@ -27,7 +27,7 @@ npm run build        # production bundle in dist/
 
 ### Deploying
 
-Every push to `main` runs the tests, builds, and uploads `dist/` to Bluehost over FTPS ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)), where it is served at **https://blatcho.com/games/sotb/** (the FTP account's home folder is that `games/sotb` folder). It can also be run by hand from the Actions tab. It needs these repository secrets (Settings → Secrets and variables → Actions):
+Every push to `main` runs the tests, builds, and uploads `dist/` to Bluehost over FTPS ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)), where it is served at **https://blatcho.com/games/ahulk/** (the FTP account's home folder is the `games` folder; the workflow uploads into `ahulk/` under it). It can also be run by hand from the Actions tab. It needs these repository secrets (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 |---|---|
@@ -35,7 +35,7 @@ Every push to `main` runs the tests, builds, and uploads `dist/` to Bluehost ove
 | `FTP_USERNAME` | a dedicated cPanel FTP account, e.g. `deploy@example.com` |
 | `FTP_PASSWORD` | that account's password |
 
-Set the FTP account's directory to the folder the game should live in (e.g. `public_html/game`), and the deploy uploads to its root. If the account's home is somewhere else, set the repository **variable** `FTP_SERVER_DIR` to the path from there, ending in `/` (e.g. `public_html/game/`). The build uses relative paths, so the game runs from any folder.
+The deploy uploads into `ahulk/` under the FTP account's home folder. To put the game somewhere else, set the repository **variable** `FTP_SERVER_DIR` (Variables, not Secrets: the workflow reads `vars.FTP_SERVER_DIR`) to the path from the account's home, ending in `/` (`./` for an account whose home is the game's folder itself). The build uses relative paths, so the game runs from any folder.
 
 Useful URL parameters:
 
