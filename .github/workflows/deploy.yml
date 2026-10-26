@@ -1,4 +1,4 @@
-# Continuous deployment of Hull Breach to https://blatcho.com/games/sotb/ over FTPS.
+# Continuous deployment of Hull Breach to https://blatcho.com/games/ahulk/ over FTPS.
 #
 # Runs on every push to main (and on demand from the Actions tab): installs, runs the tests, builds
 # the production bundle with a relative base, and mirrors dist/ to the server folder, uploading only
@@ -9,11 +9,12 @@
 #   FTP_SERVER    hostname of the FTP server, e.g. ftp.blatcho.com (no protocol, no path)
 #   FTP_USERNAME  FTP login
 #   FTP_PASSWORD  FTP password
-# Optional repository variables (Settings → Secrets and variables → Actions → Variables):
-#   FTP_SERVER_DIR  remote path of the games/sotb folder as seen by the FTP account, with a trailing
-#                   slash. Defaults to ./ because the FTP account's home directory IS
-#                   public_html/blatcho.com/games/sotb. Only set this if you switch to an account
-#                   that lands higher up (e.g. /public_html/blatcho.com/games/sotb/).
+# Optional repository variables (Settings → Secrets and variables → Actions → Variables - a secret
+# of the same name is NOT read):
+#   FTP_SERVER_DIR  remote path of the game's folder as seen by the FTP account, with a trailing
+#                   slash. Defaults to ahulk/ because the FTP account's home directory is
+#                   public_html/blatcho.com/games. Set it if the account lands somewhere else
+#                   (./ for an account whose home is the game's folder itself).
 #   FTP_PROTOCOL    ftps (default, explicit TLS on port 21), ftp (plain, only if the host has no
 #                   TLS) or ftps-legacy (implicit TLS on port 990).
 #   FTP_PORT        defaults to 21 (use 990 for ftps-legacy).
@@ -27,7 +28,7 @@ on:
 
 # One deploy at a time: overlapping uploads would race on the server's sync-state file.
 concurrency:
-  group: deploy-sotb
+  group: deploy-ahulk
   cancel-in-progress: false
 
 permissions:
@@ -68,8 +69,8 @@ jobs:
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
           port: ${{ vars.FTP_PORT || 21 }}
           local-dir: ./dist/
-          # Relative to the FTP account's home folder (the games/sotb folder); must end with "/".
-          server-dir: ${{ vars.FTP_SERVER_DIR || './' }}
+          # Relative to the FTP account's home folder (the games folder); must end with "/".
+          server-dir: ${{ vars.FTP_SERVER_DIR || 'ahulk/' }}
           state-name: .ftp-deploy-sync-state.json
           exclude: |
             **/.git*
