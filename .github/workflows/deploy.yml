@@ -64,7 +64,8 @@ jobs:
       - name: Deploy target
         env:
           DIR_VAR: ${{ vars.FTP_SERVER_DIR }}
-        run: echo "FTP_SERVER_DIR variable: ${DIR_VAR:-(unset, using the workflow default ahulk/)}"
+        run: |
+          echo "FTP_SERVER_DIR variable: ${DIR_VAR:-(unset, using the workflow default ahulk/)}"
 
       - name: Upload over FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
