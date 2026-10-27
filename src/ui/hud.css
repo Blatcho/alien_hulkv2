@@ -649,10 +649,13 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color:
 .hulls button.locked i { font-style: normal; font-size: 9px; color: var(--warn); margin-left: 4px; letter-spacing: 1px; text-transform: uppercase; }
 
 /* ---- the daily derelict and the service record (title screen), the daily's score (end screen) */
-.screen .dailyrow, .screen .recordrow { align-items: center; }
-.screen .dailyrow small, .screen .recordrow small { color: var(--ink-dim); font-size: 12px; text-transform: none; letter-spacing: 0; }
-.screen .dailyrow small b { color: var(--warn); font-weight: normal; }
-.screen .recordrow { margin-top: 10px; }
+.screen .menu .quick { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.screen .menu .quick input { width: auto; min-width: 0; }
+.screen button.daily { display: grid; gap: 3px; padding: 9px 20px 8px; }
+.screen button.daily small { font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--ink-dim); }
+.screen button.daily small b { color: var(--warn); font-weight: normal; }
+.screen .recordrow { align-items: center; margin-top: 14px; }
+.screen .recordrow small { color: var(--ink-dim); font-size: 12px; text-transform: none; letter-spacing: 0; }
 .screen .recordbox { text-align: left; margin-top: 12px; border: 1px solid var(--edge); padding: 10px 12px; background: rgba(10,14,14,.8); max-height: 46vh; overflow: auto; }
 .screen .recordbox h3 { margin: 10px 0 4px; font-size: 11px; letter-spacing: 3px; color: var(--accent); font-weight: normal; }
 .screen .recordbox h3 small { color: var(--ink-dim); letter-spacing: 0; margin-left: 8px; text-transform: none; }

@@ -543,6 +543,7 @@ export class Hud {
    * (meta/record.js): the service record, summed up in a line, the whole of it on RECORD.
    */
   showStart(seed, { hasCampaign = false, daily = null, record = null } = {}) {
+    // One column: the campaign, the daily (its date and standing on the button), quick play.
     const dailyLine = daily ? (daily.status.plays ? `today's best <b>${daily.status.best?.score ?? 0}</b> · ${daily.status.plays} attempt${daily.status.plays === 1 ? '' : 's'}${daily.streak > 1 ? ` · ${daily.streak} days running` : ''}` : `not yet run${daily.streak ? ` · ${daily.streak} day${daily.streak === 1 ? '' : 's'} running` : ''}`) : '';
     this.startEl.innerHTML = `<div class="box">
       <h1>HULL BREACH</h1><h2>DERELICT BOARDING ACTION · SQUAD ROGUELIKE</h2>
@@ -550,9 +551,9 @@ export class Hud {
       <div class="menu">
         ${hasCampaign ? '<button id="continue">CONTINUE CAMPAIGN</button>' : ''}
         <button id="newcamp" class="${hasCampaign ? 'alt' : ''}">NEW CAMPAIGN</button>
+        ${daily ? `<button id="daily" class="alt daily"><span>DAILY DERELICT</span><small>${daily.label} · ${dailyLine}</small></button>` : ''}
+        <div class="quick"><input id="seed" value="${seed}" maxlength="10" aria-label="Ship seed" /><button id="deploy" class="alt">QUICK PLAY</button></div>
       </div>
-      <div class="row"><input id="seed" value="${seed}" maxlength="10" aria-label="Ship seed" /><button id="deploy" class="alt">QUICK PLAY</button></div>
-      ${daily ? `<div class="row dailyrow"><button id="daily" class="alt">DAILY DERELICT · ${daily.label}</button><small>${dailyLine}</small></div>` : ''}
       <div class="row recordrow"><small>${recordSummary(record)}</small><button id="record" class="helpbtn">SERVICE RECORD</button></div>
       <div class="row helprow"></div>
     </div>`;
